@@ -1,7 +1,14 @@
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { Pool } from '@neondatabase/serverless';
+import { Pool, neonConfig } from '@neondatabase/serverless';
+import WebSocket from 'ws';
 import * as schema from './schema.ts';
 import { logger } from '../logger.ts';
+
+// Serverless (Vercel) compatibility:
+// - route plain Pool queries over HTTP fetch (stateless, survives freeze/thaw)
+// - provide a WebSocket constructor for interactive transactions (db.transaction)
+neonConfig.poolQueryViaFetch = true;
+neonConfig.webSocketConstructor = WebSocket as unknown as typeof neonConfig.webSocketConstructor;
 
 declare global {
   var _neonPool: Pool | undefined;
@@ -17,22 +24,21 @@ export const isSqlConfigured = (): boolean => {
 };
 
 export const getConnectionString = (): string | null => {
+  let raw: string | null = null;
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') {
-    return process.env.DATABASE_URL;
-  }
-  if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== '') {
-    return process.env.NEON_DATABASE_URL;
-  }
-  if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== '') {
-    return process.env.MY_DATABASE_URL;
-  }
-  if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== '') {
+    raw = process.env.DATABASE_URL;
+  } else if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== '') {
+    raw = process.env.NEON_DATABASE_URL;
+  } else if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== '') {
+    raw = process.env.MY_DATABASE_URL;
+  } else if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== '') {
     const user = process.env.SQL_USER || process.env.SQL_ADMIN_USER || '';
     const password = process.env.SQL_PASSWORD || process.env.SQL_ADMIN_PASSWORD || '';
     const port = process.env.SQL_PORT || '5432';
-    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
+    raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
   }
-  return null;
+  // channel_binding is not supported by the Neon serverless driver and breaks auth
+  return raw ? raw.replace(/[?&]channel_binding=[^&]*(&?)/, (m, tail) => (tail ? (m.startsWith('?') ? '?' : '&') : '')).replace(/[?&]$/, '') : null;
 };
 
 export const createPool = (): Pool | null => {

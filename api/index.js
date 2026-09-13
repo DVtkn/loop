@@ -13,7 +13,8 @@ import { sql as sql4 } from "drizzle-orm";
 
 // src/server/db/client.ts
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool } from "@neondatabase/serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import WebSocket from "ws";
 
 // src/server/db/schema.ts
 var schema_exports = {};
@@ -369,6 +370,8 @@ var logger = {
 };
 
 // src/server/db/client.ts
+neonConfig.poolQueryViaFetch = true;
+neonConfig.webSocketConstructor = WebSocket;
 var isSqlConfigured = () => {
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") return true;
   if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") return true;
@@ -377,22 +380,20 @@ var isSqlConfigured = () => {
   return false;
 };
 var getConnectionString = () => {
+  let raw = null;
   if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") {
-    return process.env.DATABASE_URL;
-  }
-  if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") {
-    return process.env.NEON_DATABASE_URL;
-  }
-  if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") {
-    return process.env.MY_DATABASE_URL;
-  }
-  if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") {
+    raw = process.env.DATABASE_URL;
+  } else if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") {
+    raw = process.env.NEON_DATABASE_URL;
+  } else if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") {
+    raw = process.env.MY_DATABASE_URL;
+  } else if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") {
     const user = process.env.SQL_USER || process.env.SQL_ADMIN_USER || "";
     const password = process.env.SQL_PASSWORD || process.env.SQL_ADMIN_PASSWORD || "";
     const port = process.env.SQL_PORT || "5432";
-    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
+    raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
   }
-  return null;
+  return raw ? raw.replace(/[?&]channel_binding=[^&]*(&?)/, (m, tail) => tail ? m.startsWith("?") ? "?" : "&" : "").replace(/[?&]$/, "") : null;
 };
 var createPool = () => {
   const connStr = getConnectionString();

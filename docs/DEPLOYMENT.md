@@ -1,5 +1,41 @@
 # Инструкция для ИИ-агента развертывания Loop в Public Launch (12 часов)
 
+## ⚡ АКТУАЛЬНОЕ РАБОЧЕЕ РАЗВЕРТЫВАНИЕ (Vercel + Neon, обновлено 2026-09-14)
+
+### Короткая ссылка приложения
+**https://loopza.vercel.app** — production-домен проекта Vercel (публичный, защита Deployment Protection его не блокирует).
+
+Дополнительные URL того же деплоя:
+- https://loop-coral-phi.vercel.app — автосгенерированный production URL проекта
+- https://loop-vtkn1.vercel.app — alias
+
+### Vercel
+- Аккаунт/скоуп: `vtkn1` (CLI-логин `xwaggonx-6207`)
+- Проект: **loop**, ID `prj_aq9YOP4THSJbDEinoI0Wk5QjFgdu` (команда `team_AxVJPua7WuXTLKlOKJBO0TnJ`)
+- Локальный линк: `.vercel/project.json`
+- Деплой в прод: `npx vercel deploy --prod --scope=vtkn1 --yes` (из корня репо)
+- Deployment Protection: `all_except_custom_domains` — превью-деплои защищены SSO, production-домены (включая `loopza.vercel.app`) публичны. **Важно**: обычный `vercel alias set` на деплой НЕ обходит защиту — домен нужно добавлять как project domain через API: `POST /v10/projects/{id}/domains {"name":"loopza.vercel.app"}`
+
+### Neon PostgreSQL
+- Проект: **loop**, ID `sparkling-glade-90089889`, ветка production `br-bitter-river-b1iyief3`
+- Эндпоинт: `ep-winter-moon-b1gv1vb3` (регион eu-central-1), пулер: `ep-winter-moon-b1gv1vb3-pooler.c-5.eu-central-1.aws.neon.tech`
+- Свежий connection string можно получить через Neon API/MCP (`store_passwords: true`) — **пароли ротируются, старые перестают работать!**
+- В базе 19 таблиц, 234 пользователя. Миграции drizzle: `drizzle/0000..0002`, книга миграций `drizzle.__drizzle_migrations`
+
+### Env-переменные Vercel (Production, все 8 заданы)
+`DATABASE_URL` (Neon пулер URL БЕЗ `channel_binding`), `JWT_SECRET`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+
+### Критические уроки (не наступать снова!)
+1. **Stale password в DATABASE_URL** — если Neon ротировал пароль, приложение падает с DB_UNAVAILABLE/500. Свежий URL брать через Neon API, не из старых конфигов.
+2. **Серверлесс + Neon**: в `src/server/db/client.ts` включены `neonConfig.poolQueryViaFetch = true` (одиночные запросы по HTTP — переживают freeze/thaw между инвокациями) и `webSocketConstructor = ws` (для транзакций). Не удалять.
+3. **`channel_binding=require` в connection string** не поддерживается драйвером `@neondatabase/serverless` — вырезается в `getConnectionString()`.
+4. **Пересоздание проекта Vercel стирает env-переменные и алиасы** — после пересоздания заново выставить все 8 env и перепривязать домен `loopza.vercel.app`.
+5. **TCP 5432 заблокирован локально** — `drizzle-kit migrate` локально виснет. Применять миграции HTTP-драйвером: `node scripts/apply-migrations-http.mjs` (или через Neon MCP).
+6. **Бандл API для Vercel**: `api/index.js` (корень), рерайты `/api/(.*)` → `/api/index.js` в `vercel.json`. Билд: `npm run build` (esbuild `src/server/app.ts`).
+7. Проверка живости: `POST /api/auth/login` c существующим пользователем — должен вернуть 200 + JWT (не 401/500/DB_UNAVAILABLE).
+
+---
+
 Это подробная спецификация для автоматического или полуавтоматического развертывания приложения **Loop** на любой сервер / хостинг (Vercel, Render, Railway, Cloud Run, VPS / Docker).
 
 ---

@@ -11,6 +11,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error('FAIL:', e.message);
+  console.error('FAIL:', e);
   process.exit(1);
 });

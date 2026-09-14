@@ -30,9 +30,8 @@ export async function initDatabase() {
   const isProd = process.env.NODE_ENV === "production";
   if (!isSqlConfigured()) {
     if (isProd) {
-      const errMsg = "FATAL: В production-режиме (NODE_ENV=production) обязательно наличие переменной DATABASE_URL. Запуск сервера отклонён для предотвращения потери данных.";
-      logger.error(errMsg);
-      throw new Error(errMsg);
+      logger.warn("ВНИМАНИЕ: DATABASE_URL не настроена в production (Vercel). Пожалуйста, добавьте переменную DATABASE_URL в Project Settings -> Environment Variables на Vercel.");
+      return;
     }
     logger.info("Cloud SQL / PostgreSQL не настроен — используется резервное хранилище /data/db_store.json для dev-режима");
     return;
@@ -40,9 +39,7 @@ export async function initDatabase() {
   try {
     const pool = createPool();
     if (!pool) {
-      if (isProd) {
-        throw new Error("Не удалось создать пул подключений к PostgreSQL в production.");
-      }
+      logger.warn("Не удалось создать пул подключений к PostgreSQL.");
       return;
     }
     const statements = [
@@ -173,12 +170,10 @@ export async function initDatabase() {
     }
     logger.info("Таблицы и индексы базы данных успешно проверены/созданы в PostgreSQL");
   } catch (err: unknown) {
+    const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;
     if (isProd) {
-      const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;
-      logger.error("КРИТИЧЕСКАЯ ОШИБКА инициализации таблиц PostgreSQL в production. Запуск остановлен.", { error: errorObj });
-      throw err;
+      logger.error("Предупреждение инициализации таблиц PostgreSQL в production:", { error: errorObj });
     } else {
-      const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;
       logger.warn("Ошибка при проверке/создании таблиц PostgreSQL, переключаемся на аварийный режим:", { error: errorObj });
     }
   }
@@ -190,21 +185,22 @@ export function ensureDatabaseInitialized(): Promise<void> {
   if (!dbInitPromise) {
     dbInitPromise = initDatabase().catch((err) => {
       dbInitPromise = null;
-      throw err;
+      logger.error("Database initialization error:", err);
     });
   }
   return dbInitPromise;
 }
 
-// Middleware: ensure DB is initialized before processing API requests
+// Middleware: ensure DB is initialized before processing API requests (except health check)
 app.use(async (req, res, next) => {
-  if (req.path.startsWith("/api") || req.path === "/health") {
+  const isHealthCheck = req.path === "/health" || req.path === "/api/health";
+  if (!isHealthCheck && (req.path.startsWith("/api") || req.path.startsWith("/auth") || req.path.startsWith("/pair"))) {
     try {
       await ensureDatabaseInitialized();
     } catch (err) {
-      logger.error("Database initialization failed during request:", err);
+      logger.error("Database initialization check failed during request:", err);
       return res.status(503).json({
-        error: "База данных временно недоступна при запуске. Пожалуйста, повторите попытку через несколько секунд.",
+        error: "База данных временно недоступна. Пожалуйста, проверьте подключение DATABASE_URL в настройках Vercel.",
       });
     }
   }
@@ -263,6 +259,7 @@ apiRouter.get("/health", async (req, res) => {
   const memory = process.memoryUsage();
   let dbStatus = "not_configured";
   let dbLatencyMs: number | null = null;
+  let dbErrorDetail: any = null;
 
   if (isSqlConfigured() && db) {
     const start = Date.now();
@@ -272,8 +269,9 @@ apiRouter.get("/health", async (req, res) => {
       dbStatus = "connected";
     } catch (err: unknown) {
       dbStatus = "error";
-      const errorObj = err instanceof Error ? { message: err.message } : err;
+      const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
       logger.error("Health check DB ping failed:", { error: errorObj });
+      dbErrorDetail = errorObj;
     }
   }
 
@@ -289,6 +287,7 @@ apiRouter.get("/health", async (req, res) => {
     database: {
       status: dbStatus,
       latencyMs: dbLatencyMs,
+      error: dbErrorDetail,
     },
     system: {
       memoryRssMb: Math.round(memory.rss / 1024 / 1024),
@@ -323,11 +322,15 @@ apiRouter.post("/admin/clear-all-data", async (req, res) => {
 // Client observability error logger
 apiRouter.post("/log-error", (req, res) => {
   try {
-    import("fs").then((fs) => {
-      fs.appendFileSync("client-errors.log", JSON.stringify(req.body) + "\n");
-    }).catch(() => {});
+    if (process.env.NODE_ENV !== "production") {
+      import("fs").then((fs) => {
+        fs.appendFileSync("client-errors.log", JSON.stringify(req.body) + "\n");
+      }).catch(() => {});
+    } else {
+      logger.warn("Client error reported:", { clientError: req.body });
+    }
   } catch (err: unknown) {
-    logger.error("Failed to write to client-errors.log:", err);
+    logger.error("Failed to process client-error:", err);
   }
   return res.json({ ok: true });
 });

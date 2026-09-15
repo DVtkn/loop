@@ -8,7 +8,7 @@ import app, {
   logger,
   callGroqChat,
 } from "./app";
-import { config } from "./config";
+import { config } from "./core/config";
 
 export { logger, callGroqChat, ensureDatabaseInitialized, initDatabase };
 

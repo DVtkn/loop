@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
-import { TestCard, resolveTestStatus } from '../components/tests/TestCard.tsx';
-import { ReportView } from '../components/ReportView.tsx';
-import { CoupleContext, CoupleContextType } from '../context/CoupleContext.tsx';
-import { initialCoupleProfile, getFreshTests } from '../data/mockData.ts';
-import { TestCategory } from '../types.ts';
+import { TestCard, resolveTestStatus } from '../../src/components/tests/TestCard.tsx';
+import { ReportView } from '../../src/components/ReportView.tsx';
+import { CoupleContext, CoupleContextType } from '../../src/context/CoupleContext.tsx';
+import { initialCoupleProfile, getFreshTests } from '../../src/data/questionBank.ts';
+import { TestCategory } from '../../src/types.ts';
 
 // Mock Recharts and Canvas to avoid jsdom drawing errors
 vi.mock('recharts', () => ({

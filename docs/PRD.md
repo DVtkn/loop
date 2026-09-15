@@ -218,7 +218,7 @@ export const coupleReports = pgTable('couple_reports', {
 - [ ] Обновить `src/server/db/schema.ts`: добавить поле `personalityTypes` в `coupleReports`, проверить `userPsychProfiles` (уже есть).
 - [ ] Выполнить миграцию схемы в Neon Postgres.
 
-### 6.2 Психометрический каталог и вопросы (`src/data/mockData.ts`)
+### 6.2 Психометрический каталог и вопросы (`src/data/questionBank.ts`)
 - [ ] **Полностью заменить** вопросы всех 6 тестов на новые антиманпулятивные ситуации (Форматы A/B/C).
 - [ ] **УДАЛИТЬ** любые технические ярлыки в скобках: `(Сотрудничество)`, `(Антидот)`, `(Стеноуоллинг)`, `(Обязательства)`, `(Защита)`.
 - [ ] Добавить 7-й тест: **Personality Type** (Big Five адаптивный) → `test_personality_type`, sphere: `lifestyle`.
@@ -241,8 +241,8 @@ export const coupleReports = pgTable('couple_reports', {
 
 ### 6.4 Верификация
 - [ ] `npm run build` — чистая сборка.
-- [ ] `npm run test` — прогон vitest математических тестов (`tests/deep-*.test.ts`).
-- [ ] Прогон E2E сценария: регистрация пары → пейринг → оба проходят 7 тестов → проверка в БД (userPsychProfiles, coupleReports) → независимый пересчёт формул.
+- [ ] `npm run test` — прогон vitest юнит-тестов (`tests/unit/*.test.tsx`).
+- [ ] Прогон E2E сценария: регистрация пары → пейринг → оба проходят 8 тестов → проверка в БД (user_psych_profiles, coupleReports) → независимый пересчёт формул.
 - [ ] Запушить в `main`.
 
 ---

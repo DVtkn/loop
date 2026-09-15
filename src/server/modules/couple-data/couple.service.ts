@@ -1,5 +1,5 @@
 import { getCoupleData, saveCoupleData, mergeCoupleData } from "../../services/storageService.ts";
-import { recordDailyMetrics } from "../../analytics.ts";
+import { recordDailyMetrics } from "../../services/analytics.ts";
 import { computeCoupleRatingAnalytics } from "../../../utils/rankingEngine.ts";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";

@@ -1,1 +1,1 @@
-export * from '../../logger.ts';
+export * from '../../core/logger.ts';

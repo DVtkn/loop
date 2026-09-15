@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TradeOffQuestion } from '../components/tests/TradeOffQuestion.tsx';
-import { TradeOffItem } from '../types.ts';
+import { TradeOffQuestion } from '../../src/components/tests/TradeOffQuestion.tsx';
+import { TradeOffItem } from '../../src/types.ts';
 
 const mockItems: TradeOffItem[] = [
   { id: 'words', label: 'Слова поддержки', scaleId: 'c_closeness' },

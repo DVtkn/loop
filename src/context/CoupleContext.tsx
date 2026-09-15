@@ -41,7 +41,7 @@ import {
   createFreshCoupleProfile,
   getFreshTests,
   getFreshChallenges,
-} from '../data/mockData.ts';
+} from '../data/questionBank.ts';
 import { safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
 import { getCoupleLevelInfo } from '../utils/rankingEngine.ts';
 import { dispatchInAppNotification, playNotificationSound } from '../utils/pushManager.ts';

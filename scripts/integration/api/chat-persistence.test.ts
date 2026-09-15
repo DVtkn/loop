@@ -1,5 +1,5 @@
-import { db, isSqlConfigured } from "../../src/server/db/client.ts";
-import { chatMessages, users } from "../../src/server/db/schema.ts";
+import { db, isSqlConfigured } from '../../../src/server/db/client.ts';
+import { chatMessages, users } from '../../../src/server/db/schema.ts';
 import { eq } from "drizzle-orm";
 
 const BASE_URL = "http://localhost:3000";

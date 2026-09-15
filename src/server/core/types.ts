@@ -1,4 +1,4 @@
-import { users, pairRequests, coupleData, chatMessages, relationshipMetrics, aiInsights } from "./db/schema.ts";
+import { users, pairRequests, coupleData, chatMessages, relationshipMetrics, aiInsights } from '../db/schema.ts';
 
 export type DbUser = typeof users.$inferSelect;
 export type DbUserInsert = typeof users.$inferInsert;

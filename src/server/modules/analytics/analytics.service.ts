@@ -1,8 +1,8 @@
 import { desc, eq, inArray } from "drizzle-orm";
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { aiInsights, coupleReports, userPsychProfiles, couples, users, testSessions, testAnswers } from "../../db/schema.ts";
-import { recordDailyMetrics, getTrends } from "../../analytics.ts";
-import { generateWeeklyInsight } from "../../insights.ts";
+import { recordDailyMetrics, getTrends } from "../../services/analytics.ts";
+import { generateWeeklyInsight } from "../../services/insights.ts";
 import { CATALOG_TEST_IDS } from "../tests/tests.service.ts";
 
 export { recordDailyMetrics, getTrends, generateWeeklyInsight };

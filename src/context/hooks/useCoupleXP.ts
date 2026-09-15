@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { XPEntry, Achievement, PartnerId } from '../../types.ts';
-import { initialAchievements } from '../../data/mockData.ts';
+import { initialAchievements } from '../../data/questionBank.ts';
 import { getCoupleLevelInfo } from '../../utils/rankingEngine.ts';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
 

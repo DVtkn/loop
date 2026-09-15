@@ -3,8 +3,8 @@ import path from 'path';
 import { sql, eq, or } from 'drizzle-orm';
 import { db, isSqlConfigured } from '../db/client.ts';
 import { users, coupleData } from '../db/schema.ts';
-import { logger } from '../logger.ts';
-import { DbUser, DbUserInsert, JsonStoreShape } from '../types.ts';
+import { logger } from '../core/logger.ts';
+import { DbUser, DbUserInsert, JsonStoreShape } from '../core/types.ts';
 import { DatabaseUnavailableError } from '../shared/errors/index.ts';
 
 const DATA_DIR = path.join(process.cwd(), 'data');

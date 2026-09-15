@@ -7,7 +7,7 @@ import { readEmergencyFile, writeEmergencyFile } from "../../services/storageSer
 import {
   callGroqChat,
   saveAIMessageToDb,
-} from "../../aiService.ts";
+} from "../../services/aiService.ts";
 import { DatabaseUnavailableError } from "../../shared/errors/index.ts";
 
 export { callGroqChat, saveAIMessageToDb };

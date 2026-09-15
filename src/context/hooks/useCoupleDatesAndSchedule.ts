@@ -9,7 +9,7 @@ import {
   PartnerId,
   DateReview,
 } from '../../types.ts';
-import { initialFlowerPreferences } from '../../data/mockData.ts';
+import { initialFlowerPreferences } from '../../data/questionBank.ts';
 import { safeGetStorage } from '../../utils/safeStorage.ts';
 
 export interface UseCoupleDatesAndScheduleProps {

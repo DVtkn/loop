@@ -16,11 +16,11 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:tsc": "tsc --noEmit",
-    "test:groq": "node scripts/verify-groq.js",
-    "test:integration": "tsx tests/run-lifecycle-suite.ts",
+    "test:groq": "node scripts/integration/verify-groq.js",
+    "test:integration": "tsx scripts/integration/helpers/run-lifecycle-suite.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "check:analytics": "node scripts/verify-analytics-db.js"
+    "check:analytics": "node scripts/integration/verify-analytics-db.js"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

@@ -1,5 +1,5 @@
-import { getDb, getConnectionString } from '../src/server/db/client.ts';
-import { users } from '../src/server/db/schema.ts';
+import { getDb, getConnectionString } from '../../src/server/db/client.ts';
+import { users } from '../../src/server/db/schema.ts';
 import { sql } from 'drizzle-orm';
 
 async function main() {

@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { users } from "../../db/schema.ts";
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { findUserByLogin, upsertUser, readEmergencyFile } from "../../services/storageService.ts";
-import { DbUser, toSafeUser } from "../../types.ts";
+import { DbUser, toSafeUser } from "../../core/types.ts";
 import { generateToken } from "../../shared/middleware/auth.middleware.ts";
 import { logger } from "../../shared/utils/logger.ts";
 import { DatabaseUnavailableError } from "../../shared/errors/index.ts";

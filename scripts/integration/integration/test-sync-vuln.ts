@@ -1,5 +1,5 @@
-import { db } from "../../src/server/db/client.ts";
-import { users } from "../../src/server/db/schema.ts";
+import { db } from '../../../src/server/db/client.ts';
+import { users } from '../../../src/server/db/schema.ts';
 
 const BASE_URL = "http://localhost:3000";
 

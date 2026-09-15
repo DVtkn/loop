@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { createPool, isSqlConfigured } from "../db/client.ts";
-import { logger } from "../logger.ts";
+import { logger } from "../core/logger.ts";
 import { readEmergencyFile, writeEmergencyFile } from "./storageService.ts";
 import { DatabaseUnavailableError } from "../shared/errors/index.ts";
 

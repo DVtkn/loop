@@ -1,8 +1,8 @@
-import { db } from "./db/client.ts";
-import { relationshipMetrics } from "./db/schema.ts";
+import { db } from '../db/client.ts';
+import { relationshipMetrics } from '../db/schema.ts';
 import { sql, eq, and, gte } from "drizzle-orm";
 import crypto from "crypto";
-import { logger } from "./logger.ts";
+import { logger } from "../core/logger.ts";
 
 /**
  * Parses couple data and records daily metrics to the database.

@@ -1,7 +1,7 @@
-import { db, isSqlConfigured } from './db/client.ts';
-import { chatMessages } from './db/schema.ts';
-import { logger } from './logger.ts';
-import { readEmergencyFile, writeEmergencyFile } from './services/storageService.ts';
+import { db, isSqlConfigured } from '../db/client.ts';
+import { chatMessages } from '../db/schema.ts';
+import { logger } from '../core/logger.ts';
+import { readEmergencyFile, writeEmergencyFile } from './storageService.ts';
 import crypto from 'crypto';
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';

@@ -1,5 +1,5 @@
-import { calculateIndividualVector } from '../../src/server/modules/tests/psychometrics.calc.ts';
-import { calculateCoupleRadarMatrix } from '../../src/server/modules/tests/report.matrix.ts';
+import { calculateIndividualVector } from '../../../src/server/modules/tests/psychometrics.calc.ts';
+import { calculateCoupleRadarMatrix } from '../../../src/server/modules/tests/report.matrix.ts';
 
 function runUnitTests() {
   console.log('🧪 Running Psychometrics & Matrix Unit Tests...\n');

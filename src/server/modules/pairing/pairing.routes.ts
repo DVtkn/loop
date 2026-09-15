@@ -16,7 +16,7 @@ import {
   disconnectPair,
   getPairStatus,
 } from "./pairing.service.ts";
-import { toSafeUser } from "../../types.ts";
+import { toSafeUser } from "../../core/types.ts";
 
 export const pairingRouter = Router();
 

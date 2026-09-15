@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 
 import { db, createPool, isSqlConfigured } from "./db/client";
 import { users, pairRequests, coupleData, chatMessages, aiInsights, relationshipMetrics } from "./db/schema";
-import { config } from "./config";
+import { config } from "./core/config";
 import { logger } from "./shared/utils/logger";
 import { callGroqChat } from "./modules/chat/chat.service";
 import { errorHandler } from "./shared/middleware/errorHandler";

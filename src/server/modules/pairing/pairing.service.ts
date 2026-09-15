@@ -3,7 +3,7 @@ import { db, isSqlConfigured } from "../../db/client.ts";
 import { users, pairRequests } from "../../db/schema.ts";
 import { logger } from "../../shared/utils/logger.ts";
 import { readEmergencyFile, writeEmergencyFile, findUserByLogin, findUserByQuery } from "../../services/storageService.ts";
-import { DbUser, toSafeUser } from "../../types.ts";
+import { DbUser, toSafeUser } from "../../core/types.ts";
 import { createPairRequest, acceptPair, disconnectPair } from "../../services/pairService.ts";
 import { DatabaseUnavailableError } from "../../shared/errors/index.ts";
 

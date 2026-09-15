@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import WebSocket from 'ws';
 import * as schema from './schema.ts';
-import { logger } from '../logger.ts';
+import { logger } from '../core/logger.ts';
 
 // Serverless (Vercel) compatibility:
 // - route plain Pool queries over HTTP fetch (stateless, survives freeze/thaw)

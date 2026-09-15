@@ -1,5 +1,5 @@
 // E2E prod: submit all tests for two paired users, then verify server-side math via DB
-import { initialTests as TESTS } from '../src/data/mockData.ts';
+import { initialTests as TESTS } from '../../src/data/questionBank.ts';
 
 const BASE = 'https://loopza.vercel.app';
 const creds = Object.fromEntries(

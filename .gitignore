@@ -14,3 +14,6 @@ data/db_store.json
 /assets/
 .vercel
 .env*
+
+# пример env не игнорим
+!.env.example

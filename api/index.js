@@ -299,7 +299,7 @@ var testDrafts = pgTable("test_drafts", {
   userTestDraftIdx: uniqueIndex("user_test_draft_idx").on(table.userId, table.testId)
 }));
 
-// src/server/logger.ts
+// src/server/core/logger.ts
 import winston from "winston";
 var isProd = process.env.NODE_ENV === "production";
 var customLevels = {
@@ -433,7 +433,7 @@ var getDb = () => {
 };
 var db = getDb();
 
-// src/server/config.ts
+// src/server/core/config.ts
 import dotenv from "dotenv";
 dotenv.config();
 function parseAllowedOrigins() {
@@ -899,7 +899,7 @@ async function saveCoupleData(key, data) {
   writeEmergencyFile(store);
 }
 
-// src/server/aiService.ts
+// src/server/services/aiService.ts
 import crypto from "crypto";
 var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 var MODEL_NAME = "qwen/qwen3.8-27b";
@@ -1535,7 +1535,7 @@ var updateProfileSchema = z.object({
 import bcrypt from "bcryptjs";
 import crypto3 from "crypto";
 
-// src/server/types.ts
+// src/server/core/types.ts
 function toSafeUser(user) {
   const { passwordHash, ...safe } = user;
   return safe;
@@ -2423,7 +2423,7 @@ var coupleSyncSchema = z3.object({
   payload: z3.record(z3.string(), z3.unknown())
 });
 
-// src/server/analytics.ts
+// src/server/services/analytics.ts
 import { eq as eq6, and as and4, gte } from "drizzle-orm";
 import crypto5 from "crypto";
 async function recordDailyMetrics(coupleId, metricDate, data) {
@@ -3518,7 +3518,7 @@ import { Router as Router5 } from "express";
 // src/server/modules/analytics/analytics.service.ts
 import { desc as desc2, eq as eq8 } from "drizzle-orm";
 
-// src/server/insights.ts
+// src/server/services/insights.ts
 import crypto6 from "crypto";
 async function detectRiskZones(metrics) {
   const risks = [];

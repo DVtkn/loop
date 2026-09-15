@@ -17,11 +17,11 @@ if (global._neonPool) {
   global._neonPool = undefined;
 }
 
-import { generateToken } from "../../src/server/shared/middleware/auth.middleware.ts";
-import { authRouter } from "../../src/server/modules/auth/auth.routes.ts";
-import { pairingRouter } from "../../src/server/modules/pairing/pairing.routes.ts";
-import { errorHandler } from "../../src/server/shared/middleware/errorHandler.ts";
-import { isSqlConfigured } from "../../src/server/db/client.ts";
+import { generateToken } from '../../../src/server/shared/middleware/auth.middleware.ts';
+import { authRouter } from '../../../src/server/modules/auth/auth.routes.ts';
+import { pairingRouter } from '../../../src/server/modules/pairing/pairing.routes.ts';
+import { errorHandler } from '../../../src/server/shared/middleware/errorHandler.ts';
+import { isSqlConfigured } from '../../../src/server/db/client.ts';
 
 const testApp = express();
 testApp.use(express.json());

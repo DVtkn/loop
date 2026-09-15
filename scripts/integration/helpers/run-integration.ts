@@ -1,5 +1,5 @@
-import { db } from "../../src/server/db/client.ts";
-import { users, pairRequests, chatMessages, coupleData } from "../../src/server/db/schema.ts";
+import { db } from '../../../src/server/db/client.ts';
+import { users, pairRequests, chatMessages, coupleData } from '../../../src/server/db/schema.ts';
 import { eq, and, or } from "drizzle-orm";
 
 const BASE_URL = "http://localhost:3000";

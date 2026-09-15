@@ -2,9 +2,9 @@ import { eq, or, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db, isSqlConfigured } from '../db/client.ts';
 import { users, pairRequests } from '../db/schema.ts';
-import { logger } from '../logger.ts';
+import { logger } from '../core/logger.ts';
 import { readEmergencyFile, writeEmergencyFile, findUserByLogin, getCoupleData, saveCoupleData } from './storageService.ts';
-import { DbUser, DbPairRequest } from '../types.ts';
+import { DbUser, DbPairRequest } from '../core/types.ts';
 import { DatabaseUnavailableError } from '../shared/errors/index.ts';
 
 const isProd = () => process.env.NODE_ENV === 'production';

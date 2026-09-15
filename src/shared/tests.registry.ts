@@ -7,7 +7,7 @@ export interface TestDefinition {
 
 /**
  * Единый реестр всех тестов — источник правды (SSOT).
- * ID и количество вопросов ОБЯЗАНЫ совпадать с данными в src/data/mockData.ts.
+ * ID и количество вопросов ОБЯЗАНЫ совпадать с данными в src/data/questionBank.ts.
  * Любой сервис, UI-элемент или расчёт обязан ссылаться ИСКЛЮЧИТЕЛЬНО на этот реестр.
  */
 export const TESTS_REGISTRY: Record<string, TestDefinition> = {

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { config } from "../../config.ts";
+import { config } from "../../core/config.ts";
 import { logger } from "../utils/logger.ts";
 import { touchUserLastActive } from "../../modules/realtime/realtime.service.ts";
 

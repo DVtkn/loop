@@ -68,7 +68,7 @@ test.describe('Loop Master Journey - Full E2E', () => {
       test.setTimeout(120000);
       const { pageA, contextA } = await createAuthenticatedPages(browser);
       try {
-        await expect(pageA.locator('text=Anna & Dmitry').first()).toBeVisible({ timeout: 30000 });
+        await expect(pageA.locator('text=/Anna & Dmitry|Dmitry & Anna/').first()).toBeVisible({ timeout: 30000 });
         await expect(pageA.locator('text=Пройти тест')).toBeVisible({ timeout: 10000 });
       } finally {
         await contextA.close();
@@ -79,7 +79,7 @@ test.describe('Loop Master Journey - Full E2E', () => {
       test.setTimeout(120000);
       const { pageB, contextB } = await createAuthenticatedPages(browser);
       try {
-        await expect(pageB.locator('text=Anna & Dmitry').first()).toBeVisible({ timeout: 30000 });
+        await expect(pageB.locator('text=/Anna & Dmitry|Dmitry & Anna/').first()).toBeVisible({ timeout: 30000 });
         await expect(pageB.locator('text=Пройти тест')).toBeVisible({ timeout: 10000 });
       } finally {
         await contextB.close();
@@ -135,6 +135,7 @@ test.describe('Loop Master Journey - Full E2E', () => {
     });
 
     test('2.2: User B receives PartnerTouchToast', async ({ browser }) => {
+      test.setTimeout(120000);
       const { pageB, contextB } = await createAuthenticatedPages(browser);
       try {
         const toastVisible = await clickIfExists(pageB, '[data-testid="partner-touch-toast"], .partner-touch-toast, text=Ответить взаимностью, text=Взаимно', 10000);

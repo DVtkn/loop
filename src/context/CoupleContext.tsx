@@ -1237,40 +1237,41 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         })
       );
 
-      // Async sync to server API
+      // Async atomic sync to server API (single /submit call with full payloads)
       if (currentUser?.login) {
-        const cleanMyLogin = currentUser.login.toLowerCase().replace(/^@/, '');
-        const partnerLogin = currentUser.partnerLogin;
-        const cleanPartnerLogin = partnerLogin ? partnerLogin.toLowerCase().replace(/^@/, '') : '';
-        const targetCoupleId = cleanPartnerLogin
-          ? [cleanMyLogin, cleanPartnerLogin].sort().join('_')
-          : cleanMyLogin;
-
-        const totalQCount = Object.keys(answers).length;
-        const promises = Object.entries(answers).map(([qId, val]) => {
+        const test = tests.find((t) => t.id === testId);
+        const payloadAnswers = Object.entries(answers).map(([qId, val]) => {
           const meta = metrics?.[qId] || {};
-          return apiFetch('/api/tests/submit-answer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              testId,
-              coupleId: targetCoupleId,
-              questionId: qId,
-              selectedValue: typeof val === 'number' ? val : (meta.rawPayload ? 1 : 0),
-              expectedQuestionsCount: totalQCount,
-              reactionTimeMs: meta.reactionTimeMs ?? null,
-              toggleCount: meta.toggleCount ?? 0,
-              targetType: meta.targetType ?? 'self',
-              rawPayload: meta.rawPayload ?? (typeof val === 'object' ? val : null),
-            }),
-          }).catch(() => {});
+          const q = test?.questions?.find((qq: any) => qq.id === qId);
+          const opt = q?.options?.find((o: any) => o.value === val);
+          const rawPayload =
+            meta.rawPayload ?? (typeof val === 'object' && val !== null ? val : null);
+          return {
+            questionId: qId,
+            value: typeof val === 'object' && val !== null ? '1' : String(val),
+            scaleId: q?.tradeOffItems ? null : (opt?.scaleId ?? null),
+            reactionTimeMs: meta.reactionTimeMs ?? null,
+            toggleCount: meta.toggleCount ?? 0,
+            targetType: meta.targetType ?? 'self',
+            rawPayload,
+          };
         });
 
-        Promise.all(promises).then(() => {
-          setTimeout(() => {
-            refreshTestsStatus();
-          }, 300);
-        });
+        apiFetch('/api/tests/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ testId, answers: payloadAnswers }),
+        })
+          .then((r) => {
+            if (!r.ok) throw new Error(`submit failed: HTTP ${r.status}`);
+            return r.json();
+          })
+          .catch((err) => console.error('[tests] submit error:', err))
+          .finally(() => {
+            setTimeout(() => {
+              refreshTestsStatus();
+            }, 300);
+          });
       }
 
       addCoupleXP(100, `Пройден тест «${testTitle}»`, 'test');

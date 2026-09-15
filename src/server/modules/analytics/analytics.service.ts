@@ -3,6 +3,7 @@ import { db, isSqlConfigured } from "../../db/client.ts";
 import { aiInsights, coupleReports, userPsychProfiles, couples, users, testSessions, testAnswers } from "../../db/schema.ts";
 import { recordDailyMetrics, getTrends } from "../../analytics.ts";
 import { generateWeeklyInsight } from "../../insights.ts";
+import { CATALOG_TEST_IDS } from "../tests/tests.service.ts";
 
 export { recordDailyMetrics, getTrends, generateWeeklyInsight };
 
@@ -68,7 +69,7 @@ export async function getDetailedCoupleAnalytics(
     return {
       isCoupleReportReady: false,
       completedTestsCount: 0,
-      totalTestsCount: 7,
+      totalTestsCount: CATALOG_TEST_IDS.length,
       waitingFor: null,
       userProfile: null,
       coupleReport: null,
@@ -148,7 +149,7 @@ export async function getDetailedCoupleAnalytics(
     return {
       isCoupleReportReady: false,
       completedTestsCount: completedTestsCount || (profiles.length > 0 ? 1 : 0),
-      totalTestsCount: 7,
+      totalTestsCount: CATALOG_TEST_IDS.length,
       waitingFor: partnerProfile ? null : partnerName,
       userProfile: currentUserProfile,
       coupleReport: null,
@@ -168,8 +169,8 @@ export async function getDetailedCoupleAnalytics(
 
   return {
     isCoupleReportReady: true,
-    completedTestsCount: completedTestsCount || 7,
-    totalTestsCount: 7,
+    completedTestsCount: completedTestsCount || CATALOG_TEST_IDS.length,
+    totalTestsCount: CATALOG_TEST_IDS.length,
     waitingFor: null,
     userProfile: currentUserProfile,
     coupleReport: report,

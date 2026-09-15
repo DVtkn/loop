@@ -6,6 +6,7 @@ import { TESTS_REGISTRY, getSphereByTestId, TEST_REGISTRY_ENTRIES } from "@/src/
 import { logger } from "../../shared/utils/logger.ts";
 import { DatabaseUnavailableError } from "../../shared/errors/index.ts";
 import { calculatePsychProfile } from "./psychometrics.calc.ts";
+import { calculateCoupleMatrix } from "./couple-matrix.calc.ts";
 import { calculateCoupleRadarMatrix, CoupleRadarResult } from "./report.matrix.ts";
 
 /** Единый реестр всех тестов — источник правды (SSOT). */
@@ -17,11 +18,38 @@ export const EXPECTED_QUESTIONS = Object.fromEntries(
   Object.entries(TESTS_REGISTRY as Record<string, TestDefinition>).map(([id, def]) => [id, def.totalQuestions])
 );
 
+/**
+ * Канонический coupleId для тестов — строго из JWT-логина через users.partnerLogin
+ * (таблица couples не используется), без доверия client-supplied coupleId.
+ * Одиночка: собственный логин.
+ */
+export async function resolveTestCoupleId(userLogin: string): Promise<string> {
+  const clean = (s: string) => s.toLowerCase().trim().replace(/^@/, "");
+  if (!isSqlConfigured() || !db) return clean(userLogin);
+  const [u] = await db
+    .select({ login: users.login, partnerLogin: users.partnerLogin })
+    .from(users)
+    .where(eq(users.login, userLogin));
+  if (!u) return clean(userLogin);
+  if (!u.partnerLogin) return clean(u.login);
+  return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+}
+
 export interface TestDefinition {
   id: string;
   title: string;
   sphere: "trust" | "closeness" | "communication" | "values" | "intimacy" | "lifestyle";
   totalQuestions: number;
+}
+
+export interface SubmitAnswerItem {
+  questionId: string;
+  value: any;
+  scaleId?: string | null;
+  reactionTimeMs?: number | null;
+  toggleCount?: number | null;
+  targetType?: string | null;
+  rawPayload?: any;
 }
 
 /**
@@ -32,7 +60,7 @@ export async function atomicSubmitTestAnswers(
   testId: string,
   coupleId: string,
   userLogin: string,
-  answers: Array<{ questionId: string; value: any }>
+  answers: SubmitAnswerItem[]
 ) {
   const isProd = process.env.NODE_ENV === "production";
   if (isProd && (!isSqlConfigured() || !db)) {
@@ -86,18 +114,19 @@ export async function atomicSubmitTestAnswers(
       }
       const sessionId = session[0].id;
 
-      // 4. Пакетная вставка ответов
+      // 4. Пакетная вставка ответов (с метаданными шкалы и сырым payload)
       const answerRecords = answers.map((a) => ({
         id: crypto.randomUUID(),
         sessionId,
         userId,
         questionId: a.questionId,
         selectedValue: String(a.value),
+        scaleId: a.scaleId ?? null,
         weight: "1.00",
-        reactionTimeMs: null,
-        toggleCount: 0,
-        targetType: "self",
-        rawPayload: null,
+        reactionTimeMs: a.reactionTimeMs ?? null,
+        toggleCount: a.toggleCount ?? 0,
+        targetType: a.targetType ?? "self",
+        rawPayload: a.rawPayload ?? null,
       }));
       await tx.insert(testAnswers).values(answerRecords);
 
@@ -310,14 +339,8 @@ export async function getTestsStatusForUser(userLogin: string) {
 
   const userId = u.id;
 
-  // Находим пару пользователя
-  const [couple] = await db
-    .select()
-    .from(couples)
-    .where(or(eq(couples.user1Id, userId), eq(couples.user2Id, userId)))
-    .limit(1);
-
-  if (!couple) {
+  // Партнёр — строго через users.partnerLogin (таблица couples не используется)
+  if (!u.partnerLogin) {
     return CATALOG_TEST_IDS.map((testId) => ({
       testId,
       isCompletedByMe: false,
@@ -325,7 +348,12 @@ export async function getTestsStatusForUser(userLogin: string) {
     }));
   }
 
-  const partnerId = couple.user1Id === userId ? couple.user2Id : couple.user1Id;
+  const [partner] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.login, u.partnerLogin));
+
+  const partnerId = partner?.id;
 
   if (!partnerId) {
     return CATALOG_TEST_IDS.map((testId) => ({
@@ -335,19 +363,33 @@ export async function getTestsStatusForUser(userLogin: string) {
     }));
   }
 
-  // Получаем завершенные тесты пользователя
+  const coupleId = await resolveTestCoupleId(userLogin);
+
+  // Получаем завершенные тесты пользователя (в рамках текущей пары)
   const myCompleted = await db
     .select({ testId: testSessions.testId })
     .from(testSessions)
     .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
-    .where(and(eq(testAnswers.userId, userId), eq(testSessions.status, "completed")));
+    .where(
+      and(
+        eq(testAnswers.userId, userId),
+        eq(testSessions.status, "completed"),
+        eq(testSessions.coupleId, coupleId)
+      )
+    );
 
-  // Получаем завершенные тесты партнера
+  // Получаем завершенные тесты партнера (в рамках текущей пары)
   const partnerCompleted = await db
     .select({ testId: testSessions.testId })
     .from(testSessions)
     .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
-    .where(and(eq(testAnswers.userId, partnerId), eq(testSessions.status, "completed")));
+    .where(
+      and(
+        eq(testAnswers.userId, partnerId),
+        eq(testSessions.status, "completed"),
+        eq(testSessions.coupleId, coupleId)
+      )
+    );
 
   const mySet = new Set(myCompleted.map((r) => r.testId));
   const partnerSet = new Set(partnerCompleted.map((r) => r.testId));
@@ -359,64 +401,65 @@ export async function getTestsStatusForUser(userLogin: string) {
   }));
 }
 
-/** Пересчёт психопрофиля пользователя (24 шкалы) */
+/** Пересчёт психопрофиля пользователя (24 шкалы) через настоящий движок */
 async function _recalculateUserProfile(
   tx: any,
   coupleId: string,
   userId: string,
   testId: string
 ) {
-  // Получаем все ответы пользователя по этому тесту
-  const answers = await tx
-    .select()
+  // Получаем ВСЕ ответы пользователя по текущей паре (не только этот тест) —
+  // профиль строится кумулятивно из всех пройденных им модулей.
+  const rows = await tx
+    .select({
+      answers: testAnswers,
+    })
     .from(testAnswers)
     .innerJoin(testSessions, eq(testAnswers.sessionId, testSessions.id))
-    .where(and(eq(testAnswers.userId, userId), eq(testSessions.testId, testId), eq(testSessions.status, "completed")));
+    .where(and(eq(testAnswers.userId, userId), eq(testSessions.coupleId, coupleId)));
 
-  if (!answers.length) return;
+  if (!rows.length) return;
 
-  // Группируем ответы по шкалам и считаем баллы
-  const scaleScores: Record<string, number> = {};
-  const scaleCounts: Record<string, number> = {};
+  const rawForEngine = rows.map((r: any) => ({
+    questionId: r.answers.questionId,
+    selectedValue: r.answers.selectedValue,
+    weight: r.answers.weight,
+    reactionTimeMs: r.answers.reactionTimeMs,
+    toggleCount: r.answers.toggleCount,
+    targetType: r.answers.targetType,
+    rawPayload: r.answers.rawPayload,
+  }));
 
-  for (const row of answers) {
-    const ans = row.test_answers;
-    const scale = ans.scaleId || "unknown";
-    const val = Number(ans.selectedValue);
-    scaleScores[scale] = (scaleScores[scale] || 0) + val;
-    scaleCounts[scale] = (scaleCounts[scale] || 0) + 1;
-  }
+  // Запускаем движок 24 шкал
+  const profile = calculatePsychProfile(rawForEngine);
 
-  const traitScores: Record<string, number> = {};
-  for (const scale of Object.keys(scaleScores)) {
-    traitScores[scale] = scaleCounts[scale] > 0
-      ? Math.round((scaleScores[scale] / scaleCounts[scale]) * 100)
-      : 50;
-  }
-
-  // Upsert профиля
+  // Upsert профиля — храним полные 24 шкалы + 5 мета-векторов
   await tx.insert(userPsychProfiles).values({
     userId,
     coupleId,
-    sessionId: answers[0]?.test_answers.sessionId || "",
-    traitScores,
-    eSafety: "50.00",
-    aAutonomy: "50.00",
-    cCloseness: "50.00",
-    rRepair: "50.00",
-    vFuture: "50.00",
-    rawResponses: answers.map((r: { test_answers: any }) => r.test_answers),
+    sessionId: "",
+    traitScores: profile.traitScores,
+    dominantVectors: profile.dominantVectors,
+    eSafety: String(profile.eSafety),
+    aAutonomy: String(profile.aAutonomy),
+    cCloseness: String(profile.cCloseness),
+    rRepair: String(profile.rRepair),
+    vFuture: String(profile.vFuture),
+    consistencyScore: String(profile.consistencyScore),
+    rawResponses: rawForEngine,
     updatedAt: new Date(),
   }).onConflictDoUpdate({
     target: [userPsychProfiles.userId],
     set: {
-      traitScores,
-      eSafety: "50.00",
-      aAutonomy: "50.00",
-      cCloseness: "50.00",
-      rRepair: "50.00",
-      vFuture: "50.00",
-rawResponses: answers.map((r: { test_answers: any }) => r.test_answers),
+      traitScores: profile.traitScores,
+      dominantVectors: profile.dominantVectors,
+      eSafety: String(profile.eSafety),
+      aAutonomy: String(profile.aAutonomy),
+      cCloseness: String(profile.cCloseness),
+      rRepair: String(profile.rRepair),
+      vFuture: String(profile.vFuture),
+      consistencyScore: String(profile.consistencyScore),
+      rawResponses: rawForEngine,
       updatedAt: new Date(),
     },
   });
@@ -427,8 +470,8 @@ async function _triggerCoupleReportIfReady(
   tx: any,
   coupleId: string,
   userId: string
-): Promise<{ state: "PARTNER_PENDING" | "BOTH_COMPLETED" | "REPORT_GENERATED"; radar?: CoupleRadarResult }> {
-  // Проверяем, прошли ли оба пользователя все 6 тестов
+): Promise<{ state: "PARTNER_PENDING" | "BOTH_COMPLETED" | "REPORT_GENERATED"; radar?: any }> {
+  // Проверяем, прошли ли оба пользователя все тесты из реестра
   const tests = await tx
     .select({ testId: testSessions.testId, userId: testAnswers.userId })
     .from(testSessions)
@@ -457,76 +500,49 @@ async function _triggerCoupleReportIfReady(
     return { state: "PARTNER_PENDING" };
   }
 
-  // Оба прошли все тесты — считаем радар через calculateCoupleRadarMatrix
-  // Получаем психопрофили обоих пользователей в транзакции
+  // Оба прошли все тесты — считаем 6-сферный радар из полных 24-шкальных профилей
   const [profile1, profile2] = await Promise.all([
     tx.select().from(userPsychProfiles).where(eq(userPsychProfiles.userId, userIds[0])).limit(1),
     tx.select().from(userPsychProfiles).where(eq(userPsychProfiles.userId, userIds[1])).limit(1),
   ]);
 
-  const v1 = profile1[0]?.traitScores;
-  const v2 = profile2[0]?.traitScores;
+  const scales1 = profile1[0]?.traitScores as Record<string, number> | undefined;
+  const scales2 = profile2[0]?.traitScores as Record<string, number> | undefined;
 
-  if (!v1 || !v2) {
+  if (!scales1 || !scales2 || scales1.s1 == null || scales2.s1 == null) {
     return { state: "BOTH_COMPLETED" }; // профили еще не готовы
   }
 
-  const vec1 = {
-    eSafety: v1.eSafety ?? 50,
-    aAutonomy: v1.aAutonomy ?? 50,
-    cCloseness: v1.cCloseness ?? 50,
-    rRepair: v1.rRepair ?? 50,
-    vFuture: v1.vFuture ?? 50,
-    consistencyScore: v1.consistencyScore ?? 95,
-  };
-  const vec2 = {
-    eSafety: v2.eSafety ?? 50,
-    aAutonomy: v2.aAutonomy ?? 50,
-    cCloseness: v2.cCloseness ?? 50,
-    rRepair: v2.rRepair ?? 50,
-    vFuture: v2.vFuture ?? 50,
-    consistencyScore: v2.consistencyScore ?? 95,
-  };
+  const matrixResult = calculateCoupleMatrix(scales1 as any, scales2 as any);
 
-  const radarResult = calculateCoupleRadarMatrix(vec1, vec2);
-
-  // Сохраняем/обновляем coupleReport
-  await tx.insert(coupleReports).values({
+  // Сохраняем/обновляем coupleReport (6 сфер + архетип)
+  const reportValues = {
     coupleId,
     sessionId: "",
-    radarMetrics: radarResult.radar,
-    radarTrust: radarResult.radar.trust,
-    radarCloseness: radarResult.radar.closeness,
-    radarCommunication: radarResult.radar.communication,
-    radarIntimacy: radarResult.radar.intimacy,
-    radarValues: radarResult.radar.values,
-    radarLifestyle: radarResult.radar.values, // используем values как lifestyle
-    archetypeTitle: radarResult.archetype.title,
-    archetypeDescription: radarResult.archetype.description,
-    leadSpheres: radarResult.archetype.leadSpheres,
-    synergyPoints: radarResult.blindSpots.synergies,
-    growthZones: radarResult.blindSpots.discrepancies.map(d => d.title),
-    blindSpots: radarResult.blindSpots.discrepancies,
+    radarMetrics: matrixResult.radar,
+    radarTrust: String(matrixResult.radar.trust),
+    radarCloseness: String(matrixResult.radar.closeness),
+    radarCommunication: String(matrixResult.radar.communication),
+    radarIntimacy: String(matrixResult.radar.intimacy),
+    radarValues: String(matrixResult.radar.values),
+    radarLifestyle: String(matrixResult.radar.lifestyle),
+    archetypeTitle: matrixResult.archetype.title,
+    archetypeDescription: matrixResult.archetype.description,
+    leadSpheres: matrixResult.archetype.leadSpheres,
+    synergyPoints: matrixResult.synergyPoints,
+    growthZones: matrixResult.growthZones,
+    blindSpots: matrixResult.destructivePatternsDetected,
     calculatedAt: new Date(),
+  };
+
+  await tx.insert(coupleReports).values({
+    ...reportValues,
+    id: crypto.randomUUID(),
+    createdAt: new Date(),
   }).onConflictDoUpdate({
     target: [coupleReports.coupleId],
-    set: {
-      radarMetrics: radarResult.radar,
-      radarTrust: radarResult.radar.trust,
-      radarCloseness: radarResult.radar.closeness,
-      radarCommunication: radarResult.radar.communication,
-      radarIntimacy: radarResult.radar.intimacy,
-      radarValues: radarResult.radar.values,
-      radarLifestyle: radarResult.radar.values,
-      archetypeTitle: radarResult.archetype.title,
-      archetypeDescription: radarResult.archetype.description,
-      leadSpheres: radarResult.archetype.leadSpheres,
-      synergyPoints: radarResult.blindSpots.synergies,
-      growthZones: radarResult.blindSpots.discrepancies.map(d => d.title),
-      blindSpots: radarResult.blindSpots.discrepancies,
-      calculatedAt: new Date(),
-    },
+    set: reportValues,
   });
 
-  return { state: "REPORT_GENERATED", radar: radarResult };
+  return { state: "REPORT_GENERATED", radar: matrixResult.radar };
 }

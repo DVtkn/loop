@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 export interface TestDefinition {
   id: string;
   title: string;
@@ -9,45 +7,57 @@ export interface TestDefinition {
 
 /**
  * Единый реестр всех тестов — источник правды (SSOT).
+ * ID и количество вопросов ОБЯЗАНЫ совпадать с данными в src/data/mockData.ts.
  * Любой сервис, UI-элемент или расчёт обязан ссылаться ИСКЛЮЧИТЕЛЬНО на этот реестр.
- * Любые отличия ID тестов от перечисленных здесь запрещены.
  */
 export const TESTS_REGISTRY: Record<string, TestDefinition> = {
-  test_attachment_indiv: {
-    id: "test_attachment_indiv",
-    title: "Стили привязанности",
+  "TEST-S1": {
+    id: "TEST-S1",
+    title: "Стили привязанности (ECR)",
     sphere: "trust",
-    totalQuestions: 18,
+    totalQuestions: 6,
   },
-  test_love_languages: {
-    id: "test_love_languages",
-    title: "Языки заботы",
+  "TEST-S2": {
+    id: "TEST-S2",
+    title: "Пять языков любви",
     sphere: "closeness",
-    totalQuestions: 15,
+    totalQuestions: 6,
   },
-  test_eft_cycles: {
-    id: "test_eft_cycles",
-    title: "Стили проживания ссор",
+  "TEST-S3": {
+    id: "TEST-S3",
+    title: "Четыре всадника Готтмана",
     sphere: "communication",
-    totalQuestions: 16,
+    totalQuestions: 5,
   },
-  test_life_values: {
-    id: "test_life_values",
-    title: "Ценностный компас",
+  "TEST-D2": {
+    id: "TEST-D2",
+    title: "Стили разрешения конфликтов",
+    sphere: "communication",
+    totalQuestions: 5,
+  },
+  "TEST-D1": {
+    id: "TEST-D1",
+    title: "Семейные сценарии и роли",
     sphere: "values",
-    totalQuestions: 15,
+    totalQuestions: 5,
   },
-  test_intimacy_passion: {
-    id: "test_intimacy_passion",
-    title: "Интимность и контакт",
+  "TEST-S4": {
+    id: "TEST-S4",
+    title: "Треугольник любви Стернберга",
     sphere: "intimacy",
-    totalQuestions: 12,
+    totalQuestions: 5,
   },
-  test_routine_lifestyle: {
-    id: "test_routine_lifestyle",
-    title: "Быт и жизнестойкость",
+  "TEST-C1": {
+    id: "TEST-C1",
+    title: "Наш идеальный день",
     sphere: "lifestyle",
-    totalQuestions: 14,
+    totalQuestions: 4,
+  },
+  "TEST-PT": {
+    id: "TEST-PT",
+    title: "Профиль личности (Big Five)",
+    sphere: "lifestyle",
+    totalQuestions: 8,
   },
 };
 
@@ -67,10 +77,12 @@ export interface TestRegistryEntry {
 
 /** Массив для перебора в компонентах (сортировка по сфере) */
 export const TEST_REGISTRY_ENTRIES: TestRegistryEntry[] = [
-  { label: "Стили привязанности", sphere: "trust", questionCount: 18 },
-  { label: "Языки заботы", sphere: "closeness", questionCount: 15 },
-  { label: "Стили проживания ссор", sphere: "communication", questionCount: 16 },
-  { label: "Ценностный компас", sphere: "values", questionCount: 15 },
-  { label: "Интимность и контакт", sphere: "intimacy", questionCount: 12 },
-  { label: "Быт и жизнестойкость", sphere: "lifestyle", questionCount: 14 },
+  { label: "Стили привязанности (ECR)", sphere: "trust", questionCount: 6 },
+  { label: "Пять языков любви", sphere: "closeness", questionCount: 6 },
+  { label: "Четыре всадника Готтмана", sphere: "communication", questionCount: 5 },
+  { label: "Стили разрешения конфликтов", sphere: "communication", questionCount: 5 },
+  { label: "Семейные сценарии и роли", sphere: "values", questionCount: 5 },
+  { label: "Треугольник любви Стернберга", sphere: "intimacy", questionCount: 5 },
+  { label: "Наш идеальный день", sphere: "lifestyle", questionCount: 4 },
+  { label: "Профиль личности (Big Five)", sphere: "lifestyle", questionCount: 8 },
 ];

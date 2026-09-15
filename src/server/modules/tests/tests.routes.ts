@@ -5,6 +5,7 @@ import { requireAuth, AuthenticatedRequest } from "../../shared/middleware/auth.
 import { requirePairOwnership } from "../../shared/middleware/requirePairOwnership.ts";
 import {
   atomicSubmitTestAnswers,
+  resolveTestCoupleId,
   submitTestAnswer,
   getTestsStatusForUser,
   CATALOG_TEST_IDS,
@@ -97,6 +98,11 @@ testsRouter.post(
         z.object({
           questionId: z.string(),
           value: z.union([z.string(), z.number()]),
+          scaleId: z.string().max(64).nullish(),
+          reactionTimeMs: z.number().int().nonnegative().nullish(),
+          toggleCount: z.number().int().nonnegative().nullish(),
+          targetType: z.enum(["self", "partner_observation"]).nullish(),
+          rawPayload: z.record(z.string(), z.unknown()).nullish(),
         })
       ).min(1),
     })
@@ -104,7 +110,7 @@ testsRouter.post(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const userLogin = req.user?.login;
-      const coupleId = req.couple?.id;
+      const coupleId = await resolveTestCoupleId(userLogin ?? "");
       const { testId, answers } = req.body;
 
       if (!userLogin || !coupleId) {
@@ -142,7 +148,7 @@ testsRouter.post(
   async (req: AuthenticatedRequest, res, next) => {
     try {
       const userLogin = req.user?.login;
-      const coupleId = req.couple?.id;
+      const coupleId = await resolveTestCoupleId(userLogin ?? "");
       const { testId, questionId, selectedValue, reactionTimeMs, toggleCount, targetType, rawPayload } = req.body;
 
       if (!userLogin || !coupleId) {

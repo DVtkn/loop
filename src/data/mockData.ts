@@ -696,6 +696,115 @@ export const initialTests: TestCategory[] = [
       },
     ],
   },
+
+  // PT: Профиль личности (Big Five)
+  {
+    id: 'TEST-PT',
+    slug: 'personality-type-big5',
+    title: 'Профиль личности (Big Five)',
+    subtitle: 'Ориентация, честность, устойчивость, открытость, доброжелательность',
+    methodology: 'scientific',
+    categoryKey: 'lifestyle',
+    levelRequired: 1,
+    estimatedMinutes: 4,
+    questionsCount: 8,
+    description: 'Определяет тип личности по пяти измерениям: экстраверсия, доброжелательность, добросовестность, устойчивость, открытость опыту.',
+    scientificBasis: 'Модель «Большая пятёрка» (Big Five, Costa & McCrae)',
+    iconName: 'Fingerprint',
+    partner1Done: false,
+    partner2Done: false,
+    questions: [
+      {
+        id: 'q-pt-1',
+        text: 'После насыщенного вечера в компании вы:',
+        type: 'single',
+        options: [
+          { label: 'Чувствую прилив энергии и хочу продолжения общения', value: 'extravert', categoryScores: { extraversion: 5 }, scaleId: 's23' },
+          { label: 'Рад(а) встрече, но мечтаю скорее оказаться дома в тишине', value: 'introvert', categoryScores: { introversion: 5 }, scaleId: 's23' },
+          { label: 'Держусь в стороне, наблюдаю, но к концу вечера включаюсь', value: 'observer_warms', categoryScores: { extraversion: 3, conscientiousness: 3 }, scaleId: 's23' },
+          { label: 'Контролирую обстановку: слежу, чтобы всем было комфортно', value: 'host_control', categoryScores: { conscientiousness: 4, agreeableness: 3 }, scaleId: 's21' },
+        ],
+      },
+      {
+        id: 'q-pt-2',
+        text: 'Когда планируете отпуск со своим бюджетом, вы скорее:',
+        type: 'single',
+        options: [
+          { label: 'Составлю подробный график дней и бронирования заранее', value: 'structured', categoryScores: { conscientiousness: 5 }, scaleId: 's21' },
+          { label: 'Забронирую только билеты, а весь план родится на месте', value: 'spontaneous', categoryScores: { openness: 4, conscientiousness: 1 }, scaleId: 's21' },
+          { label: 'Поручу детали партнёру или агентству — главное результат', value: 'delegating', categoryScores: { agreeableness: 4 }, scaleId: 'a_autonomy' },
+          { label: 'Соберу три разных сценария и выберу по настроению', value: 'options_open', categoryScores: { openness: 4 }, scaleId: 's24' },
+        ],
+      },
+      {
+        id: 'q-pt-3',
+        text: 'Перед лицом неожиданной проблемы, которую нельзя отложить, ваша внутренняя реакция:',
+        type: 'forced_vulnerability',
+        options: [
+          { label: 'Тревожное напряжение — мысли хаотично ускоряются', value: 'neurotic_reaction', categoryScores: { neuroticism: 4 }, scaleId: 's1' },
+          { label: 'Холодная сосредоточенность — включается «режим решения»', value: 'stable_focus', categoryScores: { stability: 5 }, scaleId: 's12' },
+          { label: 'Интерес к задаче как к головоломке, которую предстоит разгадать', value: 'curious_problem', categoryScores: { openness: 4, stability: 3 }, scaleId: 's24' },
+          { label: 'Желание сразу позвать кого-то доверенного обсудить', value: 'social_support', categoryScores: { extraversion: 3, agreeableness: 3 }, scaleId: 'c_closeness' },
+        ],
+      },
+      {
+        id: 'q-pt-4',
+        text: 'На вашем рабочем столе (реальном или цифровом) обычно:',
+        type: 'single',
+        options: [
+          { label: 'Каждый предмет и файл имеет своё постоянное логическое место', value: 'order_architect', categoryScores: { conscientiousness: 5 }, scaleId: 's21' },
+          { label: 'Творческий беспорядок, в котором ориентируюсь только я', value: 'creative_chaos', categoryScores: { openness: 4, conscientiousness: 1 }, scaleId: 's21' },
+          { label: 'Недельные плато порядка, между которыми случаются завалы', value: 'cyclic_order', categoryScores: { conscientiousness: 3 }, scaleId: 's21' },
+        ],
+      },
+      {
+        id: 'q-pt-5',
+        text: 'В дискуссии, где собеседник явно неправ, но искренне убеждён в своей правоте:',
+        type: 'single',
+        options: [
+          { label: 'Спокойно изложу факты и свою позицию, не настаивая на признании', value: 'calm_assertive', categoryScores: { agreeableness: 3, stability: 4 }, scaleId: 'r_repair' },
+          { label: 'Постараюсь понять, что стоит за его(её) убеждением', value: 'empathic_probe', categoryScores: { agreeableness: 5 }, scaleId: 'c_closeness' },
+          { label: 'Корректно, но прямо покажу логическое противоречие', value: 'direct_logic', categoryScores: { agreeableness: 2, conscientiousness: 4 }, scaleId: 'r_repair' },
+          { label: 'Не буду спорить открыто, но запомню и выведу позже', value: 'strategic_patience', categoryScores: { conscientiousness: 4 }, scaleId: 'a_autonomy' },
+        ],
+      },
+      {
+        id: 'q-pt-6',
+        text: 'Какую роль вы чаще всего занимаете в новых коллективах?',
+        type: 'single',
+        options: [
+          { label: 'Инициатор идей, генератор нестандартных решений', value: 'generator', categoryScores: { openness: 5 }, scaleId: 's24' },
+          { label: 'Связующее звено: знакомлюсь со всеми и создаю общий настрой', value: 'connector', categoryScores: { extraversion: 5 }, scaleId: 's23' },
+          { label: 'Тихий оплот: отвечаю за точность и соблюдение договорённостей', value: 'quiet_anchor', categoryScores: { conscientiousness: 5 }, scaleId: 's21' },
+          { label: 'Наблюдатель на дистанции: вхожу в контакт медленно, но надолго', value: 'deep_observer', categoryScores: { stability: 3, introversion: 4 }, scaleId: 's23' },
+        ],
+      },
+      {
+        id: 'q-pt-7',
+        text: 'Верный сценарий «идеального вечера» после месяца плотной работы:',
+        type: 'single',
+        options: [
+          { label: 'Новое место, новые люди, незапланированные открытия', value: 'novelty_craving', categoryScores: { openness: 4, extraversion: 3 }, scaleId: 's23' },
+          { label: 'Привычные ритуалы в родном пространстве: любимая еда, сериал, покой', value: 'ritual_home', categoryScores: { tradition: 4, stability: 3 }, scaleId: 'e_safety' },
+          { label: 'Глубокий разговор с близким человеком без телефонов', value: 'deep_bond', categoryScores: { intimacy: 4 }, scaleId: 'c_closeness' },
+          { label: 'Выполнить накопившиеся личные дела, чтобы с чистой совестью отдохнуть', value: 'duty_first', categoryScores: { conscientiousness: 4 }, scaleId: 's21' },
+        ],
+      },
+      {
+        id: 'q-pt-8',
+        text: 'Распределите 10 баллов между гранями, наиболее выраженными в вашей личности:',
+        type: 'trade_off',
+        totalPoints: 10,
+        options: [],
+        tradeOffItems: [
+          { id: 'energy', label: 'Заряд от общения и активности', scaleId: 's23' },
+          { id: 'order', label: 'Порядок, планы и самодисциплина', scaleId: 's21' },
+          { id: 'novelty', label: 'Любопытство к новым идеям', scaleId: 's24' },
+          { id: 'harmony', label: 'Мягкость и забота о чувствах', scaleId: 'c_closeness' },
+        ],
+      },
+    ],
+  },
 ];
 
 export const initialSmallCravings: SmallCraving[] = [];

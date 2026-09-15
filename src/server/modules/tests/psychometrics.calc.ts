@@ -119,6 +119,11 @@ export function calculateIndividualVector(userAnswers: RawUserAnswer[]): PsychPr
       if (p.intimacy != null) scales.s17 += (Number(p.intimacy) - 3.3) * 5 * baseWeight;
       if (p.passion != null) scales.s18 += (Number(p.passion) - 3.3) * 5 * baseWeight;
       if (p.commitment != null) scales.s15 += (Number(p.commitment) - 3.3) * 5 * baseWeight;
+      // Big Five trade-off (TEST-PT): energy → S23, order → S21, novelty → S24, harmony → S5
+      if (p.energy != null) scales.s23 += (Number(p.energy) - 2.5) * 5 * baseWeight;
+      if (p.order != null) scales.s21 += (Number(p.order) - 2.5) * 5 * baseWeight;
+      if (p.novelty != null) scales.s24 += (Number(p.novelty) - 2.5) * 5 * baseWeight;
+      if (p.harmony != null) scales.s5 += (Number(p.harmony) - 2.5) * 5 * baseWeight;
     }
 
     // 2. Direct question mapping by IDs (q-s1..q-s6, situations)
@@ -220,6 +225,45 @@ export function calculateIndividualVector(userAnswers: RawUserAnswer[]): PsychPr
       if (valStr.includes('crisis_hardy') || valStr.includes('team_bond') || valStr.includes('collaborating')) {
         scales.s24 += 14 * baseWeight;
         scales.s12 += 10 * baseWeight;
+      }
+    }
+
+    // Module 7: Тип личности Big Five (TEST-PT): S21, S23, S24, S12 (+ корреляции S1/S5)
+    else if (qId.startsWith('q-pt')) {
+      if (valStr.includes('extravert') || valStr === 'connector' || valStr === 'social_support' || valStr === 'novelty_craving') {
+        scales.s23 += 12 * baseWeight;
+      } else if (valStr.includes('introvert') || valStr === 'deep_observer') {
+        scales.s23 -= 10 * baseWeight;
+        scales.s13 += 6 * baseWeight; // интроверсия ~ автономия
+      }
+      if (valStr === 'structured' || valStr === 'order_architect' || valStr === 'duty_first' || valStr === 'quiet_anchor' || valStr === 'host_control') {
+        scales.s21 += 12 * baseWeight;
+      } else if (valStr === 'spontaneous' || valStr === 'creative_chaos' || valStr === 'options_open') {
+        scales.s21 -= 8 * baseWeight;
+        scales.s18 += 6 * baseWeight;
+      } else if (valStr === 'cyclic_order') {
+        scales.s21 += 4 * baseWeight;
+      }
+      if (valStr === 'generator' || valStr === 'curious_problem' || valStr === 'novelty_craving' || valStr === 'options_open') {
+        scales.s24 += 12 * baseWeight;
+      }
+      if (valStr === 'neurotic_reaction') {
+        scales.s1 += 10 * baseWeight;
+        scales.s12 -= 8 * baseWeight;
+      } else if (valStr === 'stable_focus') {
+        scales.s12 += 12 * baseWeight;
+        scales.s1 -= 6 * baseWeight;
+      }
+      if (valStr === 'empathic_probe' || valStr === 'deep_bond') {
+        scales.s5 += 8 * baseWeight;
+        scales.s4 += 6 * baseWeight;
+      }
+      if (valStr === 'direct_logic' || valStr === 'calm_assertive') {
+        scales.s12 += 8 * baseWeight;
+      }
+      if (valStr === 'ritual_home') {
+        scales.s16 += 8 * baseWeight;
+        scales.s24 -= 4 * baseWeight;
       }
     }
   }

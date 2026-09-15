@@ -123,7 +123,7 @@ var testAnswers = pgTable("test_answers", {
   userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
   questionId: text("question_id").notNull(),
   scaleId: text("scale_id"),
-  selectedValue: numeric("selected_value", { precision: 8, scale: 2 }).notNull(),
+  selectedValue: text("selected_value").notNull(),
   weight: numeric("weight", { precision: 5, scale: 2 }).default("1.00").notNull(),
   reactionTimeMs: integer("reaction_time_ms"),
   toggleCount: integer("toggle_count").default(0).notNull(),
@@ -277,6 +277,8 @@ var coupleReports = pgTable("couple_reports", {
   radarCommunication: numeric("radar_communication", { precision: 5, scale: 2 }).notNull().default("50.00"),
   radarIntimacy: numeric("radar_intimacy", { precision: 5, scale: 2 }).notNull().default("50.00"),
   radarValues: numeric("radar_values", { precision: 5, scale: 2 }).notNull().default("50.00"),
+  radarLifestyle: numeric("radar_lifestyle", { precision: 5, scale: 2 }).notNull().default("50.00"),
+  personalityTypes: jsonb("personality_types"),
   archetypeTitle: text("archetype_title").notNull(),
   archetypeDescription: text("archetype_description").notNull(),
   leadSpheres: jsonb("lead_spheres").notNull(),
@@ -3514,7 +3516,7 @@ aiRouter.post("/date-idea", aiLimiter, requireAuth, validateBody(aiDateIdeaSchem
 import { Router as Router5 } from "express";
 
 // src/server/modules/analytics/analytics.service.ts
-import { desc as desc2, eq as eq7 } from "drizzle-orm";
+import { desc as desc2, eq as eq8 } from "drizzle-orm";
 
 // src/server/insights.ts
 import crypto6 from "crypto";
@@ -3610,19 +3612,848 @@ async function generateWeeklyInsight(coupleId, contextData) {
   return { type, content: insightContent, periodStart: sevenDaysAgoStr, periodEnd: todayStr };
 }
 
+// src/server/modules/tests/tests.service.ts
+import crypto7 from "crypto";
+import { eq as eq7, and as and5 } from "drizzle-orm";
+
+// src/shared/tests.registry.ts
+var TESTS_REGISTRY = {
+  "TEST-S1": {
+    id: "TEST-S1",
+    title: "\u0421\u0442\u0438\u043B\u0438 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0441\u0442\u0438 (ECR)",
+    sphere: "trust",
+    totalQuestions: 6
+  },
+  "TEST-S2": {
+    id: "TEST-S2",
+    title: "\u041F\u044F\u0442\u044C \u044F\u0437\u044B\u043A\u043E\u0432 \u043B\u044E\u0431\u0432\u0438",
+    sphere: "closeness",
+    totalQuestions: 6
+  },
+  "TEST-S3": {
+    id: "TEST-S3",
+    title: "\u0427\u0435\u0442\u044B\u0440\u0435 \u0432\u0441\u0430\u0434\u043D\u0438\u043A\u0430 \u0413\u043E\u0442\u0442\u043C\u0430\u043D\u0430",
+    sphere: "communication",
+    totalQuestions: 5
+  },
+  "TEST-D2": {
+    id: "TEST-D2",
+    title: "\u0421\u0442\u0438\u043B\u0438 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u044F \u043A\u043E\u043D\u0444\u043B\u0438\u043A\u0442\u043E\u0432",
+    sphere: "communication",
+    totalQuestions: 5
+  },
+  "TEST-D1": {
+    id: "TEST-D1",
+    title: "\u0421\u0435\u043C\u0435\u0439\u043D\u044B\u0435 \u0441\u0446\u0435\u043D\u0430\u0440\u0438\u0438 \u0438 \u0440\u043E\u043B\u0438",
+    sphere: "values",
+    totalQuestions: 5
+  },
+  "TEST-S4": {
+    id: "TEST-S4",
+    title: "\u0422\u0440\u0435\u0443\u0433\u043E\u043B\u044C\u043D\u0438\u043A \u043B\u044E\u0431\u0432\u0438 \u0421\u0442\u0435\u0440\u043D\u0431\u0435\u0440\u0433\u0430",
+    sphere: "intimacy",
+    totalQuestions: 5
+  },
+  "TEST-C1": {
+    id: "TEST-C1",
+    title: "\u041D\u0430\u0448 \u0438\u0434\u0435\u0430\u043B\u044C\u043D\u044B\u0439 \u0434\u0435\u043D\u044C",
+    sphere: "lifestyle",
+    totalQuestions: 4
+  },
+  "TEST-PT": {
+    id: "TEST-PT",
+    title: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C \u043B\u0438\u0447\u043D\u043E\u0441\u0442\u0438 (Big Five)",
+    sphere: "lifestyle",
+    totalQuestions: 8
+  }
+};
+function getSphereByTestId(testId) {
+  return TESTS_REGISTRY[testId]?.sphere;
+}
+
+// src/server/modules/tests/psychometrics.calc.ts
+function calculateIndividualVector(userAnswers) {
+  const scales = {
+    s1: 50,
+    s2: 50,
+    s3: 50,
+    s4: 50,
+    s5: 50,
+    s6: 50,
+    s7: 50,
+    s8: 50,
+    s9: 50,
+    s10: 50,
+    s11: 50,
+    s12: 50,
+    s13: 50,
+    s14: 50,
+    s15: 50,
+    s16: 50,
+    s17: 50,
+    s18: 50,
+    s19: 50,
+    s20: 50,
+    s21: 50,
+    s22: 50,
+    s23: 50,
+    s24: 50
+  };
+  let totalToggles = 0;
+  let rapidClicks = 0;
+  let totalValidAnswers = 0;
+  for (const ans of userAnswers) {
+    if (!ans) continue;
+    totalValidAnswers++;
+    const val = Number(ans.selectedValue) || 0;
+    let baseWeight = Number(ans.weight) || 1;
+    const reactionMs = ans.reactionTimeMs != null ? Number(ans.reactionTimeMs) : null;
+    const toggles = ans.toggleCount != null ? Number(ans.toggleCount) : 0;
+    totalToggles += toggles;
+    if (reactionMs !== null && reactionMs < 800) {
+      rapidClicks++;
+      baseWeight *= 0.85;
+    }
+    if (toggles >= 3) {
+      baseWeight *= 0.9;
+    }
+    if (ans.rawPayload && typeof ans.rawPayload === "object") {
+      const p = ans.rawPayload;
+      if (p.s1 != null) scales.s1 += (Number(p.s1) - 2.5) * 6 * baseWeight;
+      if (p.s2 != null) scales.s2 += (Number(p.s2) - 2.5) * 6 * baseWeight;
+      if (p.s3 != null) scales.s3 += (Number(p.s3) - 2.5) * 6 * baseWeight;
+      if (p.s4 != null) scales.s4 += (Number(p.s4) - 2.5) * 6 * baseWeight;
+      if (p.s5 != null) scales.s5 += (Number(p.s5) - 2.5) * 6 * baseWeight;
+      if (p.s6 != null) scales.s6 += (Number(p.s6) - 2.5) * 6 * baseWeight;
+      if (p.s7 != null) scales.s7 += (Number(p.s7) - 2.5) * 6 * baseWeight;
+      if (p.s8 != null) scales.s8 += (Number(p.s8) - 2.5) * 6 * baseWeight;
+      if (p.words != null) scales.s5 += (Number(p.words) - 2.5) * 5 * baseWeight;
+      if (p.time != null) scales.s6 += (Number(p.time) - 2.5) * 5 * baseWeight;
+      if (p.acts != null) scales.s7 += (Number(p.acts) - 2.5) * 5 * baseWeight;
+      if (p.touch != null) scales.s8 += (Number(p.touch) - 2.5) * 5 * baseWeight;
+      if (p.intimacy != null) scales.s17 += (Number(p.intimacy) - 3.3) * 5 * baseWeight;
+      if (p.passion != null) scales.s18 += (Number(p.passion) - 3.3) * 5 * baseWeight;
+      if (p.commitment != null) scales.s15 += (Number(p.commitment) - 3.3) * 5 * baseWeight;
+      if (p.energy != null) scales.s23 += (Number(p.energy) - 2.5) * 5 * baseWeight;
+      if (p.order != null) scales.s21 += (Number(p.order) - 2.5) * 5 * baseWeight;
+      if (p.novelty != null) scales.s24 += (Number(p.novelty) - 2.5) * 5 * baseWeight;
+      if (p.harmony != null) scales.s5 += (Number(p.harmony) - 2.5) * 5 * baseWeight;
+    }
+    const qId = ans.questionId || "";
+    const valStr = String(ans.selectedValue);
+    if (qId.startsWith("q-s1") || qId.startsWith("sit-1")) {
+      if (valStr.includes("anxiety") || valStr.includes("pursuit") || valStr.includes("urgent")) {
+        scales.s1 += 12 * baseWeight;
+        scales.s9 += 10 * baseWeight;
+      } else if (valStr.includes("avoid") || valStr.includes("solitary") || valStr.includes("silence")) {
+        scales.s2 += 12 * baseWeight;
+        scales.s10 += 10 * baseWeight;
+      } else if (valStr.includes("secure") || valStr.includes("team") || valStr.includes("calm")) {
+        scales.s4 += 12 * baseWeight;
+        scales.s12 += 10 * baseWeight;
+        scales.s1 -= 6 * baseWeight;
+        scales.s2 -= 6 * baseWeight;
+      } else if (valStr.includes("care") || valStr.includes("tea")) {
+        scales.s7 += 10 * baseWeight;
+        scales.s4 += 6 * baseWeight;
+      }
+    } else if (qId.startsWith("q-s2") || qId.startsWith("sit-2")) {
+      if (valStr.includes("words")) scales.s5 += 14 * baseWeight;
+      else if (valStr.includes("time")) scales.s6 += 14 * baseWeight;
+      else if (valStr.includes("acts")) scales.s7 += 14 * baseWeight;
+      else if (valStr.includes("touch")) scales.s8 += 14 * baseWeight;
+      else if (valStr.includes("gifts")) {
+        scales.s7 += 8 * baseWeight;
+        scales.s5 += 6 * baseWeight;
+      }
+    } else if (qId.startsWith("q-s3") || qId.startsWith("sit-3")) {
+      if (valStr.includes("soft_startup") || valStr.includes("empathy") || valStr.includes("gottman")) {
+        scales.s12 += 14 * baseWeight;
+        scales.s4 += 8 * baseWeight;
+        scales.s11 -= 8 * baseWeight;
+      } else if (valStr.includes("bottle") || valStr.includes("snark") || valStr.includes("criticism")) {
+        scales.s11 += 14 * baseWeight;
+        scales.s9 += 8 * baseWeight;
+      } else if (valStr.includes("stonewall") || valStr.includes("shut_down")) {
+        scales.s10 += 14 * baseWeight;
+        scales.s2 += 8 * baseWeight;
+      } else if (valStr.includes("autonomy") || valStr.includes("solitude")) {
+        scales.s13 += 14 * baseWeight;
+        scales.s23 -= 8 * baseWeight;
+      } else if (valStr.includes("together") || valStr.includes("fusion")) {
+        scales.s13 -= 10 * baseWeight;
+        scales.s6 += 8 * baseWeight;
+      }
+    } else if (qId.startsWith("q-c1") || qId.startsWith("sit-4")) {
+      if (valStr.includes("order") || valStr.includes("active") || valStr.includes("clean")) {
+        scales.s21 += 12 * baseWeight;
+      } else if (valStr.includes("cozy") || valStr.includes("relax") || valStr.includes("flexible")) {
+        scales.s21 -= 8 * baseWeight;
+      }
+      if (valStr.includes("common") || valStr.includes("shared_budget")) {
+        scales.s22 += 14 * baseWeight;
+      } else if (valStr.includes("split") || valStr.includes("separate")) {
+        scales.s22 -= 10 * baseWeight;
+        scales.s13 += 8 * baseWeight;
+      }
+      if (valStr.includes("ambition") || valStr.includes("invest")) {
+        scales.s14 += 12 * baseWeight;
+      } else if (valStr.includes("comfort") || valStr.includes("present")) {
+        scales.s14 -= 8 * baseWeight;
+      }
+    } else if (qId.startsWith("q-s4") || qId.startsWith("sit-5")) {
+      if (valStr.includes("passion") || valStr.includes("spark") || valStr.includes("spontaneous")) {
+        scales.s18 += 14 * baseWeight;
+        scales.s19 += 10 * baseWeight;
+      } else if (valStr.includes("gentle") || valStr.includes("safety_first")) {
+        scales.s17 += 14 * baseWeight;
+      }
+      if (valStr.includes("open_fantasies") || valStr.includes("taboo_low")) {
+        scales.s20 += 14 * baseWeight;
+      } else if (valStr.includes("deep_dialogue")) {
+        scales.s4 += 10 * baseWeight;
+        scales.s17 += 8 * baseWeight;
+      }
+    } else if (qId.startsWith("q-d1") || qId.startsWith("q-d2") || qId.startsWith("sit-6")) {
+      if (valStr.includes("traditions") || valStr.includes("family")) scales.s16 += 14 * baseWeight;
+      if (valStr.includes("children") || valStr.includes("solid_commitment")) scales.s15 += 14 * baseWeight;
+      if (valStr.includes("crisis_hardy") || valStr.includes("team_bond") || valStr.includes("collaborating")) {
+        scales.s24 += 14 * baseWeight;
+        scales.s12 += 10 * baseWeight;
+      }
+    } else if (qId.startsWith("q-pt")) {
+      if (valStr.includes("extravert") || valStr === "connector" || valStr === "social_support" || valStr === "novelty_craving") {
+        scales.s23 += 12 * baseWeight;
+      } else if (valStr.includes("introvert") || valStr === "deep_observer") {
+        scales.s23 -= 10 * baseWeight;
+        scales.s13 += 6 * baseWeight;
+      }
+      if (valStr === "structured" || valStr === "order_architect" || valStr === "duty_first" || valStr === "quiet_anchor" || valStr === "host_control") {
+        scales.s21 += 12 * baseWeight;
+      } else if (valStr === "spontaneous" || valStr === "creative_chaos" || valStr === "options_open") {
+        scales.s21 -= 8 * baseWeight;
+        scales.s18 += 6 * baseWeight;
+      } else if (valStr === "cyclic_order") {
+        scales.s21 += 4 * baseWeight;
+      }
+      if (valStr === "generator" || valStr === "curious_problem" || valStr === "novelty_craving" || valStr === "options_open") {
+        scales.s24 += 12 * baseWeight;
+      }
+      if (valStr === "neurotic_reaction") {
+        scales.s1 += 10 * baseWeight;
+        scales.s12 -= 8 * baseWeight;
+      } else if (valStr === "stable_focus") {
+        scales.s12 += 12 * baseWeight;
+        scales.s1 -= 6 * baseWeight;
+      }
+      if (valStr === "empathic_probe" || valStr === "deep_bond") {
+        scales.s5 += 8 * baseWeight;
+        scales.s4 += 6 * baseWeight;
+      }
+      if (valStr === "direct_logic" || valStr === "calm_assertive") {
+        scales.s12 += 8 * baseWeight;
+      }
+      if (valStr === "ritual_home") {
+        scales.s16 += 8 * baseWeight;
+        scales.s24 -= 4 * baseWeight;
+      }
+    }
+  }
+  const clamp = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
+  for (const k of Object.keys(scales)) {
+    scales[k] = clamp(scales[k]);
+  }
+  const dominantVectors = {
+    trustSafety: clamp((scales.s4 + (100 - scales.s1) + (100 - scales.s2) + (100 - scales.s3)) / 4),
+    emotionalCloseness: clamp((scales.s5 + scales.s6 + scales.s7 + scales.s8) / 4),
+    conflictDynamics: clamp((scales.s12 + (100 - scales.s9) + (100 - scales.s10) + (100 - scales.s11)) / 4),
+    valuesHorizon: clamp((scales.s13 + scales.s14 + scales.s15 + scales.s16) / 4),
+    intimacyPassion: clamp((scales.s17 + scales.s18 + scales.s19 + scales.s20) / 4),
+    lifestyleResilience: clamp((scales.s21 + scales.s22 + scales.s23 + scales.s24) / 4)
+  };
+  let consistency = 95;
+  if (totalValidAnswers > 0) {
+    const rapidRate = rapidClicks / totalValidAnswers;
+    const toggleRate = totalToggles / totalValidAnswers;
+    consistency -= rapidRate * 30;
+    consistency -= Math.min(25, toggleRate * 10);
+  }
+  consistency = Math.max(40, Math.min(100, Math.round(consistency)));
+  return {
+    traitScores: scales,
+    dominantVectors,
+    eSafety: dominantVectors.trustSafety,
+    aAutonomy: scales.s13,
+    cCloseness: dominantVectors.emotionalCloseness,
+    rRepair: dominantVectors.conflictDynamics,
+    vFuture: dominantVectors.valuesHorizon,
+    consistencyScore: consistency
+  };
+}
+
+// src/server/modules/tests/couple-matrix.calc.ts
+function calculateCoupleMatrix(p1Scales, p2Scales) {
+  const clamp = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
+  const avgS4 = (p1Scales.s4 + p2Scales.s4) / 2;
+  const avgSuspicionSafety = (200 - p1Scales.s3 - p2Scales.s3) / 2;
+  const deltaAttachment = (Math.abs(p1Scales.s1 - p2Scales.s1) + Math.abs(p1Scales.s2 - p2Scales.s2)) / 2;
+  const trustScore = clamp(avgS4 * 0.45 + avgSuspicionSafety * 0.35 + (100 - deltaAttachment) * 0.2);
+  const avgChannels = (p1Scales.s5 + p2Scales.s5 + p1Scales.s6 + p2Scales.s6 + p1Scales.s7 + p2Scales.s7 + p1Scales.s8 + p2Scales.s8) / 8;
+  const touchMatch = 100 - Math.abs(p1Scales.s8 - p2Scales.s8);
+  const timeMatch = 100 - Math.abs(p1Scales.s6 - p2Scales.s6);
+  const closenessScore = clamp(avgChannels * 0.6 + touchMatch * 0.2 + timeMatch * 0.2);
+  const avgSoothing = (p1Scales.s12 + p2Scales.s12) / 2;
+  const avgLowCriticism = (200 - p1Scales.s11 - p2Scales.s11) / 2;
+  let conflictBase = avgSoothing * 0.55 + avgLowCriticism * 0.45;
+  const destructivePatterns = [];
+  const isP1PursuitP2Withdraw = p1Scales.s9 >= 65 && p2Scales.s10 >= 65;
+  const isP2PursuitP1Withdraw = p2Scales.s9 >= 65 && p1Scales.s10 >= 65;
+  if (isP1PursuitP2Withdraw || isP2PursuitP1Withdraw) {
+    conflictBase -= 20;
+    destructivePatterns.push("\u041F\u0430\u0442\u0442\u0435\u0440\u043D \xAB\u041F\u0440\u0435\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u2014 \u0414\u0438\u0441\u0442\u0430\u043D\u0446\u0438\u0440\u0443\u044E\u0449\u0438\u0439\u0441\u044F\xBB (Pursuit-Withdrawal loop)");
+  }
+  const communicationScore = clamp(conflictBase);
+  const deltaAutonomy = Math.abs(p1Scales.s13 - p2Scales.s13);
+  const deltaAmbitions = Math.abs(p1Scales.s14 - p2Scales.s14);
+  const deltaKids = Math.abs(p1Scales.s15 - p2Scales.s15);
+  const deltaTraditions = Math.abs(p1Scales.s16 - p2Scales.s16);
+  const avgFutureCommitment = (p1Scales.s15 + p2Scales.s15) / 2;
+  const valuesPenalty = deltaKids * 0.35 + deltaAmbitions * 0.25 + deltaAutonomy * 0.25 + deltaTraditions * 0.15;
+  const valuesScore = clamp(avgFutureCommitment * 0.4 + (100 - valuesPenalty) * 0.6);
+  const avgDesireTrigger = (p1Scales.s17 + p2Scales.s17) / 2;
+  const avgInitiative = (p1Scales.s19 + p2Scales.s19) / 2;
+  const avgOpenness = (p1Scales.s20 + p2Scales.s20) / 2;
+  const deltaSpontaneity = Math.abs(p1Scales.s18 - p2Scales.s18);
+  const intimacyScore = clamp(avgDesireTrigger * 0.35 + avgInitiative * 0.25 + avgOpenness * 0.2 + (100 - deltaSpontaneity) * 0.2);
+  const deltaOrder = Math.abs(p1Scales.s21 - p2Scales.s21);
+  const deltaBudget = Math.abs(p1Scales.s22 - p2Scales.s22);
+  const avgCrisisHardiness = (p1Scales.s24 + p2Scales.s24) / 2;
+  const lifestyleScore = clamp(avgCrisisHardiness * 0.4 + (100 - deltaOrder * 0.4 - deltaBudget * 0.4) * 0.6);
+  const radar = {
+    trust: trustScore,
+    closeness: closenessScore,
+    communication: communicationScore,
+    values: valuesScore,
+    intimacy: intimacyScore,
+    lifestyle: lifestyleScore
+  };
+  const overallScore = Math.round(
+    (trustScore + closenessScore + communicationScore + valuesScore + intimacyScore + lifestyleScore) / 6
+  );
+  const spheresList = [
+    { key: "trust", score: trustScore, nameRu: "\u0414\u043E\u0432\u0435\u0440\u0438\u0435" },
+    { key: "closeness", score: closenessScore, nameRu: "\u0411\u043B\u0438\u0437\u043E\u0441\u0442\u044C" },
+    { key: "communication", score: communicationScore, nameRu: "\u041E\u0431\u0449\u0435\u043D\u0438\u0435" },
+    { key: "values", score: valuesScore, nameRu: "\u0426\u0435\u043D\u043D\u043E\u0441\u0442\u0438" },
+    { key: "intimacy", score: intimacyScore, nameRu: "\u0418\u043D\u0442\u0438\u043C\u043D\u043E\u0441\u0442\u044C" },
+    { key: "lifestyle", score: lifestyleScore, nameRu: "\u0411\u044B\u0442" }
+  ].sort((a, b) => b.score - a.score);
+  const leadKeys = [spheresList[0].key, spheresList[1].key];
+  const leadPair = `${leadKeys[0]}_${leadKeys[1]}`;
+  const reverseLeadPair = `${leadKeys[1]}_${leadKeys[0]}`;
+  const ARCHETYPE_MAP = {
+    "trust_values": {
+      title: "\xAB\u041D\u0430\u0434\u0451\u0436\u043D\u0430\u044F \u0433\u0430\u0432\u0430\u043D\u044C & \u041E\u0431\u0449\u0438\u0439 \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\xBB",
+      desc: "\u0412\u0430\u0448 \u0441\u043E\u044E\u0437 \u0431\u0430\u0437\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043D\u0430 \u0433\u043B\u0443\u0431\u043E\u043A\u043E\u043C \u0432\u0437\u0430\u0438\u043C\u043D\u043E\u043C \u0434\u043E\u0432\u0435\u0440\u0438\u0438, \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E\u0439 \u0437\u0430\u0449\u0438\u0449\u0451\u043D\u043D\u043E\u0441\u0442\u0438 \u0438 \u0441\u043E\u0437\u0432\u0443\u0447\u0438\u0438 \u0433\u043B\u0430\u0432\u043D\u044B\u0445 \u0436\u0438\u0437\u043D\u0435\u043D\u043D\u044B\u0445 \u0446\u0435\u043B\u0435\u0439."
+    },
+    "closeness_communication": {
+      title: "\xAB\u0413\u043B\u0443\u0431\u043E\u043A\u0438\u0439 \u043A\u043E\u043D\u0442\u0430\u043A\u0442 & \u0411\u0435\u0440\u0435\u0436\u043D\u044B\u0439 \u0442\u044B\u043B\xBB",
+      desc: "\u0412\u044B\u0441\u043E\u043A\u0430\u044F \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u0430\u044F \u0447\u0443\u0442\u043A\u043E\u0441\u0442\u044C, \u0443\u043C\u0435\u043D\u0438\u0435 \u0432\u043E\u0432\u0440\u0435\u043C\u044F \u0441\u043B\u044B\u0448\u0430\u0442\u044C \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430 \u0438 \u0440\u0435\u0448\u0430\u0442\u044C \u043B\u044E\u0431\u044B\u0435 \u0440\u0430\u0437\u043D\u043E\u0433\u043B\u0430\u0441\u0438\u044F \u0447\u0435\u0440\u0435\u0437 \u0438\u0441\u043A\u0440\u0435\u043D\u043D\u0438\u0439 \u0434\u0438\u0430\u043B\u043E\u0433."
+    },
+    "intimacy_closeness": {
+      title: "\xAB\u0416\u0438\u0432\u043E\u0435 \u043F\u043B\u0430\u043C\u044F & \u042D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441\xBB",
+      desc: "\u0413\u0430\u0440\u043C\u043E\u043D\u0438\u0447\u043D\u043E\u0435 \u0441\u043E\u0447\u0435\u0442\u0430\u043D\u0438\u0435 \u0440\u043E\u043C\u0430\u043D\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0433\u043E \u0432\u043B\u0435\u0447\u0435\u043D\u0438\u044F, \u043D\u0435\u0436\u043D\u043E\u0441\u0442\u0438 \u0438 \u0441\u043F\u043E\u0441\u043E\u0431\u043D\u043E\u0441\u0442\u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u043E \u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F \u0441\u043E\u043A\u0440\u043E\u0432\u0435\u043D\u043D\u044B\u043C\u0438 \u0436\u0435\u043B\u0430\u043D\u0438\u044F\u043C\u0438."
+    },
+    "values_lifestyle": {
+      title: "\xAB\u0422\u0430\u043D\u0434\u0435\u043C \u0430\u0440\u0445\u0438\u0442\u0435\u043A\u0442\u043E\u0440\u043E\u0432 & \u041F\u0440\u043E\u0447\u043D\u044B\u0439 \u0444\u0443\u043D\u0434\u0430\u043C\u0435\u043D\u0442\xBB",
+      desc: "\u0421\u043B\u0430\u0436\u0435\u043D\u043D\u0430\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430 \u0435\u0434\u0438\u043D\u043E\u043C\u044B\u0448\u043B\u0435\u043D\u043D\u0438\u043A\u043E\u0432: \u0435\u0434\u0438\u043D\u044B\u0435 \u0444\u0438\u043D\u0430\u043D\u0441\u043E\u0432\u044B\u0435 \u043E\u0440\u0438\u0435\u043D\u0442\u0438\u0440\u044B, \u0441\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0431\u044B\u0442\u043E\u0432\u043E\u0439 \u0443\u043A\u043B\u0430\u0434 \u0438 \u0443\u0432\u0435\u0440\u0435\u043D\u043D\u043E\u0441\u0442\u044C \u0432 \u0431\u0443\u0434\u0443\u0449\u0435\u043C."
+    },
+    "trust_communication": {
+      title: "\xAB\u041E\u0442\u043A\u0440\u044B\u0442\u0430\u044F \u0433\u0430\u0432\u0430\u043D\u044C & \u041E\u0441\u043E\u0437\u043D\u0430\u043D\u043D\u044B\u0439 \u0434\u0438\u0430\u043B\u043E\u0433\xBB",
+      desc: "\u0421\u043F\u043E\u043A\u043E\u0439\u043D\u0430\u044F \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C \u0438 \u043C\u0430\u0441\u0442\u0435\u0440\u0441\u0442\u0432\u043E \u044D\u043A\u043E\u043B\u043E\u0433\u0438\u0447\u043D\u043E\u0439 \u043A\u043E\u043C\u043C\u0443\u043D\u0438\u043A\u0430\u0446\u0438\u0438 \u0434\u0430\u0436\u0435 \u0432 \u0441\u0442\u0440\u0435\u0441\u0441\u043E\u0432\u044B\u0445 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u044F\u0445."
+    },
+    "lifestyle_trust": {
+      title: "\xAB\u0423\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0439 \u0442\u044B\u043B & \u0412\u0437\u0430\u0438\u043C\u043D\u0430\u044F \u043E\u043F\u043E\u0440\u0430\xBB",
+      desc: "\u0412\u044B\u0441\u043E\u043A\u0430\u044F \u0436\u0438\u0437\u043D\u0435\u0441\u0442\u043E\u0439\u043A\u043E\u0441\u0442\u044C, \u043F\u0440\u0435\u0434\u0441\u043A\u0430\u0437\u0443\u0435\u043C\u043E\u0441\u0442\u044C \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0451\u043D\u043D\u043E\u0441\u0442\u0435\u0439 \u0438 \u0432\u0437\u0430\u0438\u043C\u043D\u0430\u044F \u0437\u0430\u0431\u043E\u0442\u0430 \u0432 \u043F\u043E\u0432\u0441\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0445 \u0434\u0435\u043B\u0430\u0445."
+    },
+    "trust_closeness": {
+      title: "\xAB\u0422\u0451\u043F\u043B\u0430\u044F \u0433\u0430\u0432\u0430\u043D\u044C & \u0411\u0435\u0437\u0443\u0441\u043B\u043E\u0432\u043D\u043E\u0435 \u043F\u0440\u0438\u043D\u044F\u0442\u0438\u0435\xBB",
+      desc: "\u041F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u043E \u043D\u0435\u0436\u043D\u043E\u0441\u0442\u0438, \u0433\u0434\u0435 \u043A\u0430\u0436\u0434\u044B\u0439 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u0443\u044F\u0437\u0432\u0438\u043C\u044B\u043C \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0431\u044F \u043F\u043E-\u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C\u0443 \u043D\u0443\u0436\u043D\u044B\u043C \u0438 \u043B\u044E\u0431\u0438\u043C\u044B\u043C."
+    },
+    "communication_values": {
+      title: "\xAB\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0441\u043E\u044E\u0437 & \u041E\u0441\u043E\u0437\u043D\u0430\u043D\u043D\u044B\u0439 \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\xBB",
+      desc: "\u042F\u0441\u043D\u043E\u0435 \u043F\u043E\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0433\u043E \u0431\u0443\u0434\u0443\u0449\u0435\u0433\u043E, \u0443\u043C\u0435\u043D\u0438\u0435 \u0434\u043E\u0433\u043E\u0432\u0430\u0440\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E \u043A\u043B\u044E\u0447\u0435\u0432\u044B\u043C \u0440\u0430\u0437\u0432\u0438\u043B\u043A\u0430\u043C \u0431\u0435\u0437 \u0441\u043A\u0440\u044B\u0442\u043E\u0433\u043E \u043D\u0430\u043F\u0440\u044F\u0436\u0435\u043D\u0438\u044F."
+    },
+    "intimacy_trust": {
+      title: "\xAB\u0418\u0441\u043A\u0440\u044F\u0449\u0430\u044F\u0441\u044F \u0433\u043B\u0443\u0431\u0438\u043D\u0430 & \u0414\u043E\u0432\u0435\u0440\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043A\u043E\u043D\u0442\u0430\u043A\u0442\xBB",
+      desc: "\u0413\u043B\u0443\u0431\u043E\u043A\u043E\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u043A \u0442\u0435\u043B\u0443 \u0438 \u0447\u0443\u0432\u0441\u0442\u0432\u0430\u043C \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430, \u0434\u0435\u043B\u0430\u044E\u0449\u0435\u0435 \u0438\u043D\u0442\u0438\u043C\u043D\u0443\u044E \u0431\u043B\u0438\u0437\u043E\u0441\u0442\u044C \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u043E\u043C \u0432\u0437\u0430\u0438\u043C\u043D\u043E\u0433\u043E \u0440\u0435\u0441\u0443\u0440\u0441\u0430."
+    },
+    "lifestyle_closeness": {
+      title: "\xAB\u0423\u044E\u0442\u043D\u044B\u0439 \u043E\u0447\u0430\u0433 & \u0422\u0451\u043F\u043B\u043E\u0435 \u0441\u043E\u0437\u0432\u0443\u0447\u0438\u0435\xBB",
+      desc: "\u0420\u0430\u0434\u043E\u0441\u0442\u044C \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0433\u043E \u0431\u044B\u0442\u0430, \u0431\u0435\u0440\u0435\u0436\u043D\u044B\u0435 \u0440\u0438\u0442\u0443\u0430\u043B\u044B \u0437\u0430\u0431\u043E\u0442\u044B \u0438 \u043A\u043E\u043C\u0444\u043E\u0440\u0442\u043D\u043E\u0435 \u0440\u0430\u0441\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u0435 \u0434\u043E\u043C\u0430\u0448\u043D\u0435\u0433\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438."
+    }
+  };
+  const matchedArchetype = ARCHETYPE_MAP[leadPair] || ARCHETYPE_MAP[reverseLeadPair] || {
+    title: "\xAB\u0413\u0430\u0440\u043C\u043E\u043D\u0438\u0447\u043D\u044B\u0439 \u0442\u0430\u043D\u0434\u0435\u043C & \u0421\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u044B\u0439 \u0440\u043E\u0441\u0442\xBB",
+    desc: "\u041E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F \u0440\u0430\u0437\u0432\u0438\u0432\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0441\u0431\u0430\u043B\u0430\u043D\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u043E\u0439 \u043E\u0441\u043D\u043E\u0432\u0435 \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E\u0433\u043E \u0442\u0435\u043F\u043B\u0430, \u0443\u0432\u0430\u0436\u0435\u043D\u0438\u044F \u043A \u0433\u0440\u0430\u043D\u0438\u0446\u0430\u043C \u0438 \u043E\u0431\u0449\u0438\u0445 \u0446\u0435\u043B\u0435\u0439."
+  };
+  const synergyPoints = [];
+  if (trustScore >= 75) {
+    synergyPoints.push({
+      sphere: "trust",
+      title: "\u0412\u044B\u0441\u043E\u043A\u0430\u044F \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u0430\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C",
+      description: "\u0423\u0432\u0435\u0440\u0435\u043D\u043D\u043E\u0441\u0442\u044C \u0432 \u043D\u0430\u0434\u0451\u0436\u043D\u043E\u0441\u0442\u0438 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430 \u0438 \u0433\u043E\u0442\u043E\u0432\u043D\u043E\u0441\u0442\u044C \u0431\u044B\u0442\u044C \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u043C\u0438 \u0431\u0435\u0437 \u0441\u0442\u0440\u0430\u0445\u0430 \u043E\u0441\u0443\u0436\u0434\u0435\u043D\u0438\u044F.",
+      score: trustScore,
+      statusLabel: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441"
+    });
+  } else if (trustScore >= 50) {
+    synergyPoints.push({
+      sphere: "trust",
+      title: "\u0411\u0430\u0437\u043E\u0432\u043E\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u0438 \u043E\u043F\u043E\u0440\u0430",
+      description: "\u0425\u043E\u0440\u043E\u0448\u0438\u0439 \u0444\u0443\u043D\u0434\u0430\u043C\u0435\u043D\u0442 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 \u0441 \u043F\u043E\u0442\u0435\u043D\u0446\u0438\u0430\u043B\u043E\u043C \u0434\u043B\u044F \u0435\u0449\u0451 \u0431\u043E\u043B\u044C\u0448\u0435\u0439 \u0433\u043B\u0443\u0431\u0438\u043D\u044B \u043A\u043E\u043D\u0442\u0430\u043A\u0442\u0430.",
+      score: trustScore,
+      statusLabel: "\u0417\u043E\u043D\u0430 \u0441\u0438\u043D\u0435\u0440\u0433\u0438\u0438"
+    });
+  }
+  if (closenessScore >= 75) {
+    synergyPoints.push({
+      sphere: "closeness",
+      title: "\u042D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441 \u0438 \u0442\u0435\u043F\u043B\u043E",
+      description: "\u0421\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0435 \u0433\u043B\u0430\u0432\u043D\u044B\u0445 \u043A\u0430\u043D\u0430\u043B\u043E\u0432 \u0437\u0430\u0431\u043E\u0442\u044B \u0438 \u0432\u0437\u0430\u0438\u043C\u043D\u0430\u044F \u0447\u0443\u0442\u043A\u043E\u0441\u0442\u044C \u043A \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0438\u044E \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430.",
+      score: closenessScore,
+      statusLabel: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441"
+    });
+  }
+  if (valuesScore >= 75) {
+    synergyPoints.push({
+      sphere: "values",
+      title: "\u0415\u0434\u0438\u043D\u0441\u0442\u0432\u043E \u0436\u0438\u0437\u043D\u0435\u043D\u043D\u044B\u0445 \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442\u043E\u0432",
+      description: "\u0421\u043E\u0433\u043B\u0430\u0441\u043E\u0432\u0430\u043D\u043D\u044B\u0439 \u0432\u0437\u0433\u043B\u044F\u0434 \u043D\u0430 \u0440\u0430\u0437\u0432\u0438\u0442\u0438\u0435 \u0441\u043E\u044E\u0437\u0430, \u0441\u0435\u043C\u0435\u0439\u043D\u044B\u0435 \u0446\u0435\u043D\u043D\u043E\u0441\u0442\u0438 \u0438 \u0434\u043E\u043B\u0433\u043E\u0441\u0440\u043E\u0447\u043D\u044B\u0435 \u0446\u0435\u043B\u0438.",
+      score: valuesScore,
+      statusLabel: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441"
+    });
+  }
+  if (lifestyleScore >= 70) {
+    synergyPoints.push({
+      sphere: "lifestyle",
+      title: "\u0421\u043B\u0430\u0436\u0435\u043D\u043D\u043E\u0441\u0442\u044C \u0432 \u0431\u044B\u0442\u0443 \u0438 \u043A\u0440\u0438\u0437\u0438\u0441\u0430\u0445",
+      description: "\u0423\u043C\u0435\u043D\u0438\u0435 \u0431\u044B\u0441\u0442\u0440\u043E \u043D\u0430\u0445\u043E\u0434\u0438\u0442\u044C \u043A\u043E\u043D\u0441\u0435\u043D\u0441\u0443\u0441 \u0432 \u043F\u0440\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u0432\u043E\u043F\u0440\u043E\u0441\u0430\u0445 \u0438 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A.",
+      score: lifestyleScore,
+      statusLabel: "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u043D\u044B\u0439 \u0440\u0435\u0437\u043E\u043D\u0430\u043D\u0441"
+    });
+  }
+  const growthZones = [];
+  if (deltaAutonomy >= 25) {
+    growthZones.push({
+      sphere: "values",
+      title: "\u0420\u0430\u0437\u043D\u044B\u0439 \u0442\u0435\u043C\u043F \u0430\u0432\u0442\u043E\u043D\u043E\u043C\u0438\u0438 \u0438 \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0441\u0442\u0438",
+      description: "\u041E\u0434\u0438\u043D \u0438\u0437 \u0432\u0430\u0441 \u043D\u0443\u0436\u0434\u0430\u0435\u0442\u0441\u044F \u0432 \u0447\u0443\u0442\u044C \u0431\u043E\u043B\u044C\u0448\u0435\u043C \u043B\u0438\u0447\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435 \u0434\u043B\u044F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F, \u0442\u043E\u0433\u0434\u0430 \u043A\u0430\u043A \u0432\u0442\u043E\u0440\u043E\u0439 \u0446\u0435\u043D\u0438\u0442 \u0431\u043E\u043B\u0435\u0435 \u043F\u043B\u043E\u0442\u043D\u044B\u0439 \u043A\u043E\u043D\u0442\u0430\u043A\u0442.",
+      gap: Math.round(deltaAutonomy),
+      statusLabel: deltaAutonomy >= 40 ? "\u0422\u043E\u0447\u043A\u0430 \u0440\u0430\u0441\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0430" : "\u0417\u043E\u043D\u0430 \u0441\u0438\u043D\u0435\u0440\u0433\u0438\u0438 \u0438 \u0440\u043E\u0441\u0442\u0430",
+      recommendation: "\u0417\u0430\u0440\u0430\u043D\u0435\u0435 \u043F\u043B\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 \xAB\u0447\u0430\u0441\u044B \u0430\u0432\u0442\u043E\u043D\u043E\u043C\u0438\u0438\xBB \u0431\u0435\u0437 \u0447\u0443\u0432\u0441\u0442\u0432\u0430 \u0432\u0438\u043D\u044B \u0438 \u043E\u0431\u0438\u0434."
+    });
+  }
+  if (destructivePatterns.length > 0) {
+    growthZones.push({
+      sphere: "communication",
+      title: "\u042D\u0441\u043A\u0430\u043B\u0430\u0446\u0438\u044F: \u0434\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u0442\u0438\u0432 \u0443\u0445\u043E\u0434\u0430 \u0432 \u043F\u0430\u0443\u0437\u0443",
+      description: "\u041F\u0440\u0438 \u0441\u0442\u0440\u0435\u0441\u0441\u0435 \u043E\u0434\u0438\u043D \u043F\u0430\u0440\u0442\u043D\u0451\u0440 \u0441\u0442\u0440\u0435\u043C\u0438\u0442\u0441\u044F \u043D\u0435\u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E \u0432\u0441\u0451 \u0432\u044B\u044F\u0441\u043D\u0438\u0442\u044C, \u0430 \u0432\u0442\u043E\u0440\u043E\u0439 \u0443\u0445\u043E\u0434\u0438\u0442 \u0432 \u0433\u043B\u0443\u0445\u0443\u044E \u043F\u0430\u0443\u0437\u0443, \u0443\u0441\u0438\u043B\u0438\u0432\u0430\u044F \u0442\u0440\u0435\u0432\u043E\u0433\u0443 \u043F\u0435\u0440\u0432\u043E\u0433\u043E.",
+      gap: Math.round(Math.abs(p1Scales.s9 - p2Scales.s10)),
+      statusLabel: "\u0422\u043E\u0447\u043A\u0430 \u0440\u0430\u0441\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0430",
+      recommendation: "\u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u043F\u0440\u0430\u0432\u0438\u043B\u043E \u0413\u043E\u0442\u0442\u043C\u0430\u043D\u0430: \u0447\u0451\u0442\u043A\u0430\u044F \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0451\u043D\u043D\u043E\u0441\u0442\u044C \u043E 20-\u043C\u0438\u043D\u0443\u0442\u043D\u043E\u043C \u0442\u0430\u0439\u043C-\u0430\u0443\u0442\u0435 \u0441 \u0442\u043E\u0447\u043D\u044B\u043C \u043E\u0431\u0435\u0449\u0430\u043D\u0438\u0435\u043C \u0432\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u0434\u0438\u0430\u043B\u043E\u0433\u0443."
+    });
+  }
+  if (deltaBudget >= 25) {
+    growthZones.push({
+      sphere: "lifestyle",
+      title: "\u0420\u0430\u0437\u043D\u0438\u0446\u0430 \u0432 \u0444\u0438\u043D\u0430\u043D\u0441\u043E\u0432\u043E\u043C \u043F\u043B\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0438",
+      description: "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u0440\u0430\u0437\u043B\u0438\u0447\u0438\u044F \u0432 \u0431\u0430\u043B\u0430\u043D\u0441\u0435 \u043C\u0435\u0436\u0434\u0443 \u0441\u0438\u044E\u043C\u0438\u043D\u0443\u0442\u043D\u044B\u043C\u0438 \u0440\u0430\u0434\u043E\u0441\u0442\u044F\u043C\u0438 \u0438 \u0434\u043E\u043B\u0433\u043E\u0441\u0440\u043E\u0447\u043D\u043E\u0439 \u043F\u043E\u0434\u0443\u0448\u043A\u043E\u0439 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438.",
+      gap: Math.round(deltaBudget),
+      statusLabel: deltaBudget >= 40 ? "\u0422\u043E\u0447\u043A\u0430 \u0440\u0430\u0441\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0430" : "\u0417\u043E\u043D\u0430 \u0441\u0438\u043D\u0435\u0440\u0433\u0438\u0438 \u0438 \u0440\u043E\u0441\u0442\u0430",
+      recommendation: "\u0412\u044B\u0434\u0435\u043B\u0438\u0442\u0435 \u043D\u0435\u043F\u0440\u0438\u043A\u043E\u0441\u043D\u043E\u0432\u0435\u043D\u043D\u044B\u0439 \u043B\u0438\u0447\u043D\u044B\u0439 \u0431\u044E\u0434\u0436\u0435\u0442 \u0434\u043B\u044F \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430 \u0431\u0435\u0437 \u043E\u0442\u0447\u0451\u0442\u0430 \u043F\u043E \u0442\u0440\u0430\u0442\u0430\u043C."
+    });
+  }
+  if (growthZones.length === 0) {
+    growthZones.push({
+      sphere: "communication",
+      title: "\u0421\u043F\u043E\u043D\u0442\u0430\u043D\u043D\u044B\u0435 \u0440\u0438\u0442\u0443\u0430\u043B\u044B \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
+      description: "\u0414\u043B\u044F \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0430\u043D\u0438\u044F \u044F\u0440\u043A\u043E\u0441\u0442\u0438 \u0447\u0443\u0432\u0441\u0442\u0432 \u043F\u043E\u043B\u0435\u0437\u043D\u043E \u0440\u0435\u0433\u0443\u043B\u044F\u0440\u043D\u043E \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u043E\u0432\u044B\u0435 \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u044B\u0435 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u0438 \u0438 \u0432\u043F\u0435\u0447\u0430\u0442\u043B\u0435\u043D\u0438\u044F.",
+      gap: 15,
+      statusLabel: "\u0417\u043E\u043D\u0430 \u0441\u0438\u043D\u0435\u0440\u0433\u0438\u0438",
+      recommendation: "\u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0440\u0435\u0433\u0443\u043B\u044F\u0440\u043D\u0443\u044E \u043F\u0440\u0430\u043A\u0442\u0438\u043A\u0443 \xAB\u0421\u0432\u0438\u0434\u0430\u043D\u0438\u0435-\u0441\u044E\u0440\u043F\u0440\u0438\u0437\xBB \u0440\u0430\u0437 \u0432 \u0434\u0432\u0435 \u043D\u0435\u0434\u0435\u043B\u0438."
+    });
+  }
+  return {
+    radar,
+    overallScore,
+    archetype: {
+      title: matchedArchetype.title,
+      description: matchedArchetype.desc,
+      leadSpheres: leadKeys
+    },
+    synergyPoints,
+    growthZones,
+    destructivePatternsDetected: destructivePatterns
+  };
+}
+
+// src/server/modules/tests/tests.service.ts
+var CATALOG_TEST_IDS = Object.keys(TESTS_REGISTRY);
+var EXPECTED_QUESTIONS = Object.fromEntries(
+  Object.entries(TESTS_REGISTRY).map(([id, def]) => [id, def.totalQuestions])
+);
+async function resolveTestCoupleId(userLogin) {
+  const clean = (s) => s.toLowerCase().trim().replace(/^@/, "");
+  if (!isSqlConfigured() || !db) return clean(userLogin);
+  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq7(users.login, userLogin));
+  if (!u) return clean(userLogin);
+  if (!u.partnerLogin) return clean(u.login);
+  return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+}
+async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
+  const isProd8 = process.env.NODE_ENV === "production";
+  if (isProd8 && (!isSqlConfigured() || !db)) {
+    throw new DatabaseUnavailableError();
+  }
+  const testDef = TESTS_REGISTRY[testId];
+  if (!testDef) {
+    throw new Error(`Unknown testId: ${testId}`);
+  }
+  if (answers.length !== testDef.totalQuestions) {
+    const missing = testDef.totalQuestions - answers.length;
+    throw new Error(
+      `ValidationFailed: Expected ${testDef.totalQuestions} answers for "${testDef.title}", got ${answers.length}. Missing ${missing} question(s).`
+    );
+  }
+  if (isSqlConfigured() && db) {
+    return await db.transaction(async (tx) => {
+      const [u] = await tx.select().from(users).where(eq7(users.login, userLogin));
+      const userId = u ? u.id : userLogin;
+      let session = await tx.select().from(testSessions).where(
+        and5(
+          eq7(testSessions.coupleId, coupleId),
+          eq7(testSessions.testId, testId),
+          eq7(testSessions.status, "in_progress")
+        )
+      ).limit(1);
+      if (!session.length) {
+        const newSessionId = crypto7.randomUUID();
+        const [created] = await tx.insert(testSessions).values({
+          id: newSessionId,
+          testId,
+          coupleId,
+          testClass: "couple",
+          status: "in_progress"
+        }).returning();
+        session = [created];
+      }
+      const sessionId = session[0].id;
+      const answerRecords = answers.map((a) => ({
+        id: crypto7.randomUUID(),
+        sessionId,
+        userId,
+        questionId: a.questionId,
+        selectedValue: String(a.value),
+        scaleId: a.scaleId ?? null,
+        weight: "1.00",
+        reactionTimeMs: a.reactionTimeMs ?? null,
+        toggleCount: a.toggleCount ?? 0,
+        targetType: a.targetType ?? "self",
+        rawPayload: a.rawPayload ?? null
+      }));
+      await tx.insert(testAnswers).values(answerRecords);
+      await tx.delete(testDrafts).where(
+        and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))
+      );
+      await _recalculateUserProfile(tx, coupleId, userId, testId);
+      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
+      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq7(testSessions.id, sessionId));
+      return {
+        status: "completed",
+        testId,
+        userId,
+        sessionId,
+        answersCount: answers.length,
+        harmonyState: triggerResult
+      };
+    });
+  }
+  return { status: "recorded_locally", testId, message: "Dev mode: no DB" };
+}
+async function submitTestAnswer(params) {
+  const isProd8 = process.env.NODE_ENV === "production";
+  if (isProd8 && (!isSqlConfigured() || !db)) {
+    throw new DatabaseUnavailableError();
+  }
+  const testDef = TESTS_REGISTRY[params.testId];
+  if (!testDef) {
+    throw new Error(`Unknown testId: ${params.testId}`);
+  }
+  if (isSqlConfigured() && db) {
+    return await db.transaction(async (tx) => {
+      const [u] = await tx.select().from(users).where(eq7(users.login, params.userLogin));
+      const userId = u ? u.id : params.userLogin;
+      let sessionId = params.sessionId;
+      if (!sessionId) {
+        let session = await tx.select().from(testSessions).where(
+          and5(
+            eq7(testSessions.coupleId, params.coupleId),
+            eq7(testSessions.testId, params.testId),
+            eq7(testSessions.status, "in_progress")
+          )
+        ).limit(1);
+        if (!session.length) {
+          const newSessionId = crypto7.randomUUID();
+          const [created] = await tx.insert(testSessions).values({
+            id: newSessionId,
+            testId: params.testId,
+            coupleId: params.coupleId,
+            testClass: "couple",
+            status: "in_progress"
+          }).returning();
+          session = [created];
+        }
+        sessionId = session[0].id;
+      }
+      await tx.insert(testAnswers).values({
+        id: crypto7.randomUUID(),
+        sessionId,
+        userId,
+        questionId: params.questionId,
+        selectedValue: String(params.selectedValue ?? ""),
+        weight: "1.00",
+        reactionTimeMs: params.reactionTimeMs ?? null,
+        toggleCount: params.toggleCount ?? 0,
+        targetType: params.targetType ?? "self",
+        rawPayload: params.rawPayload ?? null
+      }).onConflictDoUpdate({
+        target: [testAnswers.sessionId, testAnswers.userId, testAnswers.questionId],
+        set: {
+          selectedValue: String(params.selectedValue ?? ""),
+          reactionTimeMs: params.reactionTimeMs ?? null,
+          toggleCount: params.toggleCount ?? 0,
+          targetType: params.targetType ?? "self",
+          rawPayload: params.rawPayload ?? null
+        }
+      });
+      return {
+        status: "answer_recorded",
+        testId: params.testId,
+        userId,
+        sessionId,
+        questionId: params.questionId
+      };
+    });
+  }
+  return { status: "recorded_locally", testId: params.testId, message: "Dev mode: no DB" };
+}
+async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
+  if (!isSqlConfigured() || !db) {
+    return { status: "saved_locally", message: "Dev mode: no DB" };
+  }
+  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const userId = u ? u.id : userLogin;
+  await db.insert(testDrafts).values({
+    userId,
+    testId,
+    currentQuestionIndex,
+    answers
+  }).onConflictDoUpdate({
+    target: [testDrafts.userId, testDrafts.testId],
+    set: {
+      currentQuestionIndex,
+      answers,
+      updatedAt: /* @__PURE__ */ new Date()
+    }
+  });
+  return { status: "saved", testId, currentQuestionIndex };
+}
+async function getTestDraft(userLogin, testId) {
+  if (!isSqlConfigured() || !db) {
+    return null;
+  }
+  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const userId = u ? u.id : userLogin;
+  const [draft] = await db.select().from(testDrafts).where(and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))).limit(1);
+  return draft ?? null;
+}
+async function clearTestDraft(userLogin, testId) {
+  if (!isSqlConfigured() || !db) {
+    return { status: "cleared_locally", message: "Dev mode: no DB" };
+  }
+  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const userId = u ? u.id : userLogin;
+  await db.delete(testDrafts).where(
+    and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))
+  );
+  return { status: "cleared", testId };
+}
+async function getTestsStatusForUser(userLogin) {
+  if (!isSqlConfigured() || !db) {
+    return CATALOG_TEST_IDS.map((testId) => ({
+      testId,
+      isCompletedByMe: false,
+      isCompletedByPartner: false
+    }));
+  }
+  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  if (!u) return [];
+  const userId = u.id;
+  if (!u.partnerLogin) {
+    return CATALOG_TEST_IDS.map((testId) => ({
+      testId,
+      isCompletedByMe: false,
+      isCompletedByPartner: false
+    }));
+  }
+  const [partner] = await db.select({ id: users.id }).from(users).where(eq7(users.login, u.partnerLogin));
+  const partnerId = partner?.id;
+  if (!partnerId) {
+    return CATALOG_TEST_IDS.map((testId) => ({
+      testId,
+      isCompletedByMe: false,
+      isCompletedByPartner: false
+    }));
+  }
+  const coupleId = await resolveTestCoupleId(userLogin);
+  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(
+    and5(
+      eq7(testAnswers.userId, userId),
+      eq7(testSessions.status, "completed"),
+      eq7(testSessions.coupleId, coupleId)
+    )
+  );
+  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(
+    and5(
+      eq7(testAnswers.userId, partnerId),
+      eq7(testSessions.status, "completed"),
+      eq7(testSessions.coupleId, coupleId)
+    )
+  );
+  const mySet = new Set(myCompleted.map((r) => r.testId));
+  const partnerSet = new Set(partnerCompleted.map((r) => r.testId));
+  return CATALOG_TEST_IDS.map((testId) => ({
+    testId,
+    isCompletedByMe: mySet.has(testId),
+    isCompletedByPartner: partnerSet.has(testId)
+  }));
+}
+async function _recalculateUserProfile(tx, coupleId, userId, testId) {
+  const rows = await tx.select({
+    answers: testAnswers
+  }).from(testAnswers).innerJoin(testSessions, eq7(testAnswers.sessionId, testSessions.id)).where(and5(eq7(testAnswers.userId, userId), eq7(testSessions.coupleId, coupleId)));
+  if (!rows.length) return;
+  const rawForEngine = rows.map((r) => ({
+    questionId: r.answers.questionId,
+    selectedValue: r.answers.selectedValue,
+    weight: r.answers.weight,
+    reactionTimeMs: r.answers.reactionTimeMs,
+    toggleCount: r.answers.toggleCount,
+    targetType: r.answers.targetType,
+    rawPayload: r.answers.rawPayload
+  }));
+  const profile = calculateIndividualVector(rawForEngine);
+  await tx.insert(userPsychProfiles).values({
+    userId,
+    coupleId,
+    sessionId: "",
+    traitScores: profile.traitScores,
+    dominantVectors: profile.dominantVectors,
+    eSafety: String(profile.eSafety),
+    aAutonomy: String(profile.aAutonomy),
+    cCloseness: String(profile.cCloseness),
+    rRepair: String(profile.rRepair),
+    vFuture: String(profile.vFuture),
+    consistencyScore: String(profile.consistencyScore),
+    rawResponses: rawForEngine,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).onConflictDoUpdate({
+    target: [userPsychProfiles.userId],
+    set: {
+      traitScores: profile.traitScores,
+      dominantVectors: profile.dominantVectors,
+      eSafety: String(profile.eSafety),
+      aAutonomy: String(profile.aAutonomy),
+      cCloseness: String(profile.cCloseness),
+      rRepair: String(profile.rRepair),
+      vFuture: String(profile.vFuture),
+      consistencyScore: String(profile.consistencyScore),
+      rawResponses: rawForEngine,
+      updatedAt: /* @__PURE__ */ new Date()
+    }
+  });
+}
+async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
+  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(and5(eq7(testSessions.coupleId, coupleId), eq7(testSessions.status, "completed")));
+  const completedByUser = /* @__PURE__ */ new Map();
+  for (const row of tests) {
+    const { testId, userId: uId } = row;
+    if (!completedByUser.has(uId)) completedByUser.set(uId, /* @__PURE__ */ new Set());
+    completedByUser.get(uId).add(testId);
+  }
+  const allTestIds = CATALOG_TEST_IDS;
+  const userIds = Array.from(completedByUser.keys());
+  if (userIds.length < 2) {
+    return { state: "PARTNER_PENDING" };
+  }
+  const [user1Tests, user2Tests] = [completedByUser.get(userIds[0]), completedByUser.get(userIds[1])];
+  const user1Complete = allTestIds.every((t) => user1Tests?.has(t));
+  const user2Complete = allTestIds.every((t) => user2Tests?.has(t));
+  if (!user1Complete || !user2Complete) {
+    return { state: "PARTNER_PENDING" };
+  }
+  const [profile1, profile2] = await Promise.all([
+    tx.select().from(userPsychProfiles).where(eq7(userPsychProfiles.userId, userIds[0])).limit(1),
+    tx.select().from(userPsychProfiles).where(eq7(userPsychProfiles.userId, userIds[1])).limit(1)
+  ]);
+  const scales1 = profile1[0]?.traitScores;
+  const scales2 = profile2[0]?.traitScores;
+  if (!scales1 || !scales2 || scales1.s1 == null || scales2.s1 == null) {
+    return { state: "BOTH_COMPLETED" };
+  }
+  const matrixResult = calculateCoupleMatrix(scales1, scales2);
+  const reportValues = {
+    coupleId,
+    sessionId: "",
+    radarMetrics: matrixResult.radar,
+    radarTrust: String(matrixResult.radar.trust),
+    radarCloseness: String(matrixResult.radar.closeness),
+    radarCommunication: String(matrixResult.radar.communication),
+    radarIntimacy: String(matrixResult.radar.intimacy),
+    radarValues: String(matrixResult.radar.values),
+    radarLifestyle: String(matrixResult.radar.lifestyle),
+    archetypeTitle: matrixResult.archetype.title,
+    archetypeDescription: matrixResult.archetype.description,
+    leadSpheres: matrixResult.archetype.leadSpheres,
+    synergyPoints: matrixResult.synergyPoints,
+    growthZones: matrixResult.growthZones,
+    blindSpots: matrixResult.destructivePatternsDetected,
+    calculatedAt: /* @__PURE__ */ new Date()
+  };
+  await tx.insert(coupleReports).values({
+    ...reportValues,
+    id: crypto7.randomUUID(),
+    createdAt: /* @__PURE__ */ new Date()
+  }).onConflictDoUpdate({
+    target: [coupleReports.coupleId],
+    set: reportValues
+  });
+  return { state: "REPORT_GENERATED", radar: matrixResult.radar };
+}
+
 // src/server/modules/analytics/analytics.service.ts
 async function fetchAiInsights(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const insights = await db.select().from(aiInsights).where(eq7(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
+  const insights = await db.select().from(aiInsights).where(eq8(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
   return insights;
 }
 async function getUserPsychProfiles(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const profiles = await db.select().from(userPsychProfiles).where(eq7(userPsychProfiles.coupleId, coupleId));
+  const profiles = await db.select().from(userPsychProfiles).where(eq8(userPsychProfiles.coupleId, coupleId));
   return profiles;
 }
 async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
@@ -3630,7 +4461,7 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
     return {
       isCoupleReportReady: false,
       completedTestsCount: 0,
-      totalTestsCount: 7,
+      totalTestsCount: CATALOG_TEST_IDS.length,
       waitingFor: null,
       userProfile: null,
       coupleReport: null,
@@ -3639,15 +4470,15 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
       profiles: []
     };
   }
-  const [couple] = await db.select().from(couples).where(eq7(couples.id, coupleId)).limit(1);
-  const profiles = await db.select().from(userPsychProfiles).where(eq7(userPsychProfiles.coupleId, coupleId));
-  const [report] = await db.select().from(coupleReports).where(eq7(coupleReports.coupleId, coupleId)).limit(1);
+  const [couple] = await db.select().from(couples).where(eq8(couples.id, coupleId)).limit(1);
+  const profiles = await db.select().from(userPsychProfiles).where(eq8(userPsychProfiles.coupleId, coupleId));
+  const [report] = await db.select().from(coupleReports).where(eq8(coupleReports.coupleId, coupleId)).limit(1);
   let completedTestsCount = 0;
   if (currentUserIdOrLogin) {
     const allUsers2 = await db.select().from(users);
     const currentUser2 = allUsers2.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
     if (currentUser2) {
-      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(eq7(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
+      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(eq8(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
       completedTestsCount = userCompletedSessions.length;
     }
   }
@@ -3672,7 +4503,7 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
     return {
       isCoupleReportReady: false,
       completedTestsCount: completedTestsCount || (profiles.length > 0 ? 1 : 0),
-      totalTestsCount: 7,
+      totalTestsCount: CATALOG_TEST_IDS.length,
       waitingFor: partnerProfile ? null : partnerName,
       userProfile: currentUserProfile,
       coupleReport: null,
@@ -3687,8 +4518,8 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
   const overallMatch = validScores.length ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length) : 85;
   return {
     isCoupleReportReady: true,
-    completedTestsCount: completedTestsCount || 7,
-    totalTestsCount: 7,
+    completedTestsCount: completedTestsCount || CATALOG_TEST_IDS.length,
+    totalTestsCount: CATALOG_TEST_IDS.length,
     waitingFor: null,
     userProfile: currentUserProfile,
     coupleReport: report,
@@ -3767,7 +4598,7 @@ import { Router as Router6 } from "express";
 import multer from "multer";
 
 // src/server/services/photoStorage.ts
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 var isProd7 = () => process.env.NODE_ENV === "production";
 function detectMimeType(buffer) {
   if (!buffer || buffer.length < 12) return null;
@@ -3789,7 +4620,7 @@ var PhotoStorageService = class {
    * Сохранить фото в базу данных (BYTEA) и вернуть только метаданные
    */
   async savePhoto(input) {
-    const id = input.id || crypto7.randomUUID();
+    const id = input.id || crypto8.randomUUID();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const caption = input.caption?.trim() || null;
     const width = typeof input.width === "number" ? input.width : null;
@@ -4494,505 +5325,6 @@ pushRouter.post("/send-test", requireAuth, async (req, res) => {
 // src/server/modules/tests/tests.routes.ts
 import { Router as Router8 } from "express";
 import { z as z6 } from "zod";
-
-// src/server/modules/tests/tests.service.ts
-import crypto8 from "crypto";
-import { eq as eq9, and as and5, or as or5 } from "drizzle-orm";
-
-// src/shared/tests.registry.ts
-var TESTS_REGISTRY = {
-  test_attachment_indiv: {
-    id: "test_attachment_indiv",
-    title: "\u0421\u0442\u0438\u043B\u0438 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u043D\u043E\u0441\u0442\u0438",
-    sphere: "trust",
-    totalQuestions: 18
-  },
-  test_love_languages: {
-    id: "test_love_languages",
-    title: "\u042F\u0437\u044B\u043A\u0438 \u0437\u0430\u0431\u043E\u0442\u044B",
-    sphere: "closeness",
-    totalQuestions: 15
-  },
-  test_eft_cycles: {
-    id: "test_eft_cycles",
-    title: "\u0421\u0442\u0438\u043B\u0438 \u043F\u0440\u043E\u0436\u0438\u0432\u0430\u043D\u0438\u044F \u0441\u0441\u043E\u0440",
-    sphere: "communication",
-    totalQuestions: 16
-  },
-  test_life_values: {
-    id: "test_life_values",
-    title: "\u0426\u0435\u043D\u043D\u043E\u0441\u0442\u043D\u044B\u0439 \u043A\u043E\u043C\u043F\u0430\u0441",
-    sphere: "values",
-    totalQuestions: 15
-  },
-  test_intimacy_passion: {
-    id: "test_intimacy_passion",
-    title: "\u0418\u043D\u0442\u0438\u043C\u043D\u043E\u0441\u0442\u044C \u0438 \u043A\u043E\u043D\u0442\u0430\u043A\u0442",
-    sphere: "intimacy",
-    totalQuestions: 12
-  },
-  test_routine_lifestyle: {
-    id: "test_routine_lifestyle",
-    title: "\u0411\u044B\u0442 \u0438 \u0436\u0438\u0437\u043D\u0435\u0441\u0442\u043E\u0439\u043A\u043E\u0441\u0442\u044C",
-    sphere: "lifestyle",
-    totalQuestions: 14
-  }
-};
-function getSphereByTestId(testId) {
-  return TESTS_REGISTRY[testId]?.sphere;
-}
-
-// src/server/modules/tests/report.matrix.ts
-import { eq as eq8 } from "drizzle-orm";
-function calculateCoupleRadarMatrix(v1, v2) {
-  const avgSafety = (v1.eSafety + v2.eSafety) / 2;
-  const avgRepair = (v1.rRepair + v2.rRepair) / 2;
-  const trust = Math.min(100, Math.max(10, Math.round((avgSafety * 0.6 + avgRepair * 0.4) * 10) / 10));
-  const avgCloseness = (v1.cCloseness + v2.cCloseness) / 2;
-  const closeness = Math.min(100, Math.max(10, Math.round(avgCloseness * 10) / 10));
-  const deltaAutonomy = Math.abs(v1.aAutonomy - v2.aAutonomy);
-  const commBase = (v1.rRepair + v2.rRepair) / 2;
-  const commPenalty = deltaAutonomy > 20 ? (deltaAutonomy - 20) * 0.3 : 0;
-  const communication = Math.min(100, Math.max(10, Math.round((commBase - commPenalty) * 10) / 10));
-  const avgAutonomy = (v1.aAutonomy + v2.aAutonomy) / 2;
-  const intimacy = Math.min(100, Math.max(10, Math.round((avgCloseness * 0.65 + avgAutonomy * 0.35) * 10) / 10));
-  const avgFuture = (v1.vFuture + v2.vFuture) / 2;
-  const deltaValues = Math.abs(v1.vFuture - v2.vFuture);
-  const valuesPenalty = deltaValues * 0.5 + Math.pow(deltaValues, 2) * 0.25 / 100;
-  const values = Math.min(100, Math.max(10, Math.round((avgFuture - valuesPenalty) * 10) / 10));
-  const radar = { trust, closeness, communication, intimacy, values };
-  const sphereScores = [
-    { key: "trust", score: trust },
-    { key: "closeness", score: closeness },
-    { key: "communication", score: communication },
-    { key: "intimacy", score: intimacy },
-    { key: "values", score: values }
-  ].sort((a, b) => b.score - a.score);
-  const leadKeys = [sphereScores[0].key, sphereScores[1].key];
-  let archetypeTitle = "\xAB\u041D\u0430\u0434\u0451\u0436\u043D\u0430\u044F \u0433\u0430\u0432\u0430\u043D\u044C & \u0412\u0434\u043E\u0445\u043D\u043E\u0432\u043B\u044F\u044E\u0449\u0438\u0439 \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\xBB";
-  let archetypeDescription = "\u0412\u0430\u0448\u0430 \u043F\u0430\u0440\u0430 \u043E\u043F\u0438\u0440\u0430\u0435\u0442\u0441\u044F \u043D\u0430 \u0432\u0437\u0430\u0438\u043C\u043D\u043E\u0435 \u0434\u043E\u0432\u0435\u0440\u0438\u0435 \u0438 \u0433\u043B\u0443\u0431\u043E\u043A\u043E\u0435 \u043F\u043E\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u0446\u0435\u043D\u043D\u043E\u0441\u0442\u0435\u0439 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430.";
-  if (leadKeys.includes("trust") && leadKeys.includes("closeness")) {
-    archetypeTitle = "\xAB\u0422\u0451\u043F\u043B\u0430\u044F \u0433\u0430\u0432\u0430\u043D\u044C & \u0411\u0435\u0437\u0443\u0441\u043B\u043E\u0432\u043D\u043E\u0435 \u043F\u0440\u0438\u043D\u044F\u0442\u0438\u0435\xBB";
-    archetypeDescription = "\u0412 \u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F\u0445 \u043F\u0440\u0435\u043E\u0431\u043B\u0430\u0434\u0430\u044E\u0442 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C, \u043D\u0435\u0436\u043D\u043E\u0441\u0442\u044C \u0438 \u0433\u043E\u0442\u043E\u0432\u043D\u043E\u0441\u0442\u044C \u0431\u044B\u0442\u044C \u0443\u044F\u0437\u0432\u0438\u043C\u044B\u043C\u0438 \u0431\u0435\u0437 \u0441\u0442\u0440\u0430\u0445\u0430 \u043E\u0442\u0432\u0435\u0440\u0436\u0435\u043D\u0438\u044F.";
-  } else if (leadKeys.includes("communication") && leadKeys.includes("trust")) {
-    archetypeTitle = "\xAB\u041E\u0441\u043E\u0437\u043D\u0430\u043D\u043D\u044B\u0439 \u0442\u0430\u043D\u0434\u0435\u043C & \u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u0438\u0432\u043D\u044B\u0439 \u0434\u0438\u0430\u043B\u043E\u0433\xBB";
-    archetypeDescription = "\u0412\u044B \u0443\u043C\u0435\u0435\u0442\u0435 \u0441\u043B\u044B\u0448\u0430\u0442\u044C \u043F\u043E\u0442\u0440\u0435\u0431\u043D\u043E\u0441\u0442\u0438 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430, \u0432\u043E\u0432\u0440\u0435\u043C\u044F \u0443\u0441\u0442\u0440\u0430\u043D\u044F\u0442\u044C \u043D\u0430\u043F\u0440\u044F\u0436\u0435\u043D\u0438\u0435 \u0438 \u0431\u0435\u0440\u0435\u0436\u043D\u043E \u0434\u043E\u0433\u043E\u0432\u0430\u0440\u0438\u0432\u0430\u0442\u044C\u0441\u044F.";
-  } else if (leadKeys.includes("closeness") && leadKeys.includes("intimacy")) {
-    archetypeTitle = "\xAB\u0418\u0441\u043A\u0440\u044F\u0449\u0430\u044F\u0441\u044F \u0433\u043B\u0443\u0431\u0438\u043D\u0430 & \u0416\u0438\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u0441\u0442\u044C\xBB";
-    archetypeDescription = "\u041C\u0435\u0436\u0434\u0443 \u0432\u0430\u043C\u0438 \u0441\u0438\u043B\u044C\u043D\u043E\u0435 \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E\u0435 \u0438 \u0440\u043E\u043C\u0430\u043D\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0435 \u043F\u0440\u0438\u0442\u044F\u0436\u0435\u043D\u0438\u0435, \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u044E\u0449\u0435\u0435 \u044F\u0440\u043A\u0438\u0439 \u0438\u043D\u0442\u0435\u0440\u0435\u0441 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443.";
-  } else if (leadKeys.includes("values") && leadKeys.includes("communication")) {
-    archetypeTitle = "\xAB\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0441\u043E\u044E\u0437 & \u041E\u0431\u0449\u0438\u0439 \u0433\u043E\u0440\u0438\u0437\u043E\u043D\u0442\xBB";
-    archetypeDescription = "\u0423 \u0432\u0430\u0441 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u043D\u044B \u043A\u043B\u044E\u0447\u0435\u0432\u044B\u0435 \u0436\u0438\u0437\u043D\u0435\u043D\u043D\u044B\u0435 \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442\u044B \u0438 \u0432\u044B\u0441\u0442\u0440\u043E\u0435\u043D\u0430 \u043F\u0440\u043E\u0437\u0440\u0430\u0447\u043D\u0430\u044F \u0441\u0438\u0441\u0442\u0435\u043C\u0430 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0451\u043D\u043D\u043E\u0441\u0442\u0435\u0439.";
-  } else if (leadKeys.includes("trust") && leadKeys.includes("values")) {
-    archetypeTitle = "\xAB\u041D\u0430\u0434\u0451\u0436\u043D\u044B\u0439 \u0444\u0443\u043D\u0434\u0430\u043C\u0435\u043D\u0442 & \u0412\u0435\u0440\u043D\u043E\u0441\u0442\u044C \u043A\u0443\u0440\u0441\u0443\xBB";
-    archetypeDescription = "\u041E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F \u0431\u0430\u0437\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u043D\u0430 \u0432\u0437\u0430\u0438\u043C\u043D\u043E\u0439 \u043F\u0440\u0435\u0434\u0430\u043D\u043D\u043E\u0441\u0442\u0438, \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u043E\u0439 \u0443\u0441\u0442\u043E\u0439\u0447\u0438\u0432\u043E\u0441\u0442\u0438 \u0438 \u043E\u0431\u0449\u0438\u0445 \u0436\u0438\u0437\u043D\u0435\u043D\u043D\u044B\u0445 \u043E\u0440\u0438\u0435\u043D\u0442\u0438\u0440\u0430\u0445.";
-  }
-  const discrepancies = [];
-  const synergies = [];
-  const checkGap = (gapVal, sphere, title, desc3) => {
-    if (gapVal >= 20) {
-      discrepancies.push({ sphere, title, description: desc3, gap: Math.round(gapVal) });
-    }
-  };
-  checkGap(
-    Math.abs(v1.aAutonomy - v2.aAutonomy),
-    "autonomy",
-    "\u0420\u0430\u0437\u043D\u044B\u0439 \u0442\u0435\u043C\u043F \u0430\u0432\u0442\u043E\u043D\u043E\u043C\u0438\u0438 \u0438 \u0441\u043B\u0438\u044F\u043D\u0438\u044F",
-    "\u041E\u0434\u0438\u043D \u043F\u0430\u0440\u0442\u043D\u0451\u0440 \u043D\u0443\u0436\u0434\u0430\u0435\u0442\u0441\u044F \u0432 \u0431\u043E\u043B\u044C\u0448\u0435\u043C \u043B\u0438\u0447\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435 \u0434\u043B\u044F \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438, \u0430 \u0432\u0442\u043E\u0440\u043E\u0439 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0431\u043E\u043B\u0435\u0435 \u043F\u043B\u043E\u0442\u043D\u043E\u0433\u043E \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0433\u043E \u0432\u0440\u0435\u043C\u0435\u043D\u0438."
-  );
-  checkGap(
-    Math.abs(v1.eSafety - v2.eSafety),
-    "safety",
-    "\u0427\u0443\u0432\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043A \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u044B\u043C \u043F\u0430\u0443\u0437\u0430\u043C",
-    "\u041F\u0440\u0438 \u0440\u0430\u0437\u043D\u043E\u0433\u043B\u0430\u0441\u0438\u044F\u0445 \u043E\u0434\u043D\u043E\u043C\u0443 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0443 \u0442\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u043D\u0435\u043C\u0435\u0434\u043B\u0435\u043D\u043D\u043E\u0435 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u0435 \u0441\u0432\u044F\u0437\u0438, \u0442\u043E\u0433\u0434\u0430 \u043A\u0430\u043A \u0432\u0442\u043E\u0440\u043E\u043C\u0443 \u043D\u0443\u0436\u043D\u043E \u0432\u0440\u0435\u043C\u044F \u0432 \u0442\u0438\u0448\u0438\u043D\u0435."
-  );
-  checkGap(
-    Math.abs(v1.rRepair - v2.rRepair),
-    "repair",
-    "\u0421\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u044F \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u044F \u0440\u0430\u0437\u043D\u043E\u0433\u043B\u0430\u0441\u0438\u0439",
-    "\u0420\u0430\u0437\u043D\u0438\u0446\u0430 \u043C\u0435\u0436\u0434\u0443 \u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u043C \u0430\u043D\u0430\u043B\u0438\u0437\u043E\u043C \u0444\u0430\u043A\u0442\u043E\u0432 \u0438 \u043F\u043E\u0442\u0440\u0435\u0431\u043D\u043E\u0441\u0442\u044C\u044E \u0432 \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E\u043C \u0443\u0442\u0435\u0448\u0435\u043D\u0438\u0438 \u0432 \u043C\u043E\u043C\u0435\u043D\u0442 \u043A\u043E\u043D\u0444\u043B\u0438\u043A\u0442\u0430."
-  );
-  checkGap(
-    Math.abs(v1.vFuture - v2.vFuture),
-    "values",
-    "\u041F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442\u044B \u0440\u0430\u0441\u043F\u0440\u0435\u0434\u0435\u043B\u0435\u043D\u0438\u044F \u0440\u0435\u0441\u0443\u0440\u0441\u043E\u0432",
-    "\u041D\u0435\u0431\u043E\u043B\u044C\u0448\u0438\u0435 \u0440\u0430\u0437\u043D\u043E\u0447\u0442\u0435\u043D\u0438\u044F \u0432 \u0431\u0430\u043B\u0430\u043D\u0441\u0435 \u043C\u0435\u0436\u0434\u0443 \u0441\u0438\u044E\u043C\u0438\u043D\u0443\u0442\u043D\u044B\u043C\u0438 \u0440\u0430\u0434\u043E\u0441\u0442\u044F\u043C\u0438 \u0438 \u0434\u043E\u043B\u0433\u043E\u0441\u0440\u043E\u0447\u043D\u044B\u043C \u0441\u0442\u0440\u0430\u0442\u0435\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u043C \u043F\u043B\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435\u043C."
-  );
-  if (trust >= 75) {
-    synergies.push({
-      sphere: "trust",
-      title: "\u0412\u044B\u0441\u043E\u043A\u0430\u044F \u044D\u043C\u043E\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u0430\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C",
-      description: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B \u0432 \u043D\u0430\u0434\u0451\u0436\u043D\u043E\u0441\u0442\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430 \u0434\u0430\u0436\u0435 \u0432 \u043F\u0435\u0440\u0438\u043E\u0434\u044B \u043F\u043E\u0432\u044B\u0448\u0435\u043D\u043D\u043E\u0433\u043E \u0432\u043D\u0435\u0448\u043D\u0435\u0433\u043E \u0441\u0442\u0440\u0435\u0441\u0441\u0430."
-    });
-  }
-  if (closeness >= 75) {
-    synergies.push({
-      sphere: "closeness",
-      title: "\u0421\u043F\u043E\u043D\u0442\u0430\u043D\u043D\u0430\u044F \u043D\u0435\u0436\u043D\u043E\u0441\u0442\u044C \u0438 \u0442\u0435\u043F\u043B\u043E\u0442\u0430",
-      description: "\u0423\u043C\u0435\u043D\u0438\u0435 \u043F\u0440\u043E\u044F\u0432\u043B\u044F\u0442\u044C \u0437\u0430\u0431\u043E\u0442\u0443 \u0447\u0435\u0440\u0435\u0437 \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u0438\u0435 \u0434\u0435\u0442\u0430\u043B\u0438 \u0438 \u0435\u0436\u0435\u0434\u043D\u0435\u0432\u043D\u044B\u0435 \u0437\u043D\u0430\u043A\u0438 \u0432\u043D\u0438\u043C\u0430\u043D\u0438\u044F."
-    });
-  }
-  return {
-    radar,
-    archetype: {
-      title: archetypeTitle,
-      description: archetypeDescription,
-      leadSpheres: leadKeys
-    },
-    blindSpots: {
-      discrepancies,
-      synergies
-    }
-  };
-}
-
-// src/server/modules/tests/tests.service.ts
-var CATALOG_TEST_IDS = Object.keys(TESTS_REGISTRY);
-var EXPECTED_QUESTIONS = Object.fromEntries(
-  Object.entries(TESTS_REGISTRY).map(([id, def]) => [id, def.totalQuestions])
-);
-async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
-  const isProd8 = process.env.NODE_ENV === "production";
-  if (isProd8 && (!isSqlConfigured() || !db)) {
-    throw new DatabaseUnavailableError();
-  }
-  const testDef = TESTS_REGISTRY[testId];
-  if (!testDef) {
-    throw new Error(`Unknown testId: ${testId}`);
-  }
-  if (answers.length !== testDef.totalQuestions) {
-    const missing = testDef.totalQuestions - answers.length;
-    throw new Error(
-      `ValidationFailed: Expected ${testDef.totalQuestions} answers for "${testDef.title}", got ${answers.length}. Missing ${missing} question(s).`
-    );
-  }
-  if (isSqlConfigured() && db) {
-    return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq9(users.login, userLogin));
-      const userId = u ? u.id : userLogin;
-      let session = await tx.select().from(testSessions).where(
-        and5(
-          eq9(testSessions.coupleId, coupleId),
-          eq9(testSessions.testId, testId),
-          eq9(testSessions.status, "in_progress")
-        )
-      ).limit(1);
-      if (!session.length) {
-        const newSessionId = crypto8.randomUUID();
-        const [created] = await tx.insert(testSessions).values({
-          id: newSessionId,
-          testId,
-          coupleId,
-          testClass: "couple",
-          status: "in_progress"
-        }).returning();
-        session = [created];
-      }
-      const sessionId = session[0].id;
-      const answerRecords = answers.map((a) => ({
-        id: crypto8.randomUUID(),
-        sessionId,
-        userId,
-        questionId: a.questionId,
-        selectedValue: String(a.value),
-        weight: "1.00",
-        reactionTimeMs: null,
-        toggleCount: 0,
-        targetType: "self",
-        rawPayload: null
-      }));
-      await tx.insert(testAnswers).values(answerRecords);
-      await tx.delete(testDrafts).where(
-        and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
-      );
-      await _recalculateUserProfile(tx, coupleId, userId, testId);
-      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
-      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq9(testSessions.id, sessionId));
-      return {
-        status: "completed",
-        testId,
-        userId,
-        sessionId,
-        answersCount: answers.length,
-        harmonyState: triggerResult
-      };
-    });
-  }
-  return { status: "recorded_locally", testId, message: "Dev mode: no DB" };
-}
-async function submitTestAnswer(params) {
-  const isProd8 = process.env.NODE_ENV === "production";
-  if (isProd8 && (!isSqlConfigured() || !db)) {
-    throw new DatabaseUnavailableError();
-  }
-  const testDef = TESTS_REGISTRY[params.testId];
-  if (!testDef) {
-    throw new Error(`Unknown testId: ${params.testId}`);
-  }
-  if (isSqlConfigured() && db) {
-    return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq9(users.login, params.userLogin));
-      const userId = u ? u.id : params.userLogin;
-      let sessionId = params.sessionId;
-      if (!sessionId) {
-        let session = await tx.select().from(testSessions).where(
-          and5(
-            eq9(testSessions.coupleId, params.coupleId),
-            eq9(testSessions.testId, params.testId),
-            eq9(testSessions.status, "in_progress")
-          )
-        ).limit(1);
-        if (!session.length) {
-          const newSessionId = crypto8.randomUUID();
-          const [created] = await tx.insert(testSessions).values({
-            id: newSessionId,
-            testId: params.testId,
-            coupleId: params.coupleId,
-            testClass: "couple",
-            status: "in_progress"
-          }).returning();
-          session = [created];
-        }
-        sessionId = session[0].id;
-      }
-      await tx.insert(testAnswers).values({
-        id: crypto8.randomUUID(),
-        sessionId,
-        userId,
-        questionId: params.questionId,
-        selectedValue: String(params.selectedValue ?? ""),
-        weight: "1.00",
-        reactionTimeMs: params.reactionTimeMs ?? null,
-        toggleCount: params.toggleCount ?? 0,
-        targetType: params.targetType ?? "self",
-        rawPayload: params.rawPayload ?? null
-      }).onConflictDoUpdate({
-        target: [testAnswers.sessionId, testAnswers.userId, testAnswers.questionId],
-        set: {
-          selectedValue: String(params.selectedValue ?? ""),
-          reactionTimeMs: params.reactionTimeMs ?? null,
-          toggleCount: params.toggleCount ?? 0,
-          targetType: params.targetType ?? "self",
-          rawPayload: params.rawPayload ?? null
-        }
-      });
-      return {
-        status: "answer_recorded",
-        testId: params.testId,
-        userId,
-        sessionId,
-        questionId: params.questionId
-      };
-    });
-  }
-  return { status: "recorded_locally", testId: params.testId, message: "Dev mode: no DB" };
-}
-async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
-  if (!isSqlConfigured() || !db) {
-    return { status: "saved_locally", message: "Dev mode: no DB" };
-  }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
-  const userId = u ? u.id : userLogin;
-  await db.insert(testDrafts).values({
-    userId,
-    testId,
-    currentQuestionIndex,
-    answers
-  }).onConflictDoUpdate({
-    target: [testDrafts.userId, testDrafts.testId],
-    set: {
-      currentQuestionIndex,
-      answers,
-      updatedAt: /* @__PURE__ */ new Date()
-    }
-  });
-  return { status: "saved", testId, currentQuestionIndex };
-}
-async function getTestDraft(userLogin, testId) {
-  if (!isSqlConfigured() || !db) {
-    return null;
-  }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
-  const userId = u ? u.id : userLogin;
-  const [draft] = await db.select().from(testDrafts).where(and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))).limit(1);
-  return draft ?? null;
-}
-async function clearTestDraft(userLogin, testId) {
-  if (!isSqlConfigured() || !db) {
-    return { status: "cleared_locally", message: "Dev mode: no DB" };
-  }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
-  const userId = u ? u.id : userLogin;
-  await db.delete(testDrafts).where(
-    and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
-  );
-  return { status: "cleared", testId };
-}
-async function getTestsStatusForUser(userLogin) {
-  if (!isSqlConfigured() || !db) {
-    return CATALOG_TEST_IDS.map((testId) => ({
-      testId,
-      isCompletedByMe: false,
-      isCompletedByPartner: false
-    }));
-  }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
-  if (!u) return [];
-  const userId = u.id;
-  const [couple] = await db.select().from(couples).where(or5(eq9(couples.user1Id, userId), eq9(couples.user2Id, userId))).limit(1);
-  if (!couple) {
-    return CATALOG_TEST_IDS.map((testId) => ({
-      testId,
-      isCompletedByMe: false,
-      isCompletedByPartner: false
-    }));
-  }
-  const partnerId = couple.user1Id === userId ? couple.user2Id : couple.user1Id;
-  if (!partnerId) {
-    return CATALOG_TEST_IDS.map((testId) => ({
-      testId,
-      isCompletedByMe: false,
-      isCompletedByPartner: false
-    }));
-  }
-  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testAnswers.userId, userId), eq9(testSessions.status, "completed")));
-  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testAnswers.userId, partnerId), eq9(testSessions.status, "completed")));
-  const mySet = new Set(myCompleted.map((r) => r.testId));
-  const partnerSet = new Set(partnerCompleted.map((r) => r.testId));
-  return CATALOG_TEST_IDS.map((testId) => ({
-    testId,
-    isCompletedByMe: mySet.has(testId),
-    isCompletedByPartner: partnerSet.has(testId)
-  }));
-}
-async function _recalculateUserProfile(tx, coupleId, userId, testId) {
-  const answers = await tx.select().from(testAnswers).innerJoin(testSessions, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testAnswers.userId, userId), eq9(testSessions.testId, testId), eq9(testSessions.status, "completed")));
-  if (!answers.length) return;
-  const scaleScores = {};
-  const scaleCounts = {};
-  for (const row of answers) {
-    const ans = row.test_answers;
-    const scale = ans.scaleId || "unknown";
-    const val = Number(ans.selectedValue);
-    scaleScores[scale] = (scaleScores[scale] || 0) + val;
-    scaleCounts[scale] = (scaleCounts[scale] || 0) + 1;
-  }
-  const traitScores = {};
-  for (const scale of Object.keys(scaleScores)) {
-    traitScores[scale] = scaleCounts[scale] > 0 ? Math.round(scaleScores[scale] / scaleCounts[scale] * 100) : 50;
-  }
-  await tx.insert(userPsychProfiles).values({
-    userId,
-    coupleId,
-    sessionId: answers[0]?.test_answers.sessionId || "",
-    traitScores,
-    eSafety: "50.00",
-    aAutonomy: "50.00",
-    cCloseness: "50.00",
-    rRepair: "50.00",
-    vFuture: "50.00",
-    rawResponses: answers.map((r) => r.test_answers),
-    updatedAt: /* @__PURE__ */ new Date()
-  }).onConflictDoUpdate({
-    target: [userPsychProfiles.userId],
-    set: {
-      traitScores,
-      eSafety: "50.00",
-      aAutonomy: "50.00",
-      cCloseness: "50.00",
-      rRepair: "50.00",
-      vFuture: "50.00",
-      rawResponses: answers.map((r) => r.test_answers),
-      updatedAt: /* @__PURE__ */ new Date()
-    }
-  });
-}
-async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
-  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testSessions.coupleId, coupleId), eq9(testSessions.status, "completed")));
-  const completedByUser = /* @__PURE__ */ new Map();
-  for (const row of tests) {
-    const { testId, userId: uId } = row;
-    if (!completedByUser.has(uId)) completedByUser.set(uId, /* @__PURE__ */ new Set());
-    completedByUser.get(uId).add(testId);
-  }
-  const allTestIds = CATALOG_TEST_IDS;
-  const userIds = Array.from(completedByUser.keys());
-  if (userIds.length < 2) {
-    return { state: "PARTNER_PENDING" };
-  }
-  const [user1Tests, user2Tests] = [completedByUser.get(userIds[0]), completedByUser.get(userIds[1])];
-  const user1Complete = allTestIds.every((t) => user1Tests?.has(t));
-  const user2Complete = allTestIds.every((t) => user2Tests?.has(t));
-  if (!user1Complete || !user2Complete) {
-    return { state: "PARTNER_PENDING" };
-  }
-  const [profile1, profile2] = await Promise.all([
-    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[0])).limit(1),
-    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[1])).limit(1)
-  ]);
-  const v1 = profile1[0]?.traitScores;
-  const v2 = profile2[0]?.traitScores;
-  if (!v1 || !v2) {
-    return { state: "BOTH_COMPLETED" };
-  }
-  const vec1 = {
-    eSafety: v1.eSafety ?? 50,
-    aAutonomy: v1.aAutonomy ?? 50,
-    cCloseness: v1.cCloseness ?? 50,
-    rRepair: v1.rRepair ?? 50,
-    vFuture: v1.vFuture ?? 50,
-    consistencyScore: v1.consistencyScore ?? 95
-  };
-  const vec2 = {
-    eSafety: v2.eSafety ?? 50,
-    aAutonomy: v2.aAutonomy ?? 50,
-    cCloseness: v2.cCloseness ?? 50,
-    rRepair: v2.rRepair ?? 50,
-    vFuture: v2.vFuture ?? 50,
-    consistencyScore: v2.consistencyScore ?? 95
-  };
-  const radarResult = calculateCoupleRadarMatrix(vec1, vec2);
-  await tx.insert(coupleReports).values({
-    coupleId,
-    sessionId: "",
-    radarMetrics: radarResult.radar,
-    radarTrust: radarResult.radar.trust,
-    radarCloseness: radarResult.radar.closeness,
-    radarCommunication: radarResult.radar.communication,
-    radarIntimacy: radarResult.radar.intimacy,
-    radarValues: radarResult.radar.values,
-    radarLifestyle: radarResult.radar.values,
-    // используем values как lifestyle
-    archetypeTitle: radarResult.archetype.title,
-    archetypeDescription: radarResult.archetype.description,
-    leadSpheres: radarResult.archetype.leadSpheres,
-    synergyPoints: radarResult.blindSpots.synergies,
-    growthZones: radarResult.blindSpots.discrepancies.map((d) => d.title),
-    blindSpots: radarResult.blindSpots.discrepancies,
-    calculatedAt: /* @__PURE__ */ new Date()
-  }).onConflictDoUpdate({
-    target: [coupleReports.coupleId],
-    set: {
-      radarMetrics: radarResult.radar,
-      radarTrust: radarResult.radar.trust,
-      radarCloseness: radarResult.radar.closeness,
-      radarCommunication: radarResult.radar.communication,
-      radarIntimacy: radarResult.radar.intimacy,
-      radarValues: radarResult.radar.values,
-      radarLifestyle: radarResult.radar.values,
-      archetypeTitle: radarResult.archetype.title,
-      archetypeDescription: radarResult.archetype.description,
-      leadSpheres: radarResult.archetype.leadSpheres,
-      synergyPoints: radarResult.blindSpots.synergies,
-      growthZones: radarResult.blindSpots.discrepancies.map((d) => d.title),
-      blindSpots: radarResult.blindSpots.discrepancies,
-      calculatedAt: /* @__PURE__ */ new Date()
-    }
-  });
-  return { state: "REPORT_GENERATED", radar: radarResult };
-}
-
-// src/server/modules/tests/tests.routes.ts
 var testsRouter = Router8();
 testsRouter.get("/status", requireAuth, async (req, res, next) => {
   try {
@@ -5062,7 +5394,12 @@ testsRouter.post(
       answers: z6.array(
         z6.object({
           questionId: z6.string(),
-          value: z6.union([z6.string(), z6.number()])
+          value: z6.union([z6.string(), z6.number()]),
+          scaleId: z6.string().max(64).nullish(),
+          reactionTimeMs: z6.number().int().nonnegative().nullish(),
+          toggleCount: z6.number().int().nonnegative().nullish(),
+          targetType: z6.enum(["self", "partner_observation"]).nullish(),
+          rawPayload: z6.record(z6.string(), z6.unknown()).nullish()
         })
       ).min(1)
     })
@@ -5070,7 +5407,7 @@ testsRouter.post(
   async (req, res, next) => {
     try {
       const userLogin = req.user?.login;
-      const coupleId = req.couple?.id;
+      const coupleId = await resolveTestCoupleId(userLogin ?? "");
       const { testId, answers } = req.body;
       if (!userLogin || !coupleId) {
         return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u0438 \u043F\u0430\u0440\u0430" });
@@ -5104,7 +5441,7 @@ testsRouter.post(
   async (req, res, next) => {
     try {
       const userLogin = req.user?.login;
-      const coupleId = req.couple?.id;
+      const coupleId = await resolveTestCoupleId(userLogin ?? "");
       const { testId, questionId, selectedValue, reactionTimeMs, toggleCount, targetType, rawPayload } = req.body;
       if (!userLogin || !coupleId) {
         return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u0438 \u043F\u0430\u0440\u0430" });

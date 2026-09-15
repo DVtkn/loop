@@ -4166,8 +4166,8 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
         and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))
       );
       await _recalculateUserProfile(tx, coupleId, userId, testId);
-      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq7(testSessions.id, sessionId));
+      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
         status: "completed",
         testId,
@@ -4412,6 +4412,14 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
     return { state: "BOTH_COMPLETED" };
   }
   const matrixResult = calculateCoupleMatrix(scales1, scales2);
+  const toPercent = (v) => Math.round(Math.min(100, Math.max(0, v ?? 50)));
+  const bigFive = (s) => ({
+    extraversion: toPercent(s.s23),
+    agreeableness: toPercent(s.s5),
+    conscientiousness: toPercent(s.s21),
+    emotionalStability: toPercent(s.s12),
+    openness: toPercent(s.s24)
+  });
   const reportValues = {
     coupleId,
     sessionId: "",
@@ -4428,6 +4436,7 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
     synergyPoints: matrixResult.synergyPoints,
     growthZones: matrixResult.growthZones,
     blindSpots: matrixResult.destructivePatternsDetected,
+    personalityTypes: { partner1: bigFive(scales1), partner2: bigFive(scales2) },
     calculatedAt: /* @__PURE__ */ new Date()
   };
   await tx.insert(coupleReports).values({

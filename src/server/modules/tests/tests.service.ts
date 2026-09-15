@@ -138,13 +138,13 @@ export async function atomicSubmitTestAnswers(
       // 6. Пересчёт психопрофиля пользователя (24 шкалы)
       await _recalculateUserProfile(tx, coupleId, userId, testId);
 
-      // 7. Триггер отчета о паре (проверка и запись coupleReport)
-      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
-
-      // 8. Помечаем сессию завершённой
+      // 7. Помечаем сессию завершённой (до триггера, иначе последний сабмит не засчитается)
       await tx.update(testSessions)
         .set({ status: "completed", completedAt: new Date() })
         .where(eq(testSessions.id, sessionId));
+
+      // 8. Триггер отчета о паре (проверка и запись coupleReport)
+      const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
 
       return {
         status: "completed",
@@ -515,6 +515,16 @@ async function _triggerCoupleReportIfReady(
 
   const matrixResult = calculateCoupleMatrix(scales1 as any, scales2 as any);
 
+  // Big Five из 24-шкальных профилей (маппинг см. psychometrics.calc Module 7)
+  const toPercent = (v: number | undefined) => Math.round(Math.min(100, Math.max(0, v ?? 50)));
+  const bigFive = (s: Record<string, number>) => ({
+    extraversion: toPercent(s.s23),
+    agreeableness: toPercent(s.s5),
+    conscientiousness: toPercent(s.s21),
+    emotionalStability: toPercent(s.s12),
+    openness: toPercent(s.s24),
+  });
+
   // Сохраняем/обновляем coupleReport (6 сфер + архетип)
   const reportValues = {
     coupleId,
@@ -532,6 +542,7 @@ async function _triggerCoupleReportIfReady(
     synergyPoints: matrixResult.synergyPoints,
     growthZones: matrixResult.growthZones,
     blindSpots: matrixResult.destructivePatternsDetected,
+    personalityTypes: { partner1: bigFive(scales1!), partner2: bigFive(scales2!) },
     calculatedAt: new Date(),
   };
 

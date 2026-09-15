@@ -33,6 +33,11 @@
 5. **TCP 5432 заблокирован локально** — `drizzle-kit migrate` локально виснет. Применять миграции HTTP-драйвером: `node scripts/apply-migrations-http.mjs` (или через Neon MCP).
 6. **Бандл API для Vercel**: `api/index.js` (корень), рерайты `/api/(.*)` → `/api/index.js` в `vercel.json`. Билд: `npm run build` (esbuild `src/server/app.ts`).
 7. Проверка живости: `POST /api/auth/login` c существующим пользователем — должен вернуть 200 + JWT (не 401/500/DB_UNAVAILABLE).
+8. **`couple_reports.id` без DEFAULT в проде** (text pk в схеме) — drizzle вставляет `values (default, ...)` → NOT NULL violation. В `_triggerCoupleReportIfReady` id задаётся явно: `crypto.randomUUID()`.
+9. **Триггер отчёта — ПОСЛЕ `status='completed'` текущей сессии** в `atomicSubmitTestAnswers`, иначе последний сабмит партнёра не засчитывается и `couple_reports` не создаётся никогда.
+10. **`coupleId` серверного контура тестов = pairKey** `[login, partnerLogin].sort().join('_')`, выводится из `users.partnerLogin` в `resolveTestCoupleId()`; таблица `couples` в пайплайне тестов не используется и не должна.
+11. **`personality_types`** в отчёте заполняется Big Five из 24-шкального профиля: E←s23, A←s5, C←s21, St←s12, O←s24 (см. Module 7 в `psychometrics.calc.ts`).
+12. **`POST /api/pair/accept`** требует оба поля `{ fromLogin, toLogin }` (`pairAcceptSchema`); при `gender`-валидации регистрации login ≤ 20 символов. E2E-проверка пайплайна: `npx tsx scripts/e2e-prod-submit.mts` (пары создаёт `/tmp`-скрипты регистрации; тестовых пользователей `e2*` затем вычищать из БД).
 
 ---
 

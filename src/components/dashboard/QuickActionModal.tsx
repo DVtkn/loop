@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Heart, X, Send } from 'lucide-react';
 
 interface QuickActionModalProps {
@@ -16,11 +16,22 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  useEffect(() => {
+    if (!activeQuickAction) onChangeText('');
+  }, [activeQuickAction, onChangeText]);
+  const handleClose = () => {
+    onChangeText('');
+    onClose();
+  };
+  const handleSubmit = (e: React.FormEvent) => {
+    onSubmit(e);
+    onChangeText('');
+  };
   if (!activeQuickAction) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center items-center">
-      <div onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fadeIn" />
+      <div onClick={handleClose} className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fadeIn" />
 
       <div className="relative z-10 w-full max-w-lg bg-[var(--surface-solid)] rounded-t-[32px] sm:rounded-3xl p-5 sm:p-6 border border-[var(--divider)] shadow-2xl space-y-0 max-h-[90vh] flex flex-col pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))] animate-slideUp">
         <div className="w-10 h-1 rounded-full bg-[var(--divider)] mx-auto sm:hidden mb-3 shrink-0" />
@@ -47,14 +58,14 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-9 h-9 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center active:scale-95 transition-all shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="flex flex-col flex-1 space-y-3.5">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 space-y-3.5">
           <textarea
             value={quickActionText}
             onChange={(e) => onChangeText(e.target.value)}
@@ -73,7 +84,7 @@ export const QuickActionModal: React.FC<QuickActionModalProps> = ({
           <div className="flex items-center gap-2 pt-2 border-t border-[var(--divider)] shrink-0">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-3 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-[var(--text-2)] font-semibold text-sm transition-all active:scale-98 cursor-pointer"
             >
               Отмена

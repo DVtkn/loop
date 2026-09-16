@@ -1,20 +1,12 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// src/server/app.ts
-import "dotenv/config";
-import express from "express";
-import helmet from "helmet";
-import cors from "cors";
-import { sql as sql4 } from "drizzle-orm";
-
-// src/server/db/client.ts
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import WebSocket from "ws";
 
 // src/server/db/schema.ts
 var schema_exports = {};
@@ -40,469 +32,425 @@ __export(schema_exports, {
   users: () => users
 });
 import { numeric, pgTable, text, timestamp, boolean, jsonb, integer, real, unique, index, customType, foreignKey, varchar, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-var bytea = customType({
-  dataType() {
-    return "bytea";
+var bytea, users, pairRequests, coupleData, couples, testSessions, testAnswers, chatMessages, relationshipMetrics, aiInsights, photos, dateEvents, careNotes, timeCapsules, pushSubscriptions, coupleEvents, userPsychProfiles, coupleReports, testDrafts;
+var init_schema = __esm({
+  "src/server/db/schema.ts"() {
+    "use strict";
+    bytea = customType({
+      dataType() {
+        return "bytea";
+      }
+    });
+    users = pgTable("users", {
+      id: text("id").primaryKey(),
+      login: text("login").notNull().unique(),
+      passwordHash: text("password_hash").notNull(),
+      name: text("name").notNull(),
+      gender: text("gender"),
+      // 'male' | 'female'
+      avatarEmoji: text("avatar_emoji").notNull().default("sparkles"),
+      partnerLogin: text("partner_login"),
+      inviteCode: text("invite_code"),
+      inviteCodeExpires: text("invite_code_expires"),
+      pairedAt: text("paired_at"),
+      startDate: text("start_date"),
+      city: text("city"),
+      loveLanguage: text("love_language"),
+      attachmentStyle: text("attachment_style"),
+      currentMood: jsonb("current_mood"),
+      // { emoji, label, note, updatedAt }
+      lastActiveAt: text("last_active_at"),
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      partnerLoginIdx: index("users_partner_login_idx").on(t.partnerLogin),
+      partnerLoginFk: foreignKey({
+        columns: [t.partnerLogin],
+        foreignColumns: [t.login],
+        name: "users_partner_login_fk"
+      }).onDelete("set null")
+    }));
+    pairRequests = pgTable("pair_requests", {
+      id: text("id").primaryKey(),
+      fromLogin: text("from_login").notNull().references(() => users.login, { onDelete: "cascade" }),
+      fromName: text("from_name").notNull(),
+      fromAvatar: text("from_avatar").notNull(),
+      toLogin: text("to_login").notNull().references(() => users.login, { onDelete: "cascade" }),
+      status: text("status").notNull(),
+      // 'PENDING' | 'ACCEPTED' | 'REJECTED'
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      fromToIdx: index("pair_requests_from_to_idx").on(t.fromLogin, t.toLogin),
+      toLoginIdx: index("pair_requests_to_login_idx").on(t.toLogin),
+      statusIdx: index("pair_requests_status_idx").on(t.status)
+    }));
+    coupleData = pgTable("couple_data", {
+      id: text("id").primaryKey(),
+      // using the 'login1_login2' sorted key
+      data: jsonb("data").notNull(),
+      lastUpdatedAt: text("last_updated_at").notNull()
+    });
+    couples = pgTable("couples", {
+      id: text("id").primaryKey(),
+      user1Id: text("user1_id").references(() => users.id, { onDelete: "cascade" }),
+      user2Id: text("user2_id").references(() => users.id, { onDelete: "cascade" }),
+      status: text("status").default("active").notNull(),
+      xpPoints: integer("xp_points").default(0).notNull(),
+      currentLevel: integer("current_level").default(1).notNull(),
+      streakDays: integer("streak_days").default(0).notNull(),
+      startDate: text("start_date"),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    });
+    testSessions = pgTable("test_sessions", {
+      id: text("id").primaryKey(),
+      testId: text("test_id").notNull(),
+      coupleId: text("couple_id").notNull(),
+      testClass: text("test_class").default("couple").notNull(),
+      // 'individual' | 'couple'
+      status: text("status").default("in_progress").notNull(),
+      // 'in_progress' | 'completed'
+      completedAt: timestamp("completed_at", { withTimezone: true }),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      coupleIdIdx: index("test_sessions_couple_id_idx").on(t.coupleId),
+      testIdIdx: index("test_sessions_test_id_idx").on(t.testId),
+      statusIdx: index("test_sessions_status_idx").on(t.status)
+    }));
+    testAnswers = pgTable("test_answers", {
+      id: text("id").primaryKey(),
+      sessionId: text("session_id").references(() => testSessions.id, { onDelete: "cascade" }).notNull(),
+      userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+      questionId: text("question_id").notNull(),
+      scaleId: text("scale_id"),
+      selectedValue: text("selected_value").notNull(),
+      weight: numeric("weight", { precision: 5, scale: 2 }).default("1.00").notNull(),
+      reactionTimeMs: integer("reaction_time_ms"),
+      toggleCount: integer("toggle_count").default(0).notNull(),
+      targetType: varchar("target_type", { length: 24 }).default("self").notNull(),
+      // 'self' | 'partner_observation'
+      rawPayload: jsonb("raw_payload"),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      uniqUserQuestion: unique("uniq_user_session_question").on(t.sessionId, t.userId, t.questionId),
+      sessionIdx: index("test_answers_session_idx").on(t.sessionId),
+      userIdIdx: index("test_answers_user_idx").on(t.userId)
+    }));
+    chatMessages = pgTable("chat_messages", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      senderLogin: text("sender_login").notNull(),
+      role: text("role").notNull(),
+      // 'partner1', 'partner2', 'ai'
+      content: text("content").notNull(),
+      isRead: boolean("is_read").default(false),
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      coupleCreatedIdx: index("chat_messages_couple_created_idx").on(t.coupleId, t.createdAt),
+      senderIdx: index("chat_messages_sender_login_idx").on(t.senderLogin)
+    }));
+    relationshipMetrics = pgTable("relationship_metrics", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      metricDate: text("metric_date").notNull(),
+      // YYYY-MM-DD
+      radarScores: jsonb("radar_scores").notNull(),
+      // { trust, communication, passion, sharedValues, care, dailyLife }
+      moodAverage: real("mood_average"),
+      moodEntriesCount: integer("mood_entries_count").default(0),
+      interactionCount: integer("interaction_count").default(0),
+      quizCompleted: boolean("quiz_completed").default(false),
+      streakDays: integer("streak_days").default(0),
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      unq: unique().on(t.coupleId, t.metricDate)
+    }));
+    aiInsights = pgTable("ai_insights", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      type: text("type").notNull(),
+      // 'weekly' | 'risk_alert'
+      content: jsonb("content").notNull(),
+      periodStart: text("period_start").notNull(),
+      periodEnd: text("period_end").notNull(),
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      coupleCreatedIdx: index("ai_insights_couple_created_idx").on(t.coupleId, t.createdAt)
+    }));
+    photos = pgTable("photos", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      uploaderLogin: text("uploader_login").notNull().references(() => users.login, { onDelete: "cascade" }),
+      imageBytes: bytea("image_bytes").notNull(),
+      mimeType: text("mime_type").notNull(),
+      caption: text("caption"),
+      width: integer("width"),
+      height: integer("height"),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      coupleIdIdx: index("photos_couple_id_idx").on(t.coupleId),
+      createdAtIdx: index("photos_created_at_idx").on(t.createdAt)
+    }));
+    dateEvents = pgTable("date_events", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      title: text("title").notNull(),
+      description: text("description"),
+      location: text("location"),
+      eventDate: text("event_date").notNull(),
+      status: text("status").default("planned").notNull(),
+      // 'planned' | 'completed' | 'cancelled'
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      coupleIdIdx: index("date_events_couple_id_idx").on(t.coupleId)
+    }));
+    careNotes = pgTable("care_notes", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      authorLogin: text("author_login").notNull(),
+      targetLogin: text("target_login").notNull(),
+      content: text("content").notNull(),
+      category: text("category").default("general").notNull(),
+      isCompleted: boolean("is_completed").default(false).notNull(),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      coupleIdIdx: index("care_notes_couple_id_idx").on(t.coupleId)
+    }));
+    timeCapsules = pgTable("time_capsules", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      authorLogin: text("author_login").notNull(),
+      title: text("title").notNull(),
+      content: text("content").notNull(),
+      openAt: text("open_at").notNull(),
+      isOpened: boolean("is_opened").default(false).notNull(),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      coupleIdIdx: index("time_capsules_couple_id_idx").on(t.coupleId)
+    }));
+    pushSubscriptions = pgTable("push_subscriptions", {
+      id: text("id").primaryKey(),
+      userLogin: text("user_login").notNull(),
+      coupleId: text("couple_id"),
+      subscription: jsonb("subscription").notNull(),
+      createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    }, (t) => ({
+      userLoginIdx: index("push_subscriptions_user_idx").on(t.userLogin)
+    }));
+    coupleEvents = pgTable("couple_events", {
+      id: text("id").primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      targetLogin: text("target_login").notNull(),
+      senderLogin: text("sender_login").notNull(),
+      eventType: text("event_type").notNull(),
+      // 'touch' | 'chat_message' | 'couple_updated'
+      payload: jsonb("payload").notNull(),
+      createdAt: text("created_at").notNull()
+    }, (t) => ({
+      coupleTargetIdx: index("couple_events_target_idx").on(t.targetLogin, t.createdAt),
+      coupleIdIdx: index("couple_events_couple_idx").on(t.coupleId, t.createdAt)
+    }));
+    userPsychProfiles = pgTable("user_psych_profiles", {
+      userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).primaryKey(),
+      coupleId: text("couple_id").notNull(),
+      sessionId: text("session_id").notNull(),
+      traitScores: jsonb("trait_scores"),
+      // S1..S24 normalized 0..100
+      dominantVectors: jsonb("dominant_vectors"),
+      eSafety: numeric("e_safety", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      aAutonomy: numeric("a_autonomy", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      cCloseness: numeric("c_closeness", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      rRepair: numeric("r_repair", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      vFuture: numeric("v_future", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      consistencyScore: numeric("consistency_score", { precision: 5, scale: 2 }),
+      rawResponses: jsonb("raw_responses"),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+    });
+    coupleReports = pgTable("couple_reports", {
+      id: text("id").primaryKey(),
+      sessionId: text("session_id").notNull(),
+      coupleId: text("couple_id").notNull().unique(),
+      radarMetrics: jsonb("radar_metrics"),
+      // 6 integral spheres: trust, closeness, communication, values, intimacy, lifestyle
+      radarTrust: numeric("radar_trust", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      radarCloseness: numeric("radar_closeness", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      radarCommunication: numeric("radar_communication", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      radarIntimacy: numeric("radar_intimacy", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      radarValues: numeric("radar_values", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      radarLifestyle: numeric("radar_lifestyle", { precision: 5, scale: 2 }).notNull().default("50.00"),
+      personalityTypes: jsonb("personality_types"),
+      archetypeTitle: text("archetype_title").notNull(),
+      archetypeDescription: text("archetype_description").notNull(),
+      leadSpheres: jsonb("lead_spheres").notNull(),
+      synergyPoints: jsonb("synergy_points"),
+      growthZones: jsonb("growth_zones"),
+      blindSpots: jsonb("blind_spots"),
+      calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
+      createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+    });
+    testDrafts = pgTable("test_drafts", {
+      id: uuid("id").defaultRandom().primaryKey(),
+      userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+      testId: varchar("test_id", { length: 64 }).notNull(),
+      currentQuestionIndex: integer("current_question_index").default(0).notNull(),
+      answers: jsonb("answers").notNull(),
+      updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+    }, (table) => ({
+      userTestDraftIdx: uniqueIndex("user_test_draft_idx").on(table.userId, table.testId)
+    }));
   }
 });
-var users = pgTable("users", {
-  id: text("id").primaryKey(),
-  login: text("login").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  name: text("name").notNull(),
-  gender: text("gender"),
-  // 'male' | 'female'
-  avatarEmoji: text("avatar_emoji").notNull().default("sparkles"),
-  partnerLogin: text("partner_login"),
-  pairedAt: text("paired_at"),
-  startDate: text("start_date"),
-  city: text("city"),
-  loveLanguage: text("love_language"),
-  attachmentStyle: text("attachment_style"),
-  currentMood: jsonb("current_mood"),
-  // { emoji, label, note, updatedAt }
-  lastActiveAt: text("last_active_at"),
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  partnerLoginIdx: index("users_partner_login_idx").on(t.partnerLogin),
-  partnerLoginFk: foreignKey({
-    columns: [t.partnerLogin],
-    foreignColumns: [t.login],
-    name: "users_partner_login_fk"
-  }).onDelete("set null")
-}));
-var pairRequests = pgTable("pair_requests", {
-  id: text("id").primaryKey(),
-  fromLogin: text("from_login").notNull().references(() => users.login, { onDelete: "cascade" }),
-  fromName: text("from_name").notNull(),
-  fromAvatar: text("from_avatar").notNull(),
-  toLogin: text("to_login").notNull().references(() => users.login, { onDelete: "cascade" }),
-  status: text("status").notNull(),
-  // 'PENDING' | 'ACCEPTED' | 'REJECTED'
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  fromToIdx: index("pair_requests_from_to_idx").on(t.fromLogin, t.toLogin),
-  toLoginIdx: index("pair_requests_to_login_idx").on(t.toLogin),
-  statusIdx: index("pair_requests_status_idx").on(t.status)
-}));
-var coupleData = pgTable("couple_data", {
-  id: text("id").primaryKey(),
-  // using the 'login1_login2' sorted key
-  data: jsonb("data").notNull(),
-  lastUpdatedAt: text("last_updated_at").notNull()
-});
-var couples = pgTable("couples", {
-  id: text("id").primaryKey(),
-  user1Id: text("user1_id").references(() => users.id, { onDelete: "cascade" }),
-  user2Id: text("user2_id").references(() => users.id, { onDelete: "cascade" }),
-  status: text("status").default("active").notNull(),
-  xpPoints: integer("xp_points").default(0).notNull(),
-  currentLevel: integer("current_level").default(1).notNull(),
-  streakDays: integer("streak_days").default(0).notNull(),
-  startDate: text("start_date"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-});
-var testSessions = pgTable("test_sessions", {
-  id: text("id").primaryKey(),
-  testId: text("test_id").notNull(),
-  coupleId: text("couple_id").notNull(),
-  testClass: text("test_class").default("couple").notNull(),
-  // 'individual' | 'couple'
-  status: text("status").default("in_progress").notNull(),
-  // 'in_progress' | 'completed'
-  completedAt: timestamp("completed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  coupleIdIdx: index("test_sessions_couple_id_idx").on(t.coupleId),
-  testIdIdx: index("test_sessions_test_id_idx").on(t.testId),
-  statusIdx: index("test_sessions_status_idx").on(t.status)
-}));
-var testAnswers = pgTable("test_answers", {
-  id: text("id").primaryKey(),
-  sessionId: text("session_id").references(() => testSessions.id, { onDelete: "cascade" }).notNull(),
-  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  questionId: text("question_id").notNull(),
-  scaleId: text("scale_id"),
-  selectedValue: text("selected_value").notNull(),
-  weight: numeric("weight", { precision: 5, scale: 2 }).default("1.00").notNull(),
-  reactionTimeMs: integer("reaction_time_ms"),
-  toggleCount: integer("toggle_count").default(0).notNull(),
-  targetType: varchar("target_type", { length: 24 }).default("self").notNull(),
-  // 'self' | 'partner_observation'
-  rawPayload: jsonb("raw_payload"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  uniqUserQuestion: unique("uniq_user_session_question").on(t.sessionId, t.userId, t.questionId),
-  sessionIdx: index("test_answers_session_idx").on(t.sessionId),
-  userIdIdx: index("test_answers_user_idx").on(t.userId)
-}));
-var chatMessages = pgTable("chat_messages", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  senderLogin: text("sender_login").notNull(),
-  role: text("role").notNull(),
-  // 'partner1', 'partner2', 'ai'
-  content: text("content").notNull(),
-  isRead: boolean("is_read").default(false),
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  coupleCreatedIdx: index("chat_messages_couple_created_idx").on(t.coupleId, t.createdAt),
-  senderIdx: index("chat_messages_sender_login_idx").on(t.senderLogin)
-}));
-var relationshipMetrics = pgTable("relationship_metrics", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  metricDate: text("metric_date").notNull(),
-  // YYYY-MM-DD
-  radarScores: jsonb("radar_scores").notNull(),
-  // { trust, communication, passion, sharedValues, care, dailyLife }
-  moodAverage: real("mood_average"),
-  moodEntriesCount: integer("mood_entries_count").default(0),
-  interactionCount: integer("interaction_count").default(0),
-  quizCompleted: boolean("quiz_completed").default(false),
-  streakDays: integer("streak_days").default(0),
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  unq: unique().on(t.coupleId, t.metricDate)
-}));
-var aiInsights = pgTable("ai_insights", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  type: text("type").notNull(),
-  // 'weekly' | 'risk_alert'
-  content: jsonb("content").notNull(),
-  periodStart: text("period_start").notNull(),
-  periodEnd: text("period_end").notNull(),
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  coupleCreatedIdx: index("ai_insights_couple_created_idx").on(t.coupleId, t.createdAt)
-}));
-var photos = pgTable("photos", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  uploaderLogin: text("uploader_login").notNull().references(() => users.login, { onDelete: "cascade" }),
-  imageBytes: bytea("image_bytes").notNull(),
-  mimeType: text("mime_type").notNull(),
-  caption: text("caption"),
-  width: integer("width"),
-  height: integer("height"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  coupleIdIdx: index("photos_couple_id_idx").on(t.coupleId),
-  createdAtIdx: index("photos_created_at_idx").on(t.createdAt)
-}));
-var dateEvents = pgTable("date_events", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  title: text("title").notNull(),
-  description: text("description"),
-  location: text("location"),
-  eventDate: text("event_date").notNull(),
-  status: text("status").default("planned").notNull(),
-  // 'planned' | 'completed' | 'cancelled'
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  coupleIdIdx: index("date_events_couple_id_idx").on(t.coupleId)
-}));
-var careNotes = pgTable("care_notes", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  authorLogin: text("author_login").notNull(),
-  targetLogin: text("target_login").notNull(),
-  content: text("content").notNull(),
-  category: text("category").default("general").notNull(),
-  isCompleted: boolean("is_completed").default(false).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  coupleIdIdx: index("care_notes_couple_id_idx").on(t.coupleId)
-}));
-var timeCapsules = pgTable("time_capsules", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  authorLogin: text("author_login").notNull(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  openAt: text("open_at").notNull(),
-  isOpened: boolean("is_opened").default(false).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  coupleIdIdx: index("time_capsules_couple_id_idx").on(t.coupleId)
-}));
-var pushSubscriptions = pgTable("push_subscriptions", {
-  id: text("id").primaryKey(),
-  userLogin: text("user_login").notNull(),
-  coupleId: text("couple_id"),
-  subscription: jsonb("subscription").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
-}, (t) => ({
-  userLoginIdx: index("push_subscriptions_user_idx").on(t.userLogin)
-}));
-var coupleEvents = pgTable("couple_events", {
-  id: text("id").primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  targetLogin: text("target_login").notNull(),
-  senderLogin: text("sender_login").notNull(),
-  eventType: text("event_type").notNull(),
-  // 'touch' | 'chat_message' | 'couple_updated'
-  payload: jsonb("payload").notNull(),
-  createdAt: text("created_at").notNull()
-}, (t) => ({
-  coupleTargetIdx: index("couple_events_target_idx").on(t.targetLogin, t.createdAt),
-  coupleIdIdx: index("couple_events_couple_idx").on(t.coupleId, t.createdAt)
-}));
-var userPsychProfiles = pgTable("user_psych_profiles", {
-  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).primaryKey(),
-  coupleId: text("couple_id").notNull(),
-  sessionId: text("session_id").notNull(),
-  traitScores: jsonb("trait_scores"),
-  // S1..S24 normalized 0..100
-  dominantVectors: jsonb("dominant_vectors"),
-  eSafety: numeric("e_safety", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  aAutonomy: numeric("a_autonomy", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  cCloseness: numeric("c_closeness", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  rRepair: numeric("r_repair", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  vFuture: numeric("v_future", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  consistencyScore: numeric("consistency_score", { precision: 5, scale: 2 }),
-  rawResponses: jsonb("raw_responses"),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
-});
-var coupleReports = pgTable("couple_reports", {
-  id: text("id").primaryKey(),
-  sessionId: text("session_id").notNull(),
-  coupleId: text("couple_id").notNull().unique(),
-  radarMetrics: jsonb("radar_metrics"),
-  // 6 integral spheres: trust, closeness, communication, values, intimacy, lifestyle
-  radarTrust: numeric("radar_trust", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  radarCloseness: numeric("radar_closeness", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  radarCommunication: numeric("radar_communication", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  radarIntimacy: numeric("radar_intimacy", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  radarValues: numeric("radar_values", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  radarLifestyle: numeric("radar_lifestyle", { precision: 5, scale: 2 }).notNull().default("50.00"),
-  personalityTypes: jsonb("personality_types"),
-  archetypeTitle: text("archetype_title").notNull(),
-  archetypeDescription: text("archetype_description").notNull(),
-  leadSpheres: jsonb("lead_spheres").notNull(),
-  synergyPoints: jsonb("synergy_points"),
-  growthZones: jsonb("growth_zones"),
-  blindSpots: jsonb("blind_spots"),
-  calculatedAt: timestamp("calculated_at", { withTimezone: true }).defaultNow().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
-});
-var testDrafts = pgTable("test_drafts", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
-  testId: varchar("test_id", { length: 64 }).notNull(),
-  currentQuestionIndex: integer("current_question_index").default(0).notNull(),
-  answers: jsonb("answers").notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
-}, (table) => ({
-  userTestDraftIdx: uniqueIndex("user_test_draft_idx").on(table.userId, table.testId)
-}));
 
 // src/server/core/logger.ts
 import winston from "winston";
-var isProd = process.env.NODE_ENV === "production";
-var customLevels = {
-  levels: {
-    error: 0,
-    security: 1,
-    warn: 2,
-    info: 3,
-    debug: 4
-  },
-  colors: {
-    error: "red",
-    security: "magenta",
-    warn: "yellow",
-    info: "green",
-    debug: "blue"
-  }
-};
-winston.addColors(customLevels.colors);
-var formatError = (err) => {
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack };
-  } else if (err && typeof err === "object") {
-    return { message: JSON.stringify(err) };
-  } else if (err) {
-    return { message: String(err) };
-  }
-  return void 0;
-};
-var prodFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.errors({ stack: true }),
-  winston.format.json()
-  // Cloud Logging automatically parses this
-);
-var devFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.colorize({ all: true }),
-  winston.format.printf(({ level, message, timestamp: timestamp2, context, error }) => {
-    const details = context || error ? `
+var isProd, customLevels, formatError, prodFormat, devFormat, winstonLogger, logger;
+var init_logger = __esm({
+  "src/server/core/logger.ts"() {
+    "use strict";
+    isProd = process.env.NODE_ENV === "production";
+    customLevels = {
+      levels: {
+        error: 0,
+        security: 1,
+        warn: 2,
+        info: 3,
+        debug: 4
+      },
+      colors: {
+        error: "red",
+        security: "magenta",
+        warn: "yellow",
+        info: "green",
+        debug: "blue"
+      }
+    };
+    winston.addColors(customLevels.colors);
+    formatError = (err) => {
+      if (err instanceof Error) {
+        return { name: err.name, message: err.message, stack: err.stack };
+      } else if (err && typeof err === "object") {
+        return { message: JSON.stringify(err) };
+      } else if (err) {
+        return { message: String(err) };
+      }
+      return void 0;
+    };
+    prodFormat = winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.errors({ stack: true }),
+      winston.format.json()
+      // Cloud Logging automatically parses this
+    );
+    devFormat = winston.format.combine(
+      winston.format.timestamp(),
+      winston.format.colorize({ all: true }),
+      winston.format.printf(({ level, message, timestamp: timestamp2, context, error }) => {
+        const details = context || error ? `
   ${JSON.stringify({ ...context || {}, ...error ? { error } : {} }, null, 2)}` : "";
-    return `[${timestamp2}] ${level}: ${message}${details}`;
-  })
-);
-var winstonLogger = winston.createLogger({
-  levels: customLevels.levels,
-  level: isProd ? "info" : "debug",
-  transports: [
-    new winston.transports.Console({
-      format: isProd ? prodFormat : devFormat
-    })
-  ]
-});
-var logger = {
-  info: (message, context) => {
-    winstonLogger.info(message, { context });
-  },
-  warn: (message, context, err) => {
-    winstonLogger.warn(message, { context, error: formatError(err) });
-  },
-  error: (message, err, context) => {
-    winstonLogger.error(message, { context, error: formatError(err) });
-  },
-  security: (message, context) => {
-    winstonLogger.log("security", message, { context });
-  },
-  debug: (message, context) => {
-    winstonLogger.log("debug", message, { context });
+        return `[${timestamp2}] ${level}: ${message}${details}`;
+      })
+    );
+    winstonLogger = winston.createLogger({
+      levels: customLevels.levels,
+      level: isProd ? "info" : "debug",
+      transports: [
+        new winston.transports.Console({
+          format: isProd ? prodFormat : devFormat
+        })
+      ]
+    });
+    logger = {
+      info: (message, context) => {
+        winstonLogger.info(message, { context });
+      },
+      warn: (message, context, err) => {
+        winstonLogger.warn(message, { context, error: formatError(err) });
+      },
+      error: (message, err, context) => {
+        winstonLogger.error(message, { context, error: formatError(err) });
+      },
+      security: (message, context) => {
+        winstonLogger.log("security", message, { context });
+      },
+      debug: (message, context) => {
+        winstonLogger.log("debug", message, { context });
+      }
+    };
   }
-};
+});
 
 // src/server/db/client.ts
-neonConfig.poolQueryViaFetch = true;
-neonConfig.webSocketConstructor = WebSocket;
-var isSqlConfigured = () => {
-  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") return true;
-  if (process.env.POSTGRES_URL && process.env.POSTGRES_URL.trim() !== "") return true;
-  if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") return true;
-  if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") return true;
-  if (process.env.SQL_HOST && process.env.SQL_USER && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") return true;
-  if (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE && process.env.PGHOST.trim() !== "") return true;
-  return false;
-};
-var getConnectionString = () => {
-  let raw = null;
-  if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") {
-    raw = process.env.DATABASE_URL;
-  } else if (process.env.POSTGRES_URL && process.env.POSTGRES_URL.trim() !== "") {
-    raw = process.env.POSTGRES_URL;
-  } else if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") {
-    raw = process.env.NEON_DATABASE_URL;
-  } else if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") {
-    raw = process.env.MY_DATABASE_URL;
-  } else if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") {
-    const user = process.env.SQL_USER || process.env.SQL_ADMIN_USER || "";
-    const password = process.env.SQL_PASSWORD || process.env.SQL_ADMIN_PASSWORD || "";
-    const port = process.env.SQL_PORT || "5432";
-    raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
-  } else if (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE && process.env.PGHOST.trim() !== "") {
-    const user = process.env.PGUSER || "";
-    const password = process.env.PGPASSWORD || "";
-    const port = process.env.PGPORT || "5432";
-    raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.PGHOST}:${port}/${process.env.PGDATABASE}?sslmode=require`;
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import WebSocket from "ws";
+var isSqlConfigured, getConnectionString, createPool, getDb, db;
+var init_client = __esm({
+  "src/server/db/client.ts"() {
+    "use strict";
+    init_schema();
+    init_logger();
+    neonConfig.poolQueryViaFetch = true;
+    neonConfig.webSocketConstructor = WebSocket;
+    isSqlConfigured = () => {
+      if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") return true;
+      if (process.env.POSTGRES_URL && process.env.POSTGRES_URL.trim() !== "") return true;
+      if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") return true;
+      if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") return true;
+      if (process.env.SQL_HOST && process.env.SQL_USER && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") return true;
+      if (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE && process.env.PGHOST.trim() !== "") return true;
+      return false;
+    };
+    getConnectionString = () => {
+      let raw = null;
+      if (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== "") {
+        raw = process.env.DATABASE_URL;
+      } else if (process.env.POSTGRES_URL && process.env.POSTGRES_URL.trim() !== "") {
+        raw = process.env.POSTGRES_URL;
+      } else if (process.env.NEON_DATABASE_URL && process.env.NEON_DATABASE_URL.trim() !== "") {
+        raw = process.env.NEON_DATABASE_URL;
+      } else if (process.env.MY_DATABASE_URL && process.env.MY_DATABASE_URL.trim() !== "") {
+        raw = process.env.MY_DATABASE_URL;
+      } else if (process.env.SQL_HOST && (process.env.SQL_USER || process.env.SQL_ADMIN_USER) && process.env.SQL_DB_NAME && process.env.SQL_HOST.trim() !== "") {
+        const user = process.env.SQL_USER || process.env.SQL_ADMIN_USER || "";
+        const password = process.env.SQL_PASSWORD || process.env.SQL_ADMIN_PASSWORD || "";
+        const port = process.env.SQL_PORT || "5432";
+        raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.SQL_HOST}:${port}/${process.env.SQL_DB_NAME}?sslmode=require`;
+      } else if (process.env.PGHOST && process.env.PGUSER && process.env.PGDATABASE && process.env.PGHOST.trim() !== "") {
+        const user = process.env.PGUSER || "";
+        const password = process.env.PGPASSWORD || "";
+        const port = process.env.PGPORT || "5432";
+        raw = `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${process.env.PGHOST}:${port}/${process.env.PGDATABASE}?sslmode=require`;
+      }
+      return raw ? raw.replace(/[?&]channel_binding=[^&]*(&?)/, (m, tail) => tail ? m.startsWith("?") ? "?" : "&" : "").replace(/[?&]$/, "") : null;
+    };
+    createPool = () => {
+      const connStr = getConnectionString();
+      if (!connStr) {
+        return null;
+      }
+      if (!globalThis._neonPool) {
+        globalThis._neonPool = new Pool({
+          connectionString: connStr,
+          max: 10,
+          connectionTimeoutMillis: 1e4
+        });
+        globalThis._neonPool.on("error", (err) => {
+          logger.warn("Neon pool connection notice:", void 0, err);
+        });
+      }
+      return globalThis._neonPool;
+    };
+    getDb = () => {
+      if (globalThis._neonDb) {
+        return globalThis._neonDb;
+      }
+      const pool = isSqlConfigured() ? createPool() : null;
+      globalThis._neonDb = pool ? drizzle(pool, { schema: schema_exports }) : drizzle(new Pool({ connectionString: "postgresql://dummy:dummy@127.0.0.1:5432/dummy" }), { schema: schema_exports });
+      return globalThis._neonDb;
+    };
+    db = getDb();
   }
-  return raw ? raw.replace(/[?&]channel_binding=[^&]*(&?)/, (m, tail) => tail ? m.startsWith("?") ? "?" : "&" : "").replace(/[?&]$/, "") : null;
-};
-var createPool = () => {
-  const connStr = getConnectionString();
-  if (!connStr) {
-    return null;
-  }
-  if (!globalThis._neonPool) {
-    globalThis._neonPool = new Pool({
-      connectionString: connStr,
-      max: 10,
-      connectionTimeoutMillis: 1e4
-    });
-    globalThis._neonPool.on("error", (err) => {
-      logger.warn("Neon pool connection notice:", void 0, err);
-    });
-  }
-  return globalThis._neonPool;
-};
-var getDb = () => {
-  if (globalThis._neonDb) {
-    return globalThis._neonDb;
-  }
-  const pool = isSqlConfigured() ? createPool() : null;
-  globalThis._neonDb = pool ? drizzle(pool, { schema: schema_exports }) : drizzle(new Pool({ connectionString: "postgresql://dummy:dummy@127.0.0.1:5432/dummy" }), { schema: schema_exports });
-  return globalThis._neonDb;
-};
-var db = getDb();
-
-// src/server/core/config.ts
-import dotenv from "dotenv";
-dotenv.config();
-function parseAllowedOrigins() {
-  const custom = process.env.ALLOWED_ORIGINS;
-  if (custom) {
-    return custom.split(",").map((o) => o.trim()).filter(Boolean);
-  }
-  return [
-    "http://localhost:3000",
-    "http://localhost:5173"
-  ];
-}
-function loadConfig() {
-  const port = 3e3;
-  const nodeEnv = process.env.NODE_ENV || "development";
-  const isProd8 = nodeEnv === "production";
-  let jwtSecret = process.env.JWT_SECRET;
-  if (isProd8) {
-    if (!jwtSecret || jwtSecret === "loop_secret_fallback_12345" || jwtSecret.trim() === "") {
-      logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: \u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F JWT_SECRET \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0438\u043B\u0438 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447. \u0414\u043B\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 JWT_SECRET \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 Vercel.");
-      jwtSecret = process.env.JWT_SECRET || "loop_prod_secure_secret_fallback_key_2025";
-    }
-    const hasDb = Boolean(
-      process.env.DATABASE_URL?.trim() || process.env.NEON_DATABASE_URL?.trim() || process.env.MY_DATABASE_URL?.trim() || process.env.SQL_HOST?.trim()
-    );
-    if (!hasDb) {
-      logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: \u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F DATABASE_URL / NEON_DATABASE_URL \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0432 \u043F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0445 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u044F Vercel. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0441\u0442\u0440\u043E\u043A\u0443 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A Neon PostgreSQL \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 Vercel.");
-    }
-  } else {
-    if (!jwtSecret) {
-      logger.warn("JWT_SECRET is missing from environment. Using fallback (NOT safe for production).");
-      jwtSecret = "loop_secret_fallback_12345";
-    }
-  }
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    logger.warn("GROQ_API_KEY is not configured in .env. AI psychologist (Sova) will return 503.");
-  }
-  return {
-    port,
-    nodeEnv,
-    jwtSecret,
-    groqApiKey: GROQ_API_KEY,
-    geminiApiKey: process.env.GEMINI_API_KEY,
-    allowedOrigins: parseAllowedOrigins()
-  };
-}
-var config = loadConfig();
-
-// src/server/modules/chat/chat.service.ts
-import { eq as eq2 } from "drizzle-orm";
-import crypto2 from "crypto";
-
-// src/server/services/storageService.ts
-import fs from "fs";
-import path from "path";
-import { sql, eq, or } from "drizzle-orm";
+});
 
 // src/server/shared/errors/index.ts
-var DatabaseUnavailableError = class _DatabaseUnavailableError extends Error {
-  constructor(message = "\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043C\u0438\u043D\u0443\u0442\u0443") {
-    super(message);
-    this.statusCode = 503;
-    this.status = 503;
-    this.code = "DB_UNAVAILABLE";
-    this.name = "DatabaseUnavailableError";
-    Object.setPrototypeOf(this, _DatabaseUnavailableError.prototype);
-  }
-};
 function isDatabaseError(err) {
   if (!err) return false;
   if (err instanceof DatabaseUnavailableError || err.code === "DB_UNAVAILABLE" || err.status === 503 || err.statusCode === 503) {
@@ -519,11 +467,38 @@ function isDatabaseError(err) {
   }
   return false;
 }
+var DatabaseUnavailableError;
+var init_errors = __esm({
+  "src/server/shared/errors/index.ts"() {
+    "use strict";
+    DatabaseUnavailableError = class _DatabaseUnavailableError extends Error {
+      constructor(message = "\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043C\u0438\u043D\u0443\u0442\u0443") {
+        super(message);
+        this.statusCode = 503;
+        this.status = 503;
+        this.code = "DB_UNAVAILABLE";
+        this.name = "DatabaseUnavailableError";
+        Object.setPrototypeOf(this, _DatabaseUnavailableError.prototype);
+      }
+    };
+  }
+});
 
 // src/server/services/storageService.ts
-var DATA_DIR = path.join(process.cwd(), "data");
-var DB_FILE = path.join(DATA_DIR, "db_store.json");
-var isProd2 = () => process.env.NODE_ENV === "production";
+var storageService_exports = {};
+__export(storageService_exports, {
+  findUserByLogin: () => findUserByLogin,
+  findUserByQuery: () => findUserByQuery,
+  getCoupleData: () => getCoupleData,
+  mergeCoupleData: () => mergeCoupleData,
+  readEmergencyFile: () => readEmergencyFile,
+  saveCoupleData: () => saveCoupleData,
+  upsertUser: () => upsertUser,
+  writeEmergencyFile: () => writeEmergencyFile
+});
+import fs from "fs";
+import path from "path";
+import { sql, eq, or } from "drizzle-orm";
 function ensureDataDir() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -898,1032 +873,29 @@ async function saveCoupleData(key, data) {
   store.coupleData[key] = data;
   writeEmergencyFile(store);
 }
-
-// src/server/services/aiService.ts
-import crypto from "crypto";
-var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-var MODEL_NAME = "qwen/qwen3.8-27b";
-async function callGroqChat(messages) {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    logger.warn("GROQ_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u0438 (.env)");
-    return null;
-  }
-  try {
-    const response = await fetch(GROQ_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        messages,
-        model: MODEL_NAME,
-        temperature: 0.5,
-        max_tokens: 650,
-        stream: false
-      })
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${MODEL_NAME})`);
-        return content;
-      }
-    }
-    const errText = await response.text();
-    logger.warn(`Groq ${MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status}: ${errText.slice(0, 200)}`);
-  } catch (err) {
-    console.error("[Groq API Error]:", err);
-  }
-  return null;
-}
-async function saveAIMessageToDb(userLogin, prompt, reply) {
-  if (!userLogin) return;
-  const cleanLogin = String(userLogin).toLowerCase().replace(/^@/, "");
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const userMsg = {
-    id: crypto.randomUUID(),
-    coupleId: `ai_${cleanLogin}`,
-    senderLogin: cleanLogin,
-    role: "partner1",
-    content: prompt,
-    isRead: true,
-    createdAt: now
-  };
-  const aiMsg = {
-    id: crypto.randomUUID(),
-    coupleId: `ai_${cleanLogin}`,
-    senderLogin: "ai_owl",
-    role: "ai",
-    content: reply,
-    isRead: true,
-    createdAt: new Date(Date.now() + 100).toISOString()
-  };
-  if (isSqlConfigured() && db) {
-    try {
-      await db.insert(chatMessages).values([userMsg, aiMsg]);
-      return;
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0418\u0418-\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0432 PostgreSQL", err, { login: cleanLogin });
-    }
-  }
-  const store = readEmergencyFile();
-  if (!store.chatMessages) store.chatMessages = [];
-  store.chatMessages.push(userMsg, aiMsg);
-  writeEmergencyFile(store);
-}
-
-// src/server/modules/chat/chat.service.ts
-var isProd3 = () => process.env.NODE_ENV === "production";
-async function getCoupleChatMessages(coupleId) {
-  if (isProd3()) {
-    if (!isSqlConfigured() || !db) {
-      throw new DatabaseUnavailableError();
-    }
-    try {
-      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, coupleId)).orderBy(chatMessages.createdAt).limit(150);
-      return msgs2;
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0447\u0430\u0442\u0430 \u0438\u0437 SQL \u0432 production (fail-fast)", err, { coupleId });
-      throw new DatabaseUnavailableError();
-    }
-  }
-  if (isSqlConfigured() && db) {
-    try {
-      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, coupleId)).orderBy(chatMessages.createdAt).limit(150);
-      return msgs2;
-    } catch (err) {
-      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0447\u0430\u0442\u0430 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", { coupleId }, err);
-    }
-  }
-  const store = readEmergencyFile();
-  const msgs = (store.chatMessages || []).filter((m) => m.coupleId === coupleId).sort((a, b) => a.createdAt > b.createdAt ? 1 : -1).slice(-150);
-  return msgs;
-}
-async function saveChatMessage(params) {
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const msg = {
-    id: crypto2.randomUUID(),
-    coupleId: params.coupleId,
-    senderLogin: params.senderLogin,
-    role: params.role || "partner1",
-    content: params.content,
-    isRead: false,
-    createdAt: now
-  };
-  if (isProd3()) {
-    if (!isSqlConfigured() || !db) {
-      throw new DatabaseUnavailableError();
-    }
-    try {
-      await db.insert(chatMessages).values(msg);
-      return msg;
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430 \u0432 SQL \u0432 production (fail-fast)", err, { coupleId: params.coupleId });
-      throw new DatabaseUnavailableError();
-    }
-  }
-  if (isSqlConfigured() && db) {
-    try {
-      await db.insert(chatMessages).values(msg);
-      return msg;
-    } catch (err) {
-      logger.warn("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430 \u0432 SQL, \u0437\u0430\u043F\u0438\u0441\u044C \u0432 \u0444\u0430\u0439\u043B", { coupleId: params.coupleId }, err);
-    }
-  }
-  const store = readEmergencyFile();
-  if (!store.chatMessages) store.chatMessages = [];
-  store.chatMessages.push(msg);
-  writeEmergencyFile(store);
-  return msg;
-}
-async function getAIMessages(login) {
-  const aiCoupleId = `ai_${login}`;
-  if (isProd3()) {
-    if (!isSqlConfigured() || !db) {
-      throw new DatabaseUnavailableError();
-    }
-    try {
-      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, aiCoupleId)).orderBy(chatMessages.createdAt).limit(100);
-      return msgs2;
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0418\u0418 \u0438\u0437 SQL \u0432 production (fail-fast)", err, { login });
-      throw new DatabaseUnavailableError();
-    }
-  }
-  if (isSqlConfigured() && db) {
-    try {
-      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, aiCoupleId)).orderBy(chatMessages.createdAt).limit(100);
-      return msgs2;
-    } catch (err) {
-      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0418\u0418 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", { login }, err);
-    }
-  }
-  const store = readEmergencyFile();
-  const msgs = (store.chatMessages || []).filter((m) => m.coupleId === aiCoupleId).sort((a, b) => a.createdAt > b.createdAt ? 1 : -1).slice(-100);
-  return msgs;
-}
-
-// src/server/shared/middleware/errorHandler.ts
-function errorHandler(err, req, res, next) {
-  logger.error("\u041D\u0435\u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 API", { path: req.path, method: req.method }, err);
-  if (isDatabaseError(err) || process.env.NODE_ENV === "production" && isDatabaseError(err)) {
-    return res.status(503).json({
-      error: "\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043C\u0438\u043D\u0443\u0442\u0443",
-      code: "DB_UNAVAILABLE"
-    });
-  }
-  const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430";
-  return res.status(statusCode).json({
-    error: message,
-    code: err.code || "INTERNAL_ERROR"
-  });
-}
-
-// src/server/modules/auth/auth.routes.ts
-import { Router } from "express";
-
-// src/server/shared/middleware/rateLimiter.ts
-import rateLimit from "express-rate-limit";
-var isTestEnvironment = (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true";
-var registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1e3,
-  // 1 hour
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isTestEnvironment,
-  handler: (req, res) => {
-    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438", {
-      ip: req.ip,
-      path: req.originalUrl
-    });
-    res.status(429).json({
-      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441."
-    });
+var DATA_DIR, DB_FILE, isProd2;
+var init_storageService = __esm({
+  "src/server/services/storageService.ts"() {
+    "use strict";
+    init_client();
+    init_schema();
+    init_logger();
+    init_errors();
+    DATA_DIR = path.join(process.cwd(), "data");
+    DB_FILE = path.join(DATA_DIR, "db_store.json");
+    isProd2 = () => process.env.NODE_ENV === "production";
   }
 });
-var loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1e3,
-  // 15 minutes
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isTestEnvironment,
-  handler: (req, res) => {
-    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0432\u0445\u043E\u0434\u0430", {
-      ip: req.ip,
-      path: req.originalUrl
-    });
-    res.status(429).json({
-      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0432\u0445\u043E\u0434\u0430. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 15 \u043C\u0438\u043D\u0443\u0442."
-    });
-  }
-});
-var aiLimiter = rateLimit({
-  windowMs: 60 * 1e3,
-  // 1 minute
-  max: 15,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isTestEnvironment,
-  handler: (req, res) => {
-    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043A \u0418\u0418", {
-      ip: req.ip,
-      path: req.originalUrl
-    });
-    res.status(429).json({
-      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043A \u0418\u0418-\u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0443. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0441\u0434\u0435\u043B\u0430\u0439\u0442\u0435 \u043D\u0435\u0431\u043E\u043B\u044C\u0448\u0443\u044E \u043F\u0430\u0443\u0437\u0443."
-    });
-  }
-});
-var pairLimiter = rateLimit({
-  windowMs: 60 * 60 * 1e3,
-  // 1 hour
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isTestEnvironment,
-  handler: (req, res) => {
-    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u043F\u0430\u0440\u043D\u044B\u0445 \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439", {
-      ip: req.ip,
-      path: req.originalUrl
-    });
-    res.status(429).json({
-      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043F\u043E\u0437\u0436\u0435."
-    });
-  }
-});
-var photoUploadLimiter = rateLimit({
-  windowMs: 60 * 1e3,
-  // 1 minute
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: isTestEnvironment,
-  handler: (req, res) => {
-    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0444\u043E\u0442\u043E", {
-      ip: req.ip,
-      path: req.originalUrl
-    });
-    res.status(429).json({
-      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0447\u0430\u0441\u0442\u0430\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043F\u043E\u0434\u043E\u0436\u0434\u0438\u0442\u0435 \u043C\u0438\u043D\u0443\u0442\u0443."
-    });
-  }
-});
-
-// src/server/shared/middleware/validation.ts
-function validateBody(schema) {
-  return (req, res, next) => {
-    const result = schema.safeParse(req.body);
-    if (!result.success) {
-      const issues = result.error.issues.map((i) => ({
-        field: i.path.join("."),
-        message: i.message
-      }));
-      return res.status(400).json({
-        error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u0430\u043B\u0438\u0434\u0430\u0446\u0438\u0438 \u0432\u0445\u043E\u0434\u043D\u044B\u0445 \u0434\u0430\u043D\u043D\u044B\u0445",
-        code: "VALIDATION_ERROR",
-        details: issues
-      });
-    }
-    req.body = result.data;
-    next();
-  };
-}
-
-// src/server/shared/middleware/auth.middleware.ts
-import jwt from "jsonwebtoken";
-
-// src/server/shared/utils/sse.ts
-var recentTouches = [];
-var sseClients = /* @__PURE__ */ new Map();
-function registerSSEClient(login, res) {
-  const cleanLogin = login.toLowerCase().replace(/^@/, "");
-  if (!sseClients.has(cleanLogin)) {
-    sseClients.set(cleanLogin, []);
-  }
-  sseClients.get(cleanLogin).push(res);
-}
-function removeSSEClient(login, res) {
-  const cleanLogin = login.toLowerCase().replace(/^@/, "");
-  const clients = sseClients.get(cleanLogin);
-  if (clients) {
-    const idx = clients.indexOf(res);
-    if (idx !== -1) clients.splice(idx, 1);
-    if (clients.length === 0) sseClients.delete(cleanLogin);
-  }
-}
-function sendSSEEventToUser(login, eventType, payload) {
-  const cleanLogin = login.toLowerCase().replace(/^@/, "");
-  const clients = sseClients.get(cleanLogin);
-  if (clients && clients.length > 0) {
-    const data = `event: ${eventType}
-data: ${JSON.stringify(payload)}
-
-`;
-    clients.forEach((res) => {
-      try {
-        res.write(data);
-      } catch (err) {
-      }
-    });
-  }
-}
-
-// src/server/modules/realtime/realtime.service.ts
-import { eq as eq3, and, gt, desc } from "drizzle-orm";
-var pushSubscriptions2 = [];
-var lastActiveCache = /* @__PURE__ */ new Map();
-async function touchUserLastActive(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
-  if (!cleanLogin) return;
-  const now = Date.now();
-  const lastTime = lastActiveCache.get(cleanLogin) || 0;
-  if (now - lastTime < 25e3) {
-    return;
-  }
-  lastActiveCache.set(cleanLogin, now);
-  const nowIso = new Date(now).toISOString();
-  if (isSqlConfigured() && db) {
-    try {
-      await db.update(users).set({ lastActiveAt: nowIso }).where(eq3(users.login, cleanLogin));
-    } catch (err) {
-      logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F lastActiveAt \u0432 SQL", { login: cleanLogin }, err);
-    }
-  }
-  try {
-    const store = readEmergencyFile();
-    if (store.users && store.users[cleanLogin]) {
-      store.users[cleanLogin].lastActiveAt = nowIso;
-      writeEmergencyFile(store);
-    }
-  } catch {
-  }
-}
-async function recordCoupleEvent(params) {
-  const eventId = params.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  if (isSqlConfigured() && db) {
-    try {
-      await db.insert(coupleEvents).values({
-        id: eventId,
-        coupleId: params.coupleId,
-        targetLogin: params.targetLogin,
-        senderLogin: params.senderLogin,
-        eventType: params.eventType,
-        payload: params.payload,
-        createdAt: nowIso
-      });
-    } catch (err) {
-      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0441\u043E\u0431\u044B\u0442\u0438\u0435 \u0432 \u0442\u0430\u0431\u043B\u0438\u0446\u0443 couple_events", void 0, err);
-    }
-  }
-  sendSSEEventToUser(params.targetLogin, params.eventType, params.payload);
-  return { id: eventId, createdAt: nowIso };
-}
-async function sendQuickTouch(params) {
-  const sLogin = String(params.senderLogin).toLowerCase().replace(/^@/, "");
-  const tLogin = String(params.targetLogin).toLowerCase().replace(/^@/, "");
-  const now = Date.now();
-  const tenSecondsAgo = now - 1e4;
-  const existingRecent = recentTouches.find(
-    (t) => t.senderLogin === sLogin && t.targetLogin === tLogin && t.actionType === params.actionType && new Date(t.createdAt).getTime() > tenSecondsAgo
-  );
-  if (existingRecent) {
-    return {
-      status: "throttled",
-      throttled: true,
-      message: "\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0443\u0436\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u043D\u0435\u0434\u0430\u0432\u043D\u043E",
-      touch: existingRecent
-    };
-  }
-  const newTouch = {
-    id: `touch-${now}-${Math.random().toString(36).slice(2, 7)}`,
-    senderLogin: sLogin,
-    senderName: params.senderName || sLogin,
-    targetLogin: tLogin,
-    actionType: params.actionType,
-    title: params.title || `${params.senderName || sLogin} \u043E\u0431\u0440\u0430\u0442\u0438\u043B(\u0430) \u043D\u0430 \u0432\u0430\u0441 \u0432\u043D\u0438\u043C\u0430\u043D\u0438\u0435`,
-    subtitle: params.subtitle || "\u0422\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E",
-    icon: params.icon || "heart",
-    iconBg: params.iconBg || "bg-rose-500/10",
-    iconColor: params.iconColor || "text-rose-500",
-    customNote: params.customNote,
-    createdAt: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  recentTouches.unshift(newTouch);
-  if (recentTouches.length > 200) recentTouches.pop();
-  const coupleKey = [sLogin, tLogin].sort().join("_");
-  if (isSqlConfigured() && db) {
-    try {
-      await db.insert(coupleEvents).values({
-        id: newTouch.id,
-        coupleId: coupleKey,
-        targetLogin: tLogin,
-        senderLogin: sLogin,
-        eventType: "touch",
-        payload: newTouch,
-        createdAt: newTouch.createdAt
-      });
-    } catch (err) {
-      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0432 couple_events (PostgreSQL)", void 0, err);
-    }
-  }
-  sendSSEEventToUser(tLogin, "touch", newTouch);
-  logger.info("\u0411\u044B\u0441\u0442\u0440\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u0411\u0414 \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E", {
-    from: sLogin,
-    to: tLogin,
-    action: params.actionType
-  });
-  return {
-    status: "dispatched",
-    throttled: false,
-    touch: newTouch
-  };
-}
-function getUserTouches(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
-  return recentTouches.filter(
-    (t) => t.targetLogin === cleanLogin || t.senderLogin === cleanLogin
-  );
-}
-async function handleHeartbeat(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
-  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  let partnerLastActiveAt = null;
-  let partnerLogin = null;
-  if (cleanLogin) {
-    await touchUserLastActive(cleanLogin);
-    if (isSqlConfigured() && db) {
-      try {
-        const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
-        if (currentUserRecord?.partnerLogin) {
-          partnerLogin = currentUserRecord.partnerLogin;
-          const [partnerRecord] = await db.select().from(users).where(eq3(users.login, partnerLogin)).limit(1);
-          if (partnerRecord?.lastActiveAt) {
-            partnerLastActiveAt = partnerRecord.lastActiveAt;
-          }
-        }
-      } catch (err) {
-        logger.warn("Heartbeat error in Neon DB", void 0, err);
-      }
-    }
-    if (!partnerLastActiveAt) {
-      try {
-        const store = readEmergencyFile();
-        const userObj = store.users?.[cleanLogin];
-        if (userObj?.partnerLogin) {
-          partnerLogin = partnerLogin || userObj.partnerLogin;
-          const partnerObj = store.users?.[userObj.partnerLogin.toLowerCase()];
-          if (partnerObj?.lastActiveAt) {
-            partnerLastActiveAt = partnerObj.lastActiveAt;
-          }
-        }
-      } catch {
-      }
-    }
-  }
-  const isPartnerOnline = partnerLastActiveAt ? Date.now() - new Date(partnerLastActiveAt).getTime() < 18e4 : false;
-  return {
-    ok: true,
-    timestamp: nowIso,
-    login: cleanLogin,
-    partnerLogin,
-    partnerLastActiveAt,
-    isPartnerOnline
-  };
-}
-async function getEventsPoll(params) {
-  const cleanLogin = String(params.login || "").toLowerCase().replace(/^@/, "").trim();
-  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const events = [];
-  let partnerLastActiveAt = null;
-  if (cleanLogin) {
-    await touchUserLastActive(cleanLogin);
-  }
-  if (isSqlConfigured() && db && cleanLogin) {
-    try {
-      const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
-      if (currentUserRecord?.partnerLogin) {
-        const [partnerRecord] = await db.select().from(users).where(eq3(users.login, currentUserRecord.partnerLogin)).limit(1);
-        if (partnerRecord?.lastActiveAt) {
-          partnerLastActiveAt = partnerRecord.lastActiveAt;
-        }
-      }
-      const cutoffTime = params.since || new Date(Date.now() - 45e3).toISOString();
-      const dbEvents = await db.select().from(coupleEvents).where(
-        and(
-          eq3(coupleEvents.targetLogin, cleanLogin),
-          gt(coupleEvents.createdAt, cutoffTime)
-        )
-      ).orderBy(desc(coupleEvents.createdAt)).limit(30);
-      for (const ev of dbEvents) {
-        if (params.lastEventId && ev.id === params.lastEventId) continue;
-        events.push({
-          id: ev.id,
-          type: ev.eventType,
-          data: ev.payload,
-          createdAt: ev.createdAt
-        });
-      }
-    } catch (err) {
-      logger.warn("Events poll error in Neon DB", void 0, err);
-    }
-  }
-  if (!partnerLastActiveAt && cleanLogin) {
-    try {
-      const store = readEmergencyFile();
-      const u = store.users?.[cleanLogin];
-      if (u?.partnerLogin) {
-        const p = store.users?.[u.partnerLogin.toLowerCase()];
-        if (p?.lastActiveAt) {
-          partnerLastActiveAt = p.lastActiveAt;
-        }
-      }
-    } catch {
-    }
-  }
-  if (events.length === 0) {
-    const memoryTouches = recentTouches.filter(
-      (t) => t.targetLogin === cleanLogin && (!params.lastEventId || t.id !== params.lastEventId)
-    );
-    for (const t of memoryTouches.slice(0, 10)) {
-      events.push({
-        id: t.id,
-        type: "touch",
-        data: t,
-        createdAt: t.createdAt
-      });
-    }
-  }
-  const isPartnerOnline = partnerLastActiveAt ? Date.now() - new Date(partnerLastActiveAt).getTime() < 18e4 : false;
-  return {
-    events,
-    touches: getUserTouches(cleanLogin),
-    partnerLastActiveAt,
-    isPartnerOnline,
-    serverTime: nowIso
-  };
-}
-
-// src/server/shared/middleware/auth.middleware.ts
-function generateToken(login) {
-  return jwt.sign({ login: login.toLowerCase() }, config.jwtSecret, { expiresIn: "30d" });
-}
-function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
-  }
-  const token = authHeader.split(" ")[1];
-  try {
-    const decoded = jwt.verify(token, config.jwtSecret);
-    const userLogin = String(decoded.login || "").toLowerCase();
-    if (!userLogin) {
-      return res.status(401).json({ error: "\u041D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0442\u043E\u043A\u0435\u043D" });
-    }
-    req.userLogin = userLogin;
-    req.user = { login: userLogin };
-    touchUserLastActive(userLogin).catch(() => {
-    });
-    next();
-  } catch (err) {
-    logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u0430\u043B\u0438\u0434\u0430\u0446\u0438\u0438 JWT \u0442\u043E\u043A\u0435\u043D\u0430", { ip: req.ip }, err);
-    return res.status(401).json({ error: "\u0421\u0435\u0441\u0441\u0438\u044F \u0438\u0441\u0442\u0435\u043A\u043B\u0430 \u0438\u043B\u0438 \u0442\u043E\u043A\u0435\u043D \u043D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u0435\u043D" });
-  }
-}
-
-// src/server/shared/validators/auth.validator.ts
-import { z } from "zod";
-var loginSchema = z.string().min(3, "\u041B\u043E\u0433\u0438\u043D \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 3 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").max(20, "\u041B\u043E\u0433\u0438\u043D \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 20 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").regex(/^[a-zA-Zа-яА-Я0-9_]+$/, "\u041B\u043E\u0433\u0438\u043D \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0431\u0443\u043A\u0432\u044B, \u0446\u0438\u0444\u0440\u044B \u0438 _").transform((v) => v.toLowerCase().replace(/^@/, ""));
-var passwordSchema = z.string().min(6, "\u041F\u0430\u0440\u043E\u043B\u044C \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 6 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").max(100, "\u041F\u0430\u0440\u043E\u043B\u044C \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u044B\u0439");
-var registerSchema = z.object({
-  login: loginSchema,
-  password: passwordSchema,
-  name: z.string().min(1, "\u0418\u043C\u044F \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E").max(50, "\u0418\u043C\u044F \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435").optional(),
-  gender: z.enum(["male", "female"], { message: "\u041F\u043E\u043B \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u0435\u043D \u043F\u0440\u0438 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438 (male/female)" })
-});
-var loginRequestSchema = z.object({
-  login: loginSchema,
-  password: passwordSchema
-});
-var changePasswordSchema = z.object({
-  oldPassword: z.string().min(1, "\u0421\u0442\u0430\u0440\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u0435\u043D"),
-  newPassword: passwordSchema
-});
-var resetPasswordSchema = z.object({
-  login: loginSchema,
-  newPassword: passwordSchema,
-  secretKey: z.string().optional()
-});
-var updateProfileSchema = z.object({
-  name: z.string().min(1).max(50).optional(),
-  gender: z.enum(["male", "female"]).optional().nullable(),
-  avatarEmoji: z.string().max(30).optional(),
-  city: z.string().max(100).optional().nullable(),
-  startDate: z.string().max(30).optional().nullable(),
-  loveLanguage: z.string().max(50).optional().nullable(),
-  attachmentStyle: z.string().max(50).optional().nullable(),
-  currentMood: z.record(z.string(), z.unknown()).optional().nullable()
-});
-
-// src/server/modules/auth/auth.service.ts
-import bcrypt from "bcryptjs";
-import crypto3 from "crypto";
-
-// src/server/core/types.ts
-function toSafeUser(user) {
-  const { passwordHash, ...safe } = user;
-  return safe;
-}
-
-// src/server/modules/auth/auth.service.ts
-var DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
-var isProd4 = () => process.env.NODE_ENV === "production";
-async function verifyPassword(password, hash) {
-  try {
-    return await bcrypt.compare(password, hash);
-  } catch {
-    return false;
-  }
-}
-async function getAllUsersSafe() {
-  const userMap = {};
-  if (isProd4()) {
-    if (!isSqlConfigured() || !db) {
-      throw new DatabaseUnavailableError();
-    }
-    try {
-      const allSqlUsers = await db.select().from(users);
-      for (const u of allSqlUsers) {
-        userMap[u.login.toLowerCase()] = toSafeUser(u);
-      }
-      return Object.values(userMap);
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL \u0432 production (fail-fast)", err);
-      throw new DatabaseUnavailableError();
-    }
-  }
-  if (isSqlConfigured() && db) {
-    try {
-      const allSqlUsers = await db.select().from(users);
-      for (const u of allSqlUsers) {
-        userMap[u.login.toLowerCase()] = toSafeUser(u);
-      }
-    } catch (err) {
-      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", void 0, err);
-    }
-  }
-  const store = readEmergencyFile();
-  for (const [k, u] of Object.entries(store.users || {})) {
-    if (u && typeof u === "object" && !userMap[k.toLowerCase()]) {
-      userMap[k.toLowerCase()] = toSafeUser(u);
-    }
-  }
-  return Object.values(userMap);
-}
-async function registerUser(params) {
-  const cleanLogin = String(params.login).trim().toLowerCase().replace(/^@/, "");
-  const existing = await findUserByLogin(cleanLogin);
-  if (existing) {
-    throw { status: 400, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0441 \u0442\u0430\u043A\u0438\u043C \u043B\u043E\u0433\u0438\u043D\u043E\u043C \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442" };
-  }
-  const salt = await bcrypt.genSalt(10);
-  const passwordHash = await bcrypt.hash(params.password, salt);
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  const userId = crypto3.randomUUID();
-  const newUser = {
-    id: userId,
-    login: cleanLogin,
-    passwordHash,
-    name: params.name?.trim() || cleanLogin,
-    gender: params.gender,
-    avatarEmoji: "sparkles",
-    partnerLogin: null,
-    pairedAt: null,
-    startDate: null,
-    city: null,
-    loveLanguage: null,
-    attachmentStyle: null,
-    currentMood: null,
-    lastActiveAt: now,
-    createdAt: now
-  };
-  await upsertUser(newUser);
-  const token = generateToken(cleanLogin);
-  logger.info("\u041D\u043E\u0432\u044B\u0439 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D", { login: cleanLogin });
-  return {
-    token,
-    user: toSafeUser(newUser)
-  };
-}
-async function loginUser(params, clientIp) {
-  const cleanLogin = String(params.login).trim().toLowerCase().replace(/^@/, "");
-  const user = await findUserByLogin(cleanLogin);
-  if (!user) {
-    await bcrypt.compare(params.password, DUMMY_HASH);
-    throw { status: 401, message: "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043B\u043E\u0433\u0438\u043D \u0438\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C" };
-  }
-  const match = await verifyPassword(params.password, user.passwordHash);
-  if (!match) {
-    logger.security("\u041D\u0435\u0443\u0434\u0430\u0447\u043D\u0430\u044F \u043F\u043E\u043F\u044B\u0442\u043A\u0430 \u0432\u0445\u043E\u0434\u0430", { login: cleanLogin, ip: clientIp });
-    throw { status: 401, message: "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043B\u043E\u0433\u0438\u043D \u0438\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C" };
-  }
-  const now = (/* @__PURE__ */ new Date()).toISOString();
-  user.lastActiveAt = now;
-  await upsertUser(user);
-  const token = generateToken(cleanLogin);
-  logger.info("\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0432\u043E\u0448\u0451\u043B \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0443", { login: cleanLogin });
-  return {
-    token,
-    user: toSafeUser(user)
-  };
-}
-async function getUserProfile(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
-  const user = await findUserByLogin(cleanLogin);
-  if (!user) {
-    throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
-  }
-  return toSafeUser(user);
-}
-async function updateUserProfile(userLogin, updates) {
-  const user = await findUserByLogin(userLogin);
-  if (!user) throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
-  if (updates.name !== void 0) user.name = updates.name;
-  if (updates.gender !== void 0) user.gender = updates.gender;
-  if (updates.avatarEmoji !== void 0) user.avatarEmoji = updates.avatarEmoji;
-  if (updates.city !== void 0) user.city = updates.city;
-  if (updates.startDate !== void 0) user.startDate = updates.startDate;
-  if (updates.loveLanguage !== void 0) user.loveLanguage = updates.loveLanguage;
-  if (updates.attachmentStyle !== void 0) user.attachmentStyle = updates.attachmentStyle;
-  if (updates.currentMood !== void 0) user.currentMood = updates.currentMood;
-  user.lastActiveAt = (/* @__PURE__ */ new Date()).toISOString();
-  await upsertUser(user);
-  logger.info("\u041F\u0440\u043E\u0444\u0438\u043B\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D", { login: userLogin });
-  return toSafeUser(user);
-}
-async function changeUserPassword(userLogin, oldPass, newPass) {
-  const user = await findUserByLogin(userLogin);
-  if (!user) throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
-  const match = await verifyPassword(oldPass, user.passwordHash);
-  if (!match) {
-    throw { status: 400, message: "\u0421\u0442\u0430\u0440\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u0432\u0435\u0440\u043D\u043E" };
-  }
-  const salt = await bcrypt.genSalt(10);
-  user.passwordHash = await bcrypt.hash(newPass, salt);
-  await upsertUser(user);
-  logger.info("\u041F\u0430\u0440\u043E\u043B\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0435\u043D", { login: userLogin });
-}
-async function resetUserPassword(login, newPass) {
-  const cleanLogin = String(login).toLowerCase().replace(/^@/, "");
-  const user = await findUserByLogin(cleanLogin);
-  if (!user) {
-    throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0441 \u0442\u0430\u043A\u0438\u043C \u043B\u043E\u0433\u0438\u043D\u043E\u043C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
-  }
-  const salt = await bcrypt.genSalt(10);
-  user.passwordHash = await bcrypt.hash(newPass, salt);
-  await upsertUser(user);
-  logger.info("\u041F\u0430\u0440\u043E\u043B\u044C \u0441\u0431\u0440\u043E\u0448\u0435\u043D", { login: cleanLogin });
-}
-async function syncAccounts(accounts) {
-  for (const acc of accounts) {
-    if (acc && acc.login) {
-      const existing = await findUserByLogin(acc.login);
-      if (!existing) {
-        const now = (/* @__PURE__ */ new Date()).toISOString();
-        const cleanLogin = String(acc.login).toLowerCase().replace(/^@/, "");
-        const passwordHash = acc.passwordHash || await bcrypt.hash(acc.password || "password123", 10);
-        await upsertUser({
-          id: acc.id || crypto3.randomUUID(),
-          login: cleanLogin,
-          passwordHash,
-          name: acc.name || cleanLogin,
-          gender: acc.gender || null,
-          avatarEmoji: acc.avatarEmoji || "sparkles",
-          partnerLogin: acc.partnerLogin ? String(acc.partnerLogin).toLowerCase() : null,
-          pairedAt: acc.pairedAt || null,
-          startDate: acc.startDate || null,
-          city: acc.city || null,
-          loveLanguage: acc.loveLanguage || null,
-          attachmentStyle: acc.attachmentStyle || null,
-          currentMood: acc.currentMood || null,
-          lastActiveAt: now,
-          createdAt: acc.createdAt || now
-        });
-      }
-    }
-  }
-}
-
-// src/server/modules/auth/auth.routes.ts
-var authRouter = Router();
-authRouter.get("/users", async (req, res, next) => {
-  try {
-    const users3 = await getAllUsersSafe();
-    return res.json({ users: users3 });
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/sync", async (req, res, next) => {
-  try {
-    const { accounts } = req.body;
-    if (!Array.isArray(accounts)) {
-      return res.status(400).json({ error: "accounts must be an array" });
-    }
-    await syncAccounts(accounts);
-    return res.json({ status: "synced" });
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/register", registerLimiter, validateBody(registerSchema), async (req, res, next) => {
-  try {
-    const { login, password, name, gender } = req.body;
-    const result = await registerUser({ login, password, name, gender });
-    return res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/login", loginLimiter, validateBody(loginRequestSchema), async (req, res, next) => {
-  try {
-    const { login, password } = req.body;
-    const result = await loginUser({ login, password }, req.ip);
-    return res.json(result);
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.get("/user/:login", requireAuth, async (req, res, next) => {
-  try {
-    const paramLogin = String(req.params.login || "").toLowerCase().replace(/^@/, "");
-    const userLogin = req.user?.login;
-    if (paramLogin !== userLogin) {
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u0447\u0443\u0436\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E" });
-    }
-    const user = await getUserProfile(paramLogin);
-    return res.json({ user });
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/update-profile", requireAuth, validateBody(updateProfileSchema), async (req, res, next) => {
-  try {
-    const userLogin = req.user?.login;
-    if (!userLogin) return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
-    const user = await updateUserProfile(userLogin, req.body);
-    return res.json({ user });
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/change-password", requireAuth, validateBody(changePasswordSchema), async (req, res, next) => {
-  try {
-    const userLogin = req.user?.login;
-    if (!userLogin) return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
-    const { oldPassword, newPassword } = req.body;
-    await changeUserPassword(userLogin, oldPassword, newPassword);
-    return res.json({ status: "ok", message: "\u041F\u0430\u0440\u043E\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0451\u043D" });
-  } catch (err) {
-    next(err);
-  }
-});
-authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
-  try {
-    const { login, newPassword } = req.body;
-    await resetUserPassword(login, newPassword);
-    return res.json({ status: "ok", message: "\u041F\u0430\u0440\u043E\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0441\u0431\u0440\u043E\u0448\u0435\u043D" });
-  } catch (err) {
-    next(err);
-  }
-});
-
-// src/server/modules/pairing/pairing.routes.ts
-import { Router as Router2 } from "express";
-
-// src/server/shared/middleware/requirePairOwnership.ts
-function getPairKey(login, partnerLogin) {
-  if (!partnerLogin) return login.toLowerCase().trim().replace(/^@/, "");
-  return [
-    login.toLowerCase().trim().replace(/^@/, ""),
-    partnerLogin.toLowerCase().trim().replace(/^@/, "")
-  ].sort().join("_");
-}
-function isUserInCouple(coupleId, userLogin) {
-  if (!coupleId || !userLogin) return false;
-  const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
-  const cleanCouple = coupleId.toLowerCase().trim();
-  if (cleanCouple === cleanUser) return true;
-  if (cleanCouple === `ai_${cleanUser}`) return true;
-  if (cleanCouple.startsWith(`${cleanUser}_`) || cleanCouple.endsWith(`_${cleanUser}`) || cleanCouple.includes(`_${cleanUser}_`)) {
-    return true;
-  }
-  return false;
-}
-function requirePairOwnership(req, res, next) {
-  const userLogin = req.user?.login;
-  if (!userLogin) {
-    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
-  }
-  let coupleId = null;
-  if (req.params?.coupleId || req.params?.key) {
-    const targetId = req.params.coupleId || req.params.key;
-    if (!isUserInCouple(targetId, userLogin)) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.coupleId/key)", {
-        userLogin,
-        targetCoupleId: targetId,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = targetId;
-  }
-  if (req.body?.coupleId) {
-    if (!isUserInCouple(req.body.coupleId, userLogin)) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.coupleId)", {
-        userLogin,
-        targetCoupleId: req.body.coupleId,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = req.body.coupleId;
-  }
-  if (req.params?.login1 && req.params?.login2) {
-    const l1 = req.params.login1.toLowerCase().trim().replace(/^@/, "");
-    const l2 = req.params.login2.toLowerCase().trim().replace(/^@/, "");
-    if (l1 !== userLogin && l2 !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login1/login2)", {
-        userLogin,
-        target: `${l1}_${l2}`,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(l1, l2);
-  }
-  if (req.body?.login1) {
-    const l1 = String(req.body.login1).toLowerCase().trim().replace(/^@/, "");
-    const l2 = req.body.login2 ? String(req.body.login2).toLowerCase().trim().replace(/^@/, "") : null;
-    if (l1 !== userLogin && l2 !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.login1/login2)", {
-        userLogin,
-        target: l2 ? `${l1}_${l2}` : l1,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(l1, l2);
-  }
-  if (req.params?.login) {
-    const paramLogin = req.params.login.toLowerCase().trim().replace(/^@/, "");
-    if (paramLogin !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login)", {
-        userLogin,
-        paramLogin,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(userLogin, paramLogin);
-  }
-  if (coupleId) {
-    req.couple = { id: coupleId };
-  }
-  next();
-}
-
-// src/server/shared/validators/pairing.validator.ts
-import { z as z2 } from "zod";
-var pairRequestSchema = z2.object({
-  fromLogin: loginSchema,
-  toLogin: loginSchema
-});
-var pairAcceptSchema = z2.object({
-  fromLogin: loginSchema,
-  toLogin: loginSchema
-});
-var pairRejectSchema = z2.object({
-  fromLogin: loginSchema,
-  toLogin: loginSchema
-});
-var pairDisconnectSchema = z2.object({
-  login: loginSchema
-});
-
-// src/server/modules/pairing/pairing.service.ts
-import { eq as eq5, and as and3 } from "drizzle-orm";
 
 // src/server/services/pairService.ts
+var pairService_exports = {};
+__export(pairService_exports, {
+  acceptPair: () => acceptPair,
+  createPairRequest: () => createPairRequest,
+  disconnectPair: () => disconnectPair
+});
 import { eq as eq4, or as or3, and as and2 } from "drizzle-orm";
 import crypto4 from "crypto";
-var isProd5 = () => process.env.NODE_ENV === "production";
 async function acceptPair(cleanMe, cleanPartner) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   if (isProd5()) {
@@ -2235,8 +1207,1134 @@ async function createPairRequest(fromUser, toUser) {
   writeEmergencyFile(store);
   return reqObj;
 }
+var isProd5;
+var init_pairService = __esm({
+  "src/server/services/pairService.ts"() {
+    "use strict";
+    init_client();
+    init_schema();
+    init_logger();
+    init_storageService();
+    init_errors();
+    isProd5 = () => process.env.NODE_ENV === "production";
+  }
+});
+
+// src/server/app.ts
+init_client();
+init_schema();
+import "dotenv/config";
+import express from "express";
+import helmet from "helmet";
+import cors from "cors";
+import { sql as sql4 } from "drizzle-orm";
+
+// src/server/core/config.ts
+init_logger();
+import dotenv from "dotenv";
+dotenv.config();
+function parseAllowedOrigins() {
+  const custom = process.env.ALLOWED_ORIGINS;
+  if (custom) {
+    return custom.split(",").map((o) => o.trim()).filter(Boolean);
+  }
+  return [
+    "http://localhost:3000",
+    "http://localhost:5173"
+  ];
+}
+function loadConfig() {
+  const port = 3e3;
+  const nodeEnv = process.env.NODE_ENV || "development";
+  const isProd8 = nodeEnv === "production";
+  let jwtSecret = process.env.JWT_SECRET;
+  if (isProd8) {
+    if (!jwtSecret || jwtSecret === "loop_secret_fallback_12345" || jwtSecret.trim() === "") {
+      logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: \u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F JWT_SECRET \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0438\u043B\u0438 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447. \u0414\u043B\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 JWT_SECRET \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 Vercel.");
+      jwtSecret = process.env.JWT_SECRET || "loop_prod_secure_secret_fallback_key_2025";
+    }
+    const hasDb = Boolean(
+      process.env.DATABASE_URL?.trim() || process.env.NEON_DATABASE_URL?.trim() || process.env.MY_DATABASE_URL?.trim() || process.env.SQL_HOST?.trim()
+    );
+    if (!hasDb) {
+      logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: \u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F DATABASE_URL / NEON_DATABASE_URL \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0432 \u043F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0445 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u044F Vercel. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0441\u0442\u0440\u043E\u043A\u0443 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F \u043A Neon PostgreSQL \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 Vercel.");
+    }
+  } else {
+    if (!jwtSecret) {
+      logger.warn("JWT_SECRET is missing from environment. Using fallback (NOT safe for production).");
+      jwtSecret = "loop_secret_fallback_12345";
+    }
+  }
+  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_API_KEY) {
+    logger.warn("GROQ_API_KEY is not configured in .env. AI psychologist (Sova) will return 503.");
+  }
+  return {
+    port,
+    nodeEnv,
+    jwtSecret,
+    groqApiKey: GROQ_API_KEY,
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    allowedOrigins: parseAllowedOrigins()
+  };
+}
+var config = loadConfig();
+
+// src/server/shared/utils/logger.ts
+init_logger();
+
+// src/server/modules/chat/chat.service.ts
+init_client();
+init_schema();
+import { eq as eq2 } from "drizzle-orm";
+import crypto2 from "crypto";
+init_storageService();
+
+// src/server/services/aiService.ts
+init_client();
+init_schema();
+init_logger();
+init_storageService();
+import crypto from "crypto";
+var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+var MODEL_NAME = "qwen/qwen3.8-27b";
+async function callGroqChat(messages) {
+  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_API_KEY) {
+    logger.warn("GROQ_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u0438 (.env)");
+    return null;
+  }
+  try {
+    const response = await fetch(GROQ_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        messages,
+        model: MODEL_NAME,
+        temperature: 0.5,
+        max_tokens: 650,
+        stream: false
+      })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${MODEL_NAME})`);
+        return content;
+      }
+    }
+    const errText = await response.text();
+    logger.warn(`Groq ${MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status}: ${errText.slice(0, 200)}`);
+  } catch (err) {
+    console.error("[Groq API Error]:", err);
+  }
+  return null;
+}
+async function saveAIMessageToDb(userLogin, prompt, reply) {
+  if (!userLogin) return;
+  const cleanLogin = String(userLogin).toLowerCase().replace(/^@/, "");
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const userMsg = {
+    id: crypto.randomUUID(),
+    coupleId: `ai_${cleanLogin}`,
+    senderLogin: cleanLogin,
+    role: "partner1",
+    content: prompt,
+    isRead: true,
+    createdAt: now
+  };
+  const aiMsg = {
+    id: crypto.randomUUID(),
+    coupleId: `ai_${cleanLogin}`,
+    senderLogin: "ai_owl",
+    role: "ai",
+    content: reply,
+    isRead: true,
+    createdAt: new Date(Date.now() + 100).toISOString()
+  };
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(chatMessages).values([userMsg, aiMsg]);
+      return;
+    } catch (err) {
+      logger.error("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0418\u0418-\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0432 PostgreSQL", err, { login: cleanLogin });
+    }
+  }
+  const store = readEmergencyFile();
+  if (!store.chatMessages) store.chatMessages = [];
+  store.chatMessages.push(userMsg, aiMsg);
+  writeEmergencyFile(store);
+}
+
+// src/server/modules/chat/chat.service.ts
+init_errors();
+var isProd3 = () => process.env.NODE_ENV === "production";
+async function getCoupleChatMessages(coupleId) {
+  if (isProd3()) {
+    if (!isSqlConfigured() || !db) {
+      throw new DatabaseUnavailableError();
+    }
+    try {
+      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, coupleId)).orderBy(chatMessages.createdAt).limit(150);
+      return msgs2;
+    } catch (err) {
+      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0447\u0430\u0442\u0430 \u0438\u0437 SQL \u0432 production (fail-fast)", err, { coupleId });
+      throw new DatabaseUnavailableError();
+    }
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, coupleId)).orderBy(chatMessages.createdAt).limit(150);
+      return msgs2;
+    } catch (err) {
+      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0447\u0430\u0442\u0430 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", { coupleId }, err);
+    }
+  }
+  const store = readEmergencyFile();
+  const msgs = (store.chatMessages || []).filter((m) => m.coupleId === coupleId).sort((a, b) => a.createdAt > b.createdAt ? 1 : -1).slice(-150);
+  return msgs;
+}
+async function saveChatMessage(params) {
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const msg = {
+    id: crypto2.randomUUID(),
+    coupleId: params.coupleId,
+    senderLogin: params.senderLogin,
+    role: params.role || "partner1",
+    content: params.content,
+    isRead: false,
+    createdAt: now
+  };
+  if (isProd3()) {
+    if (!isSqlConfigured() || !db) {
+      throw new DatabaseUnavailableError();
+    }
+    try {
+      await db.insert(chatMessages).values(msg);
+      return msg;
+    } catch (err) {
+      logger.error("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430 \u0432 SQL \u0432 production (fail-fast)", err, { coupleId: params.coupleId });
+      throw new DatabaseUnavailableError();
+    }
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(chatMessages).values(msg);
+      return msg;
+    } catch (err) {
+      logger.warn("\u0421\u0431\u043E\u0439 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430 \u0432 SQL, \u0437\u0430\u043F\u0438\u0441\u044C \u0432 \u0444\u0430\u0439\u043B", { coupleId: params.coupleId }, err);
+    }
+  }
+  const store = readEmergencyFile();
+  if (!store.chatMessages) store.chatMessages = [];
+  store.chatMessages.push(msg);
+  writeEmergencyFile(store);
+  return msg;
+}
+async function getAIMessages(login) {
+  const aiCoupleId = `ai_${login}`;
+  if (isProd3()) {
+    if (!isSqlConfigured() || !db) {
+      throw new DatabaseUnavailableError();
+    }
+    try {
+      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, aiCoupleId)).orderBy(chatMessages.createdAt).limit(100);
+      return msgs2;
+    } catch (err) {
+      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0418\u0418 \u0438\u0437 SQL \u0432 production (fail-fast)", err, { login });
+      throw new DatabaseUnavailableError();
+    }
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      const msgs2 = await db.select().from(chatMessages).where(eq2(chatMessages.coupleId, aiCoupleId)).orderBy(chatMessages.createdAt).limit(100);
+      return msgs2;
+    } catch (err) {
+      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0418\u0418 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", { login }, err);
+    }
+  }
+  const store = readEmergencyFile();
+  const msgs = (store.chatMessages || []).filter((m) => m.coupleId === aiCoupleId).sort((a, b) => a.createdAt > b.createdAt ? 1 : -1).slice(-100);
+  return msgs;
+}
+
+// src/server/shared/middleware/errorHandler.ts
+init_errors();
+function errorHandler(err, req, res, next) {
+  logger.error("\u041D\u0435\u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 API", { path: req.path, method: req.method }, err);
+  if (isDatabaseError(err) || process.env.NODE_ENV === "production" && isDatabaseError(err)) {
+    return res.status(503).json({
+      error: "\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043C\u0438\u043D\u0443\u0442\u0443",
+      code: "DB_UNAVAILABLE"
+    });
+  }
+  const statusCode = err.statusCode || err.status || 500;
+  const message = err.message || "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430";
+  return res.status(statusCode).json({
+    error: message,
+    code: err.code || "INTERNAL_ERROR"
+  });
+}
+
+// src/server/app.ts
+init_storageService();
+
+// src/server/modules/auth/auth.routes.ts
+import { Router } from "express";
+
+// src/server/shared/middleware/rateLimiter.ts
+import rateLimit from "express-rate-limit";
+var isTestEnvironment = (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true";
+var registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1e3,
+  // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnvironment,
+  handler: (req, res) => {
+    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438", {
+      ip: req.ip,
+      path: req.originalUrl
+    });
+    res.status(429).json({
+      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u0447\u0430\u0441."
+    });
+  }
+});
+var loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1e3,
+  // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnvironment,
+  handler: (req, res) => {
+    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0432\u0445\u043E\u0434\u0430", {
+      ip: req.ip,
+      path: req.originalUrl
+    });
+    res.status(429).json({
+      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u043F\u043E\u043F\u044B\u0442\u043E\u043A \u0432\u0445\u043E\u0434\u0430. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 15 \u043C\u0438\u043D\u0443\u0442."
+    });
+  }
+});
+var aiLimiter = rateLimit({
+  windowMs: 60 * 1e3,
+  // 1 minute
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnvironment,
+  handler: (req, res) => {
+    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043A \u0418\u0418", {
+      ip: req.ip,
+      path: req.originalUrl
+    });
+    res.status(429).json({
+      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043A \u0418\u0418-\u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0443. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0441\u0434\u0435\u043B\u0430\u0439\u0442\u0435 \u043D\u0435\u0431\u043E\u043B\u044C\u0448\u0443\u044E \u043F\u0430\u0443\u0437\u0443."
+    });
+  }
+});
+var pairLimiter = rateLimit({
+  windowMs: 60 * 60 * 1e3,
+  // 1 hour
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnvironment,
+  handler: (req, res) => {
+    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u043F\u0430\u0440\u043D\u044B\u0445 \u043E\u043F\u0435\u0440\u0430\u0446\u0438\u0439", {
+      ip: req.ip,
+      path: req.originalUrl
+    });
+    res.status(429).json({
+      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u043E\u0432 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043F\u043E\u0437\u0436\u0435."
+    });
+  }
+});
+var photoUploadLimiter = rateLimit({
+  windowMs: 60 * 1e3,
+  // 1 minute
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isTestEnvironment,
+  handler: (req, res) => {
+    logger.security("\u041F\u0440\u0435\u0432\u044B\u0448\u0435\u043D \u043B\u0438\u043C\u0438\u0442 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0444\u043E\u0442\u043E", {
+      ip: req.ip,
+      path: req.originalUrl
+    });
+    res.status(429).json({
+      error: "\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0447\u0430\u0441\u0442\u0430\u044F \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439. \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u043F\u043E\u0434\u043E\u0436\u0434\u0438\u0442\u0435 \u043C\u0438\u043D\u0443\u0442\u0443."
+    });
+  }
+});
+
+// src/server/shared/middleware/validation.ts
+function validateBody(schema) {
+  return (req, res, next) => {
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => ({
+        field: i.path.join("."),
+        message: i.message
+      }));
+      return res.status(400).json({
+        error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u0430\u043B\u0438\u0434\u0430\u0446\u0438\u0438 \u0432\u0445\u043E\u0434\u043D\u044B\u0445 \u0434\u0430\u043D\u043D\u044B\u0445",
+        code: "VALIDATION_ERROR",
+        details: issues
+      });
+    }
+    req.body = result.data;
+    next();
+  };
+}
+
+// src/server/shared/middleware/auth.middleware.ts
+import jwt from "jsonwebtoken";
+
+// src/server/shared/utils/sse.ts
+var recentTouches = [];
+var sseClients = /* @__PURE__ */ new Map();
+function registerSSEClient(login, res) {
+  const cleanLogin = login.toLowerCase().replace(/^@/, "");
+  if (!sseClients.has(cleanLogin)) {
+    sseClients.set(cleanLogin, []);
+  }
+  sseClients.get(cleanLogin).push(res);
+}
+function removeSSEClient(login, res) {
+  const cleanLogin = login.toLowerCase().replace(/^@/, "");
+  const clients = sseClients.get(cleanLogin);
+  if (clients) {
+    const idx = clients.indexOf(res);
+    if (idx !== -1) clients.splice(idx, 1);
+    if (clients.length === 0) sseClients.delete(cleanLogin);
+  }
+}
+function sendSSEEventToUser(login, eventType, payload) {
+  const cleanLogin = login.toLowerCase().replace(/^@/, "");
+  const clients = sseClients.get(cleanLogin);
+  if (clients && clients.length > 0) {
+    const data = `event: ${eventType}
+data: ${JSON.stringify(payload)}
+
+`;
+    clients.forEach((res) => {
+      try {
+        res.write(data);
+      } catch (err) {
+      }
+    });
+  }
+}
+
+// src/server/modules/realtime/realtime.service.ts
+init_client();
+init_schema();
+init_storageService();
+import { eq as eq3, and, gt, desc } from "drizzle-orm";
+var pushSubscriptions2 = [];
+var lastActiveCache = /* @__PURE__ */ new Map();
+async function touchUserLastActive(login) {
+  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  if (!cleanLogin) return;
+  const now = Date.now();
+  const lastTime = lastActiveCache.get(cleanLogin) || 0;
+  if (now - lastTime < 25e3) {
+    return;
+  }
+  lastActiveCache.set(cleanLogin, now);
+  const nowIso = new Date(now).toISOString();
+  if (isSqlConfigured() && db) {
+    try {
+      await db.update(users).set({ lastActiveAt: nowIso }).where(eq3(users.login, cleanLogin));
+    } catch (err) {
+      logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F lastActiveAt \u0432 SQL", { login: cleanLogin }, err);
+    }
+  }
+  try {
+    const store = readEmergencyFile();
+    if (store.users && store.users[cleanLogin]) {
+      store.users[cleanLogin].lastActiveAt = nowIso;
+      writeEmergencyFile(store);
+    }
+  } catch {
+  }
+}
+async function recordCoupleEvent(params) {
+  const eventId = params.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(coupleEvents).values({
+        id: eventId,
+        coupleId: params.coupleId,
+        targetLogin: params.targetLogin,
+        senderLogin: params.senderLogin,
+        eventType: params.eventType,
+        payload: params.payload,
+        createdAt: nowIso
+      });
+    } catch (err) {
+      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0441\u043E\u0431\u044B\u0442\u0438\u0435 \u0432 \u0442\u0430\u0431\u043B\u0438\u0446\u0443 couple_events", void 0, err);
+    }
+  }
+  sendSSEEventToUser(params.targetLogin, params.eventType, params.payload);
+  return { id: eventId, createdAt: nowIso };
+}
+async function sendQuickTouch(params) {
+  const sLogin = String(params.senderLogin).toLowerCase().replace(/^@/, "");
+  const tLogin = String(params.targetLogin).toLowerCase().replace(/^@/, "");
+  const now = Date.now();
+  const tenSecondsAgo = now - 1e4;
+  const existingRecent = recentTouches.find(
+    (t) => t.senderLogin === sLogin && t.targetLogin === tLogin && t.actionType === params.actionType && new Date(t.createdAt).getTime() > tenSecondsAgo
+  );
+  if (existingRecent) {
+    return {
+      status: "throttled",
+      throttled: true,
+      message: "\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0443\u0436\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u043D\u0435\u0434\u0430\u0432\u043D\u043E",
+      touch: existingRecent
+    };
+  }
+  const newTouch = {
+    id: `touch-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    senderLogin: sLogin,
+    senderName: params.senderName || sLogin,
+    targetLogin: tLogin,
+    actionType: params.actionType,
+    title: params.title || `${params.senderName || sLogin} \u043E\u0431\u0440\u0430\u0442\u0438\u043B(\u0430) \u043D\u0430 \u0432\u0430\u0441 \u0432\u043D\u0438\u043C\u0430\u043D\u0438\u0435`,
+    subtitle: params.subtitle || "\u0422\u043E\u043B\u044C\u043A\u043E \u0447\u0442\u043E",
+    icon: params.icon || "heart",
+    iconBg: params.iconBg || "bg-rose-500/10",
+    iconColor: params.iconColor || "text-rose-500",
+    customNote: params.customNote,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  recentTouches.unshift(newTouch);
+  if (recentTouches.length > 200) recentTouches.pop();
+  const coupleKey = [sLogin, tLogin].sort().join("_");
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(coupleEvents).values({
+        id: newTouch.id,
+        coupleId: coupleKey,
+        targetLogin: tLogin,
+        senderLogin: sLogin,
+        eventType: "touch",
+        payload: newTouch,
+        createdAt: newTouch.createdAt
+      });
+    } catch (err) {
+      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0432 couple_events (PostgreSQL)", void 0, err);
+    }
+  }
+  sendSSEEventToUser(tLogin, "touch", newTouch);
+  logger.info("\u0411\u044B\u0441\u0442\u0440\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u0411\u0414 \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E", {
+    from: sLogin,
+    to: tLogin,
+    action: params.actionType
+  });
+  return {
+    status: "dispatched",
+    throttled: false,
+    touch: newTouch
+  };
+}
+function getUserTouches(login) {
+  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
+  return recentTouches.filter(
+    (t) => t.targetLogin === cleanLogin || t.senderLogin === cleanLogin
+  );
+}
+async function handleHeartbeat(login) {
+  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  let partnerLastActiveAt = null;
+  let partnerLogin = null;
+  if (cleanLogin) {
+    await touchUserLastActive(cleanLogin);
+    if (isSqlConfigured() && db) {
+      try {
+        const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
+        if (currentUserRecord?.partnerLogin) {
+          partnerLogin = currentUserRecord.partnerLogin;
+          const [partnerRecord] = await db.select().from(users).where(eq3(users.login, partnerLogin)).limit(1);
+          if (partnerRecord?.lastActiveAt) {
+            partnerLastActiveAt = partnerRecord.lastActiveAt;
+          }
+        }
+      } catch (err) {
+        logger.warn("Heartbeat error in Neon DB", void 0, err);
+      }
+    }
+    if (!partnerLastActiveAt) {
+      try {
+        const store = readEmergencyFile();
+        const userObj = store.users?.[cleanLogin];
+        if (userObj?.partnerLogin) {
+          partnerLogin = partnerLogin || userObj.partnerLogin;
+          const partnerObj = store.users?.[userObj.partnerLogin.toLowerCase()];
+          if (partnerObj?.lastActiveAt) {
+            partnerLastActiveAt = partnerObj.lastActiveAt;
+          }
+        }
+      } catch {
+      }
+    }
+  }
+  const isPartnerOnline = partnerLastActiveAt ? Date.now() - new Date(partnerLastActiveAt).getTime() < 18e4 : false;
+  return {
+    ok: true,
+    timestamp: nowIso,
+    login: cleanLogin,
+    partnerLogin,
+    partnerLastActiveAt,
+    isPartnerOnline
+  };
+}
+async function getEventsPoll(params) {
+  const cleanLogin = String(params.login || "").toLowerCase().replace(/^@/, "").trim();
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const events = [];
+  let partnerLastActiveAt = null;
+  if (cleanLogin) {
+    await touchUserLastActive(cleanLogin);
+  }
+  if (isSqlConfigured() && db && cleanLogin) {
+    try {
+      const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
+      if (currentUserRecord?.partnerLogin) {
+        const [partnerRecord] = await db.select().from(users).where(eq3(users.login, currentUserRecord.partnerLogin)).limit(1);
+        if (partnerRecord?.lastActiveAt) {
+          partnerLastActiveAt = partnerRecord.lastActiveAt;
+        }
+      }
+      const cutoffTime = params.since || new Date(Date.now() - 45e3).toISOString();
+      const dbEvents = await db.select().from(coupleEvents).where(
+        and(
+          eq3(coupleEvents.targetLogin, cleanLogin),
+          gt(coupleEvents.createdAt, cutoffTime)
+        )
+      ).orderBy(desc(coupleEvents.createdAt)).limit(30);
+      for (const ev of dbEvents) {
+        if (params.lastEventId && ev.id === params.lastEventId) continue;
+        events.push({
+          id: ev.id,
+          type: ev.eventType,
+          data: ev.payload,
+          createdAt: ev.createdAt
+        });
+      }
+    } catch (err) {
+      logger.warn("Events poll error in Neon DB", void 0, err);
+    }
+  }
+  if (!partnerLastActiveAt && cleanLogin) {
+    try {
+      const store = readEmergencyFile();
+      const u = store.users?.[cleanLogin];
+      if (u?.partnerLogin) {
+        const p = store.users?.[u.partnerLogin.toLowerCase()];
+        if (p?.lastActiveAt) {
+          partnerLastActiveAt = p.lastActiveAt;
+        }
+      }
+    } catch {
+    }
+  }
+  if (events.length === 0) {
+    const memoryTouches = recentTouches.filter(
+      (t) => t.targetLogin === cleanLogin && (!params.lastEventId || t.id !== params.lastEventId)
+    );
+    for (const t of memoryTouches.slice(0, 10)) {
+      events.push({
+        id: t.id,
+        type: "touch",
+        data: t,
+        createdAt: t.createdAt
+      });
+    }
+  }
+  const isPartnerOnline = partnerLastActiveAt ? Date.now() - new Date(partnerLastActiveAt).getTime() < 18e4 : false;
+  return {
+    events,
+    touches: getUserTouches(cleanLogin),
+    partnerLastActiveAt,
+    isPartnerOnline,
+    serverTime: nowIso
+  };
+}
+
+// src/server/shared/middleware/auth.middleware.ts
+function generateToken(login) {
+  return jwt.sign({ login: login.toLowerCase() }, config.jwtSecret, { expiresIn: "30d" });
+}
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+  }
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, config.jwtSecret);
+    const userLogin = String(decoded.login || "").toLowerCase();
+    if (!userLogin) {
+      return res.status(401).json({ error: "\u041D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0442\u043E\u043A\u0435\u043D" });
+    }
+    req.userLogin = userLogin;
+    req.user = { login: userLogin };
+    touchUserLastActive(userLogin).catch(() => {
+    });
+    next();
+  } catch (err) {
+    logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u0430\u043B\u0438\u0434\u0430\u0446\u0438\u0438 JWT \u0442\u043E\u043A\u0435\u043D\u0430", { ip: req.ip }, err);
+    return res.status(401).json({ error: "\u0421\u0435\u0441\u0441\u0438\u044F \u0438\u0441\u0442\u0435\u043A\u043B\u0430 \u0438\u043B\u0438 \u0442\u043E\u043A\u0435\u043D \u043D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u0435\u043D" });
+  }
+}
+
+// src/server/shared/validators/auth.validator.ts
+import { z } from "zod";
+var loginSchema = z.string().min(3, "\u041B\u043E\u0433\u0438\u043D \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 3 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").max(20, "\u041B\u043E\u0433\u0438\u043D \u043D\u0435 \u0434\u043E\u043B\u0436\u0435\u043D \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0442\u044C 20 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").regex(/^[a-zA-Zа-яА-Я0-9_]+$/, "\u041B\u043E\u0433\u0438\u043D \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0431\u0443\u043A\u0432\u044B, \u0446\u0438\u0444\u0440\u044B \u0438 _").transform((v) => v.toLowerCase().replace(/^@/, ""));
+var passwordSchema = z.string().min(6, "\u041F\u0430\u0440\u043E\u043B\u044C \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 6 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432").max(100, "\u041F\u0430\u0440\u043E\u043B\u044C \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u044B\u0439");
+var registerSchema = z.object({
+  login: loginSchema,
+  password: passwordSchema,
+  name: z.string().min(1, "\u0418\u043C\u044F \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E").max(50, "\u0418\u043C\u044F \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435").optional(),
+  gender: z.enum(["male", "female"], { message: "\u041F\u043E\u043B \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u0435\u043D \u043F\u0440\u0438 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438 (male/female)" })
+});
+var loginRequestSchema = z.object({
+  login: loginSchema,
+  password: passwordSchema
+});
+var changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, "\u0421\u0442\u0430\u0440\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u0435\u043D"),
+  newPassword: passwordSchema
+});
+var resetPasswordSchema = z.object({
+  login: loginSchema,
+  newPassword: passwordSchema,
+  secretKey: z.string().optional()
+});
+var updateProfileSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  gender: z.enum(["male", "female"]).optional().nullable(),
+  avatarEmoji: z.string().max(30).optional(),
+  city: z.string().max(100).optional().nullable(),
+  startDate: z.string().max(30).optional().nullable(),
+  loveLanguage: z.string().max(50).optional().nullable(),
+  attachmentStyle: z.string().max(50).optional().nullable(),
+  currentMood: z.record(z.string(), z.unknown()).optional().nullable()
+});
+
+// src/server/modules/auth/auth.service.ts
+init_schema();
+init_client();
+init_storageService();
+import bcrypt from "bcryptjs";
+import crypto3 from "crypto";
+
+// src/server/core/types.ts
+function toSafeUser(user) {
+  const { passwordHash, ...safe } = user;
+  return safe;
+}
+
+// src/server/modules/auth/auth.service.ts
+init_errors();
+var DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+var isProd4 = () => process.env.NODE_ENV === "production";
+async function verifyPassword(password, hash) {
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch {
+    return false;
+  }
+}
+async function getAllUsersSafe() {
+  const userMap = {};
+  if (isProd4()) {
+    if (!isSqlConfigured() || !db) {
+      throw new DatabaseUnavailableError();
+    }
+    try {
+      const allSqlUsers = await db.select().from(users);
+      for (const u of allSqlUsers) {
+        userMap[u.login.toLowerCase()] = toSafeUser(u);
+      }
+      return Object.values(userMap);
+    } catch (err) {
+      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL \u0432 production (fail-fast)", err);
+      throw new DatabaseUnavailableError();
+    }
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      const allSqlUsers = await db.select().from(users);
+      for (const u of allSqlUsers) {
+        userMap[u.login.toLowerCase()] = toSafeUser(u);
+      }
+    } catch (err) {
+      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", void 0, err);
+    }
+  }
+  const store = readEmergencyFile();
+  for (const [k, u] of Object.entries(store.users || {})) {
+    if (u && typeof u === "object" && !userMap[k.toLowerCase()]) {
+      userMap[k.toLowerCase()] = toSafeUser(u);
+    }
+  }
+  return Object.values(userMap);
+}
+async function registerUser(params) {
+  const cleanLogin = String(params.login).trim().toLowerCase().replace(/^@/, "");
+  const existing = await findUserByLogin(cleanLogin);
+  if (existing) {
+    throw { status: 400, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0441 \u0442\u0430\u043A\u0438\u043C \u043B\u043E\u0433\u0438\u043D\u043E\u043C \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442" };
+  }
+  const salt = await bcrypt.genSalt(10);
+  const passwordHash = await bcrypt.hash(params.password, salt);
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const userId = crypto3.randomUUID();
+  const newUser = {
+    id: userId,
+    login: cleanLogin,
+    passwordHash,
+    name: params.name?.trim() || cleanLogin,
+    gender: params.gender,
+    avatarEmoji: "sparkles",
+    partnerLogin: null,
+    inviteCode: null,
+    inviteCodeExpires: null,
+    pairedAt: null,
+    startDate: null,
+    city: null,
+    loveLanguage: null,
+    attachmentStyle: null,
+    currentMood: null,
+    lastActiveAt: now,
+    createdAt: now
+  };
+  await upsertUser(newUser);
+  const token = generateToken(cleanLogin);
+  logger.info("\u041D\u043E\u0432\u044B\u0439 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D", { login: cleanLogin });
+  return {
+    token,
+    user: toSafeUser(newUser)
+  };
+}
+async function loginUser(params, clientIp) {
+  const cleanLogin = String(params.login).trim().toLowerCase().replace(/^@/, "");
+  const user = await findUserByLogin(cleanLogin);
+  if (!user) {
+    await bcrypt.compare(params.password, DUMMY_HASH);
+    throw { status: 401, message: "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043B\u043E\u0433\u0438\u043D \u0438\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C" };
+  }
+  const match = await verifyPassword(params.password, user.passwordHash);
+  if (!match) {
+    logger.security("\u041D\u0435\u0443\u0434\u0430\u0447\u043D\u0430\u044F \u043F\u043E\u043F\u044B\u0442\u043A\u0430 \u0432\u0445\u043E\u0434\u0430", { login: cleanLogin, ip: clientIp });
+    throw { status: 401, message: "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043B\u043E\u0433\u0438\u043D \u0438\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C" };
+  }
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  user.lastActiveAt = now;
+  await upsertUser(user);
+  const token = generateToken(cleanLogin);
+  logger.info("\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0432\u043E\u0448\u0451\u043B \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0443", { login: cleanLogin });
+  return {
+    token,
+    user: toSafeUser(user)
+  };
+}
+async function getUserProfile(login) {
+  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
+  const user = await findUserByLogin(cleanLogin);
+  if (!user) {
+    throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  }
+  return toSafeUser(user);
+}
+async function updateUserProfile(userLogin, updates) {
+  const user = await findUserByLogin(userLogin);
+  if (!user) throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  if (updates.name !== void 0) user.name = updates.name;
+  if (updates.gender !== void 0) user.gender = updates.gender;
+  if (updates.avatarEmoji !== void 0) user.avatarEmoji = updates.avatarEmoji;
+  if (updates.city !== void 0) user.city = updates.city;
+  if (updates.startDate !== void 0) user.startDate = updates.startDate;
+  if (updates.loveLanguage !== void 0) user.loveLanguage = updates.loveLanguage;
+  if (updates.attachmentStyle !== void 0) user.attachmentStyle = updates.attachmentStyle;
+  if (updates.currentMood !== void 0) user.currentMood = updates.currentMood;
+  user.lastActiveAt = (/* @__PURE__ */ new Date()).toISOString();
+  await upsertUser(user);
+  logger.info("\u041F\u0440\u043E\u0444\u0438\u043B\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D", { login: userLogin });
+  return toSafeUser(user);
+}
+async function changeUserPassword(userLogin, oldPass, newPass) {
+  const user = await findUserByLogin(userLogin);
+  if (!user) throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  const match = await verifyPassword(oldPass, user.passwordHash);
+  if (!match) {
+    throw { status: 400, message: "\u0421\u0442\u0430\u0440\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u0443\u043A\u0430\u0437\u0430\u043D \u043D\u0435\u0432\u0435\u0440\u043D\u043E" };
+  }
+  const salt = await bcrypt.genSalt(10);
+  user.passwordHash = await bcrypt.hash(newPass, salt);
+  await upsertUser(user);
+  logger.info("\u041F\u0430\u0440\u043E\u043B\u044C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0435\u043D", { login: userLogin });
+}
+async function resetUserPassword(login, newPass) {
+  const cleanLogin = String(login).toLowerCase().replace(/^@/, "");
+  const user = await findUserByLogin(cleanLogin);
+  if (!user) {
+    throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u0441 \u0442\u0430\u043A\u0438\u043C \u043B\u043E\u0433\u0438\u043D\u043E\u043C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  }
+  const salt = await bcrypt.genSalt(10);
+  user.passwordHash = await bcrypt.hash(newPass, salt);
+  await upsertUser(user);
+  logger.info("\u041F\u0430\u0440\u043E\u043B\u044C \u0441\u0431\u0440\u043E\u0448\u0435\u043D", { login: cleanLogin });
+}
+async function syncAccounts(accounts) {
+  for (const acc of accounts) {
+    if (acc && acc.login) {
+      const existing = await findUserByLogin(acc.login);
+      if (!existing) {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const cleanLogin = String(acc.login).toLowerCase().replace(/^@/, "");
+        const passwordHash = acc.passwordHash || await bcrypt.hash(acc.password || "password123", 10);
+        await upsertUser({
+          id: acc.id || crypto3.randomUUID(),
+          login: cleanLogin,
+          passwordHash,
+          name: acc.name || cleanLogin,
+          gender: acc.gender || null,
+          avatarEmoji: acc.avatarEmoji || "sparkles",
+          partnerLogin: acc.partnerLogin ? String(acc.partnerLogin).toLowerCase() : null,
+          inviteCode: acc.inviteCode || null,
+          inviteCodeExpires: acc.inviteCodeExpires || null,
+          pairedAt: acc.pairedAt || null,
+          startDate: acc.startDate || null,
+          city: acc.city || null,
+          loveLanguage: acc.loveLanguage || null,
+          attachmentStyle: acc.attachmentStyle || null,
+          currentMood: acc.currentMood || null,
+          lastActiveAt: now,
+          createdAt: acc.createdAt || now
+        });
+      }
+    }
+  }
+}
+
+// src/server/modules/auth/auth.routes.ts
+var authRouter = Router();
+authRouter.get("/users", async (req, res, next) => {
+  try {
+    const users3 = await getAllUsersSafe();
+    return res.json({ users: users3 });
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/sync", async (req, res, next) => {
+  try {
+    const { accounts } = req.body;
+    if (!Array.isArray(accounts)) {
+      return res.status(400).json({ error: "accounts must be an array" });
+    }
+    await syncAccounts(accounts);
+    return res.json({ status: "synced" });
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/register", registerLimiter, validateBody(registerSchema), async (req, res, next) => {
+  try {
+    const { login, password, name, gender } = req.body;
+    const result = await registerUser({ login, password, name, gender });
+    return res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/login", loginLimiter, validateBody(loginRequestSchema), async (req, res, next) => {
+  try {
+    const { login, password } = req.body;
+    const result = await loginUser({ login, password }, req.ip);
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.get("/user/:login", requireAuth, async (req, res, next) => {
+  try {
+    const paramLogin = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+    const userLogin = req.user?.login;
+    if (paramLogin !== userLogin) {
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u0447\u0443\u0436\u043E\u043C\u0443 \u043F\u0440\u043E\u0444\u0438\u043B\u044E" });
+    }
+    const user = await getUserProfile(paramLogin);
+    return res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/update-profile", requireAuth, validateBody(updateProfileSchema), async (req, res, next) => {
+  try {
+    const userLogin = req.user?.login;
+    if (!userLogin) return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
+    const user = await updateUserProfile(userLogin, req.body);
+    return res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/change-password", requireAuth, validateBody(changePasswordSchema), async (req, res, next) => {
+  try {
+    const userLogin = req.user?.login;
+    if (!userLogin) return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
+    const { oldPassword, newPassword } = req.body;
+    await changeUserPassword(userLogin, oldPassword, newPassword);
+    return res.json({ status: "ok", message: "\u041F\u0430\u0440\u043E\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u0437\u043C\u0435\u043D\u0451\u043D" });
+  } catch (err) {
+    next(err);
+  }
+});
+authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
+  try {
+    const { login, newPassword } = req.body;
+    await resetUserPassword(login, newPassword);
+    return res.json({ status: "ok", message: "\u041F\u0430\u0440\u043E\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0441\u0431\u0440\u043E\u0448\u0435\u043D" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// src/server/modules/pairing/pairing.routes.ts
+import { Router as Router2 } from "express";
+
+// src/server/shared/middleware/requirePairOwnership.ts
+function getPairKey(login, partnerLogin) {
+  if (!partnerLogin) return login.toLowerCase().trim().replace(/^@/, "");
+  return [
+    login.toLowerCase().trim().replace(/^@/, ""),
+    partnerLogin.toLowerCase().trim().replace(/^@/, "")
+  ].sort().join("_");
+}
+function isUserInCouple(coupleId, userLogin) {
+  if (!coupleId || !userLogin) return false;
+  const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
+  const cleanCouple = coupleId.toLowerCase().trim();
+  if (cleanCouple === cleanUser) return true;
+  if (cleanCouple === `ai_${cleanUser}`) return true;
+  if (cleanCouple.startsWith(`${cleanUser}_`) || cleanCouple.endsWith(`_${cleanUser}`) || cleanCouple.includes(`_${cleanUser}_`)) {
+    return true;
+  }
+  return false;
+}
+function requirePairOwnership(req, res, next) {
+  const userLogin = req.user?.login;
+  if (!userLogin) {
+    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+  }
+  let coupleId = null;
+  if (req.params?.coupleId || req.params?.key) {
+    const targetId = req.params.coupleId || req.params.key;
+    if (!isUserInCouple(targetId, userLogin)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.coupleId/key)", {
+        userLogin,
+        targetCoupleId: targetId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = targetId;
+  }
+  if (req.body?.coupleId) {
+    if (!isUserInCouple(req.body.coupleId, userLogin)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.coupleId)", {
+        userLogin,
+        targetCoupleId: req.body.coupleId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = req.body.coupleId;
+  }
+  if (req.params?.login1 && req.params?.login2) {
+    const l1 = req.params.login1.toLowerCase().trim().replace(/^@/, "");
+    const l2 = req.params.login2.toLowerCase().trim().replace(/^@/, "");
+    if (l1 !== userLogin && l2 !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login1/login2)", {
+        userLogin,
+        target: `${l1}_${l2}`,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = getPairKey(l1, l2);
+  }
+  if (req.body?.login1) {
+    const l1 = String(req.body.login1).toLowerCase().trim().replace(/^@/, "");
+    const l2 = req.body.login2 ? String(req.body.login2).toLowerCase().trim().replace(/^@/, "") : null;
+    if (l1 !== userLogin && l2 !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.login1/login2)", {
+        userLogin,
+        target: l2 ? `${l1}_${l2}` : l1,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = getPairKey(l1, l2);
+  }
+  if (req.params?.login) {
+    const paramLogin = req.params.login.toLowerCase().trim().replace(/^@/, "");
+    if (paramLogin !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login)", {
+        userLogin,
+        paramLogin,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = getPairKey(userLogin, paramLogin);
+  }
+  if (coupleId) {
+    req.couple = { id: coupleId };
+  }
+  next();
+}
+
+// src/server/shared/validators/pairing.validator.ts
+import { z as z2 } from "zod";
+var pairRequestSchema = z2.object({
+  fromLogin: loginSchema,
+  toLogin: loginSchema
+});
+var pairAcceptSchema = z2.object({
+  fromLogin: loginSchema,
+  toLogin: loginSchema
+});
+var pairRejectSchema = z2.object({
+  fromLogin: loginSchema,
+  toLogin: loginSchema
+});
+var pairDisconnectSchema = z2.object({
+  login: loginSchema
+});
 
 // src/server/modules/pairing/pairing.service.ts
+init_client();
+init_schema();
+import { eq as eq5, and as and3 } from "drizzle-orm";
+init_storageService();
+init_pairService();
+init_errors();
 var isProd6 = () => process.env.NODE_ENV === "production";
 async function requestPairConnection(fromLogin, toLogin) {
   if (fromLogin === toLogin) {
@@ -2422,8 +2520,18 @@ var coupleSyncSchema = z3.object({
   coupleId: z3.string().optional().nullable(),
   payload: z3.record(z3.string(), z3.unknown())
 });
+var inviteCodeSchema = z3.object({});
+var joinInviteSchema = z3.object({
+  code: z3.string().min(6, "\u041A\u043E\u0434 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u043A\u043E\u0440\u043E\u0442\u043A\u0438\u0439").max(20, "\u041A\u043E\u0434 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u044B\u0439")
+});
+
+// src/server/modules/couple-data/couple.service.ts
+init_storageService();
 
 // src/server/services/analytics.ts
+init_client();
+init_schema();
+init_logger();
 import { eq as eq6, and as and4, gte } from "drizzle-orm";
 import crypto5 from "crypto";
 async function recordDailyMetrics(coupleId, metricDate, data) {
@@ -2779,6 +2887,9 @@ function computeCoupleRatingAnalytics(params) {
 }
 
 // src/server/modules/couple-data/couple.service.ts
+init_client();
+init_schema();
+import { eq as eq7 } from "drizzle-orm";
 async function syncCouplePayload(params, senderUserLogin) {
   const { login1, login2, coupleId, payload } = params;
   let key = coupleId;
@@ -2844,6 +2955,102 @@ async function fetchCoupleDataByLogins(login1, login2) {
   const key = [l1, l2].sort().join("_");
   return await getCoupleData(key);
 }
+async function generateInviteCode(requesterLogin) {
+  const cleanLogin = String(requesterLogin || "").toLowerCase().trim().replace(/^@/, "");
+  if (!cleanLogin) throw { status: 401, message: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" };
+  const code = `LOOP-${Math.floor(1e5 + Math.random() * 9e5)}`;
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1e3).toISOString();
+  if (isSqlConfigured() && db) {
+    try {
+      const res = await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq7(users.login, cleanLogin)).returning?.();
+      void res;
+    } catch (e) {
+      logger.warn("generateInviteCode SQL failed, fallback to file", void 0, e);
+      const store = readEmergencyFile();
+      if (store.users?.[cleanLogin]) {
+        store.users[cleanLogin].inviteCode = code;
+        store.users[cleanLogin].inviteCodeExpires = expiresAt;
+        writeEmergencyFile(store);
+      }
+    }
+    try {
+      const store = readEmergencyFile();
+      if (store.users?.[cleanLogin]) {
+        store.users[cleanLogin].inviteCode = code;
+        store.users[cleanLogin].inviteCodeExpires = expiresAt;
+        writeEmergencyFile(store);
+      }
+    } catch {
+    }
+  } else {
+    const store = readEmergencyFile();
+    if (!store.users) store.users = {};
+    if (!store.users[cleanLogin]) store.users[cleanLogin] = { login: cleanLogin };
+    store.users[cleanLogin].inviteCode = code;
+    store.users[cleanLogin].inviteCodeExpires = expiresAt;
+    writeEmergencyFile(store);
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq7(users.login, cleanLogin));
+    } catch {
+    }
+  }
+  return code;
+}
+async function joinInvite(joinerLogin, rawCode) {
+  const cleanLogin = String(joinerLogin || "").toLowerCase().trim().replace(/^@/, "");
+  const cleanCode = String(rawCode || "").trim().toUpperCase();
+  if (!cleanLogin || !cleanCode) throw { status: 400, message: "\u041A\u043E\u0434 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u0435\u043D" };
+  let inviterLogin = null;
+  let inviterRow = null;
+  if (isSqlConfigured() && db) {
+    try {
+      const rows = await db.select().from(users).where(eq7(users.inviteCode, cleanCode)).limit(1);
+      if (rows.length) inviterRow = rows[0];
+    } catch (e) {
+      logger.warn("joinInvite SQL select failed", void 0, e);
+    }
+  }
+  if (!inviterRow) {
+    const store = readEmergencyFile();
+    const found = Object.values(store.users || {}).find((u) => String(u.inviteCode || "").toUpperCase() === cleanCode);
+    if (found) inviterRow = found;
+  }
+  if (!inviterRow) throw { status: 404, message: "\u041A\u043E\u0434 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  const expires = inviterRow.inviteCodeExpires ? new Date(String(inviterRow.inviteCodeExpires)) : null;
+  if (!expires || isNaN(expires.getTime()) || expires.getTime() < Date.now()) throw { status: 410, message: "\u041A\u043E\u0434 \u0438\u0441\u0442\u0451\u043A" };
+  inviterLogin = String(inviterRow.login || "").toLowerCase().trim();
+  if (!inviterLogin) throw { status: 404, message: "\u0412\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u043A\u043E\u0434\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  if (inviterLogin === cleanLogin) throw { status: 400, message: "\u041D\u0435\u043B\u044C\u0437\u044F \u043F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F \u043A \u0441\u0435\u0431\u0435" };
+  const { findUserByLogin: findUserByLogin2 } = await Promise.resolve().then(() => (init_storageService(), storageService_exports));
+  const joiner = await findUserByLogin2(cleanLogin);
+  const inviter = await findUserByLogin2(inviterLogin);
+  if (!joiner || !inviter) throw { status: 404, message: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  if (joiner.partnerLogin) throw { status: 409, message: "\u0412\u044B \u0443\u0436\u0435 \u0432 \u043F\u0430\u0440\u0435" };
+  if (inviter.partnerLogin) throw { status: 409, message: "\u0412\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u043A\u043E\u0434\u0430 \u0443\u0436\u0435 \u0432 \u043F\u0430\u0440\u0435" };
+  const { acceptPair: acceptPair2 } = await Promise.resolve().then(() => (init_pairService(), pairService_exports));
+  const { createPairRequest: createPairRequest2 } = await Promise.resolve().then(() => (init_pairService(), pairService_exports));
+  await createPairRequest2(inviter, joiner);
+  const result = await acceptPair2(cleanLogin, inviterLogin);
+  if (isSqlConfigured() && db) {
+    try {
+      await db.update(users).set({ inviteCode: null, inviteCodeExpires: null }).where(eq7(users.login, inviterLogin));
+    } catch {
+    }
+  }
+  try {
+    const store = readEmergencyFile();
+    if (store.users?.[inviterLogin]) {
+      store.users[inviterLogin].inviteCode = null;
+      store.users[inviterLogin].inviteCodeExpires = null;
+      writeEmergencyFile(store);
+    }
+  } catch {
+  }
+  void result;
+  return { partnerLogin: inviterLogin };
+}
 
 // src/server/modules/couple-data/couple.routes.ts
 var coupleRouter = Router3();
@@ -2881,9 +3088,26 @@ coupleRouter.get("/data/:login1/:login2", requireAuth, requirePairOwnership, asy
     next(err);
   }
 });
+coupleRouter.post("/generate-code", requireAuth, validateBody(inviteCodeSchema), async (req, res, next) => {
+  try {
+    const code = await generateInviteCode(req.user?.login);
+    return res.json({ code });
+  } catch (err) {
+    next(err);
+  }
+});
+coupleRouter.post("/join", requireAuth, validateBody(joinInviteSchema), async (req, res, next) => {
+  try {
+    await joinInvite(req.user?.login, req.body.code);
+    return res.json({ status: "joined" });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // src/server/modules/chat/chat.routes.ts
 import { Router as Router4 } from "express";
+init_storageService();
 
 // src/server/shared/validators/chat.validator.ts
 import { z as z4 } from "zod";
@@ -3516,9 +3740,14 @@ aiRouter.post("/date-idea", aiLimiter, requireAuth, validateBody(aiDateIdeaSchem
 import { Router as Router5 } from "express";
 
 // src/server/modules/analytics/analytics.service.ts
-import { desc as desc2, eq as eq8 } from "drizzle-orm";
+init_client();
+init_schema();
+import { desc as desc2, eq as eq9 } from "drizzle-orm";
 
 // src/server/services/insights.ts
+init_client();
+init_schema();
+init_logger();
 import crypto6 from "crypto";
 async function detectRiskZones(metrics) {
   const risks = [];
@@ -3613,8 +3842,10 @@ async function generateWeeklyInsight(coupleId, contextData) {
 }
 
 // src/server/modules/tests/tests.service.ts
+init_client();
+init_schema();
 import crypto7 from "crypto";
-import { eq as eq7, and as and5 } from "drizzle-orm";
+import { eq as eq8, and as and5 } from "drizzle-orm";
 
 // src/shared/tests.registry.ts
 var TESTS_REGISTRY = {
@@ -3670,6 +3901,9 @@ var TESTS_REGISTRY = {
 function getSphereByTestId(testId) {
   return TESTS_REGISTRY[testId]?.sphere;
 }
+
+// src/server/modules/tests/tests.service.ts
+init_errors();
 
 // src/server/modules/tests/psychometrics.calc.ts
 function calculateIndividualVector(userAnswers) {
@@ -4105,7 +4339,7 @@ var EXPECTED_QUESTIONS = Object.fromEntries(
 async function resolveTestCoupleId(userLogin) {
   const clean = (s) => s.toLowerCase().trim().replace(/^@/, "");
   if (!isSqlConfigured() || !db) return clean(userLogin);
-  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq7(users.login, userLogin));
+  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq8(users.login, userLogin));
   if (!u) return clean(userLogin);
   if (!u.partnerLogin) return clean(u.login);
   return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
@@ -4127,13 +4361,13 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq7(users.login, userLogin));
+      const [u] = await tx.select().from(users).where(eq8(users.login, userLogin));
       const userId = u ? u.id : userLogin;
       let session = await tx.select().from(testSessions).where(
         and5(
-          eq7(testSessions.coupleId, coupleId),
-          eq7(testSessions.testId, testId),
-          eq7(testSessions.status, "in_progress")
+          eq8(testSessions.coupleId, coupleId),
+          eq8(testSessions.testId, testId),
+          eq8(testSessions.status, "in_progress")
         )
       ).limit(1);
       if (!session.length) {
@@ -4163,10 +4397,10 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       }));
       await tx.insert(testAnswers).values(answerRecords);
       await tx.delete(testDrafts).where(
-        and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))
+        and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))
       );
       await _recalculateUserProfile(tx, coupleId, userId, testId);
-      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq7(testSessions.id, sessionId));
+      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq8(testSessions.id, sessionId));
       const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
         status: "completed",
@@ -4191,15 +4425,15 @@ async function submitTestAnswer(params) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq7(users.login, params.userLogin));
+      const [u] = await tx.select().from(users).where(eq8(users.login, params.userLogin));
       const userId = u ? u.id : params.userLogin;
       let sessionId = params.sessionId;
       if (!sessionId) {
         let session = await tx.select().from(testSessions).where(
           and5(
-            eq7(testSessions.coupleId, params.coupleId),
-            eq7(testSessions.testId, params.testId),
-            eq7(testSessions.status, "in_progress")
+            eq8(testSessions.coupleId, params.coupleId),
+            eq8(testSessions.testId, params.testId),
+            eq8(testSessions.status, "in_progress")
           )
         ).limit(1);
         if (!session.length) {
@@ -4251,7 +4485,7 @@ async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
   if (!isSqlConfigured() || !db) {
     return { status: "saved_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.insert(testDrafts).values({
     userId,
@@ -4272,19 +4506,19 @@ async function getTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return null;
   }
-  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
   const userId = u ? u.id : userLogin;
-  const [draft] = await db.select().from(testDrafts).where(and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))).limit(1);
+  const [draft] = await db.select().from(testDrafts).where(and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))).limit(1);
   return draft ?? null;
 }
 async function clearTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return { status: "cleared_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.delete(testDrafts).where(
-    and5(eq7(testDrafts.userId, userId), eq7(testDrafts.testId, testId))
+    and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))
   );
   return { status: "cleared", testId };
 }
@@ -4296,7 +4530,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [u] = await db.select().from(users).where(eq7(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
   if (!u) return [];
   const userId = u.id;
   if (!u.partnerLogin) {
@@ -4306,7 +4540,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [partner] = await db.select({ id: users.id }).from(users).where(eq7(users.login, u.partnerLogin));
+  const [partner] = await db.select({ id: users.id }).from(users).where(eq8(users.login, u.partnerLogin));
   const partnerId = partner?.id;
   if (!partnerId) {
     return CATALOG_TEST_IDS.map((testId) => ({
@@ -4316,18 +4550,18 @@ async function getTestsStatusForUser(userLogin) {
     }));
   }
   const coupleId = await resolveTestCoupleId(userLogin);
-  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(
+  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(
     and5(
-      eq7(testAnswers.userId, userId),
-      eq7(testSessions.status, "completed"),
-      eq7(testSessions.coupleId, coupleId)
+      eq8(testAnswers.userId, userId),
+      eq8(testSessions.status, "completed"),
+      eq8(testSessions.coupleId, coupleId)
     )
   );
-  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(
+  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(
     and5(
-      eq7(testAnswers.userId, partnerId),
-      eq7(testSessions.status, "completed"),
-      eq7(testSessions.coupleId, coupleId)
+      eq8(testAnswers.userId, partnerId),
+      eq8(testSessions.status, "completed"),
+      eq8(testSessions.coupleId, coupleId)
     )
   );
   const mySet = new Set(myCompleted.map((r) => r.testId));
@@ -4341,7 +4575,7 @@ async function getTestsStatusForUser(userLogin) {
 async function _recalculateUserProfile(tx, coupleId, userId, testId) {
   const rows = await tx.select({
     answers: testAnswers
-  }).from(testAnswers).innerJoin(testSessions, eq7(testAnswers.sessionId, testSessions.id)).where(and5(eq7(testAnswers.userId, userId), eq7(testSessions.coupleId, coupleId)));
+  }).from(testAnswers).innerJoin(testSessions, eq8(testAnswers.sessionId, testSessions.id)).where(and5(eq8(testAnswers.userId, userId), eq8(testSessions.coupleId, coupleId)));
   if (!rows.length) return;
   const rawForEngine = rows.map((r) => ({
     questionId: r.answers.questionId,
@@ -4384,7 +4618,7 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId) {
   });
 }
 async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
-  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq7(testAnswers.sessionId, testSessions.id)).where(and5(eq7(testSessions.coupleId, coupleId), eq7(testSessions.status, "completed")));
+  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(and5(eq8(testSessions.coupleId, coupleId), eq8(testSessions.status, "completed")));
   const completedByUser = /* @__PURE__ */ new Map();
   for (const row of tests) {
     const { testId, userId: uId } = row;
@@ -4403,8 +4637,8 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
     return { state: "PARTNER_PENDING" };
   }
   const [profile1, profile2] = await Promise.all([
-    tx.select().from(userPsychProfiles).where(eq7(userPsychProfiles.userId, userIds[0])).limit(1),
-    tx.select().from(userPsychProfiles).where(eq7(userPsychProfiles.userId, userIds[1])).limit(1)
+    tx.select().from(userPsychProfiles).where(eq8(userPsychProfiles.userId, userIds[0])).limit(1),
+    tx.select().from(userPsychProfiles).where(eq8(userPsychProfiles.userId, userIds[1])).limit(1)
   ]);
   const scales1 = profile1[0]?.traitScores;
   const scales2 = profile2[0]?.traitScores;
@@ -4455,14 +4689,14 @@ async function fetchAiInsights(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const insights = await db.select().from(aiInsights).where(eq8(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
+  const insights = await db.select().from(aiInsights).where(eq9(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
   return insights;
 }
 async function getUserPsychProfiles(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const profiles = await db.select().from(userPsychProfiles).where(eq8(userPsychProfiles.coupleId, coupleId));
+  const profiles = await db.select().from(userPsychProfiles).where(eq9(userPsychProfiles.coupleId, coupleId));
   return profiles;
 }
 async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
@@ -4479,15 +4713,15 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
       profiles: []
     };
   }
-  const [couple] = await db.select().from(couples).where(eq8(couples.id, coupleId)).limit(1);
-  const profiles = await db.select().from(userPsychProfiles).where(eq8(userPsychProfiles.coupleId, coupleId));
-  const [report] = await db.select().from(coupleReports).where(eq8(coupleReports.coupleId, coupleId)).limit(1);
+  const [couple] = await db.select().from(couples).where(eq9(couples.id, coupleId)).limit(1);
+  const profiles = await db.select().from(userPsychProfiles).where(eq9(userPsychProfiles.coupleId, coupleId));
+  const [report] = await db.select().from(coupleReports).where(eq9(coupleReports.coupleId, coupleId)).limit(1);
   let completedTestsCount = 0;
   if (currentUserIdOrLogin) {
     const allUsers2 = await db.select().from(users);
     const currentUser2 = allUsers2.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
     if (currentUser2) {
-      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(eq8(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
+      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(eq9(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
       completedTestsCount = userCompletedSessions.length;
     }
   }
@@ -4607,6 +4841,10 @@ import { Router as Router6 } from "express";
 import multer from "multer";
 
 // src/server/services/photoStorage.ts
+init_client();
+init_logger();
+init_storageService();
+init_errors();
 import crypto8 from "crypto";
 var isProd7 = () => process.env.NODE_ENV === "production";
 function detectMimeType(buffer) {

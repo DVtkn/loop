@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Sparkles, X, CheckCircle2, Send } from 'lucide-react';
 import { Venue } from '../../types.ts';
 
@@ -39,6 +39,26 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
   inviteSentSuccess,
   onSubmit,
 }) => {
+  useEffect(() => {
+    if (!isOpen) {
+      setInviteNote('Приглашаю тебя провести этот особенный вечер вдвоём');
+      setSelectedVenueId('');
+      setCustomLocationName('');
+      setInviteDate('');
+      setInviteTime('');
+    }
+  }, [isOpen, setInviteNote, setSelectedVenueId, setCustomLocationName, setInviteDate, setInviteTime]);
+  const handleClose = () => {
+    setInviteNote('Приглашаю тебя провести этот особенный вечер вдвоём');
+    setSelectedVenueId('');
+    setCustomLocationName('');
+    setInviteDate('');
+    setInviteTime('');
+    onClose();
+  };
+  const handleSubmit = (e: React.FormEvent) => {
+    onSubmit(e);
+  };
   if (!isOpen) return null;
 
   return (
@@ -58,7 +78,7 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 text-[var(--text-2)] hover:text-[var(--text)] rounded-lg cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -78,7 +98,7 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
             </p>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
               <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
                 Текст приглашения *

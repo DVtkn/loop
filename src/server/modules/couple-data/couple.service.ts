@@ -1,8 +1,11 @@
-import { getCoupleData, saveCoupleData, mergeCoupleData } from "../../services/storageService.ts";
+import { getCoupleData, saveCoupleData, mergeCoupleData, readEmergencyFile, writeEmergencyFile } from "../../services/storageService.ts";
 import { recordDailyMetrics } from "../../services/analytics.ts";
 import { computeCoupleRatingAnalytics } from "../../../utils/rankingEngine.ts";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
+import { db, isSqlConfigured } from "../../db/client.ts";
+import { users } from "../../db/schema.ts";
+import { eq } from "drizzle-orm";
 
 export async function syncCouplePayload(
   params: { login1: string; login2?: string | null; coupleId?: string | null; payload: any },
@@ -91,4 +94,93 @@ export async function fetchCoupleDataByLogins(login1: string, login2: string) {
   const l2 = String(login2 || "").toLowerCase().replace(/^@/, "");
   const key = [l1, l2].sort().join("_");
   return await getCoupleData(key);
+}
+
+export async function generateInviteCode(requesterLogin?: string): Promise<string> {
+  const cleanLogin = String(requesterLogin || "").toLowerCase().trim().replace(/^@/, "");
+  if (!cleanLogin) throw { status: 401, message: "Требуется авторизация" };
+  const code = `LOOP-${Math.floor(100000 + Math.random() * 900000)}`;
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  if (isSqlConfigured() && db) {
+    try {
+      const res: any = await (db as any).update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq(users.login, cleanLogin)).returning?.();
+      void res;
+    } catch (e) {
+      logger.warn("generateInviteCode SQL failed, fallback to file", undefined, e as any);
+      const store: any = readEmergencyFile();
+      if (store.users?.[cleanLogin]) {
+        store.users[cleanLogin].inviteCode = code;
+        store.users[cleanLogin].inviteCodeExpires = expiresAt;
+        writeEmergencyFile(store);
+      }
+    }
+    // ensure file mirror for local polling consistency
+    try {
+      const store: any = readEmergencyFile();
+      if (store.users?.[cleanLogin]) {
+        store.users[cleanLogin].inviteCode = code;
+        store.users[cleanLogin].inviteCodeExpires = expiresAt;
+        writeEmergencyFile(store);
+      }
+    } catch {}
+  } else {
+    const store: any = readEmergencyFile();
+    if (!store.users) store.users = {};
+    if (!store.users[cleanLogin]) store.users[cleanLogin] = { login: cleanLogin } as any;
+    store.users[cleanLogin].inviteCode = code;
+    store.users[cleanLogin].inviteCodeExpires = expiresAt;
+    writeEmergencyFile(store);
+  }
+  // also try SQL even if file succeeded, to keep Neon in sync
+  if (isSqlConfigured() && db) {
+    try { await (db as any).update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq(users.login, cleanLogin)); } catch {}
+  }
+  return code;
+}
+
+export async function joinInvite(joinerLogin?: string, rawCode?: string): Promise<{ partnerLogin: string }> {
+  const cleanLogin = String(joinerLogin || "").toLowerCase().trim().replace(/^@/, "");
+  const cleanCode = String(rawCode || "").trim().toUpperCase();
+  if (!cleanLogin || !cleanCode) throw { status: 400, message: "Код обязателен" };
+  let inviterLogin: string | null = null;
+  let inviterRow: any = null;
+  if (isSqlConfigured() && db) {
+    try {
+      const rows: any[] = await (db as any).select().from(users).where(eq(users.inviteCode, cleanCode)).limit(1);
+      if (rows.length) inviterRow = rows[0];
+    } catch (e) { logger.warn("joinInvite SQL select failed", undefined, e as any); }
+  }
+  if (!inviterRow) {
+    const store: any = readEmergencyFile();
+    const found = Object.values(store.users || {}).find((u: any) => String(u.inviteCode || "").toUpperCase() === cleanCode);
+    if (found) inviterRow = found as any;
+  }
+  if (!inviterRow) throw { status: 404, message: "Код не найден" };
+  const expires = inviterRow.inviteCodeExpires ? new Date(String(inviterRow.inviteCodeExpires)) : null;
+  if (!expires || isNaN(expires.getTime()) || expires.getTime() < Date.now()) throw { status: 410, message: "Код истёк" };
+  inviterLogin = String(inviterRow.login || "").toLowerCase().trim();
+  if (!inviterLogin) throw { status: 404, message: "Владелец кода не найден" };
+  if (inviterLogin === cleanLogin) throw { status: 400, message: "Нельзя присоединиться к себе" };
+  // check already paired
+  const { findUserByLogin } = await import("../../services/storageService.ts");
+  const joiner = await findUserByLogin(cleanLogin);
+  const inviter = await findUserByLogin(inviterLogin);
+  if (!joiner || !inviter) throw { status: 404, message: "Пользователь не найден" };
+  if ((joiner as any).partnerLogin) throw { status: 409, message: "Вы уже в паре" };
+  if ((inviter as any).partnerLogin) throw { status: 409, message: "Владелец кода уже в паре" };
+  const { acceptPair } = await import("../../services/pairService.ts");
+  // create pending request then accept atomically via acceptPair
+  const { createPairRequest } = await import("../../services/pairService.ts");
+  await createPairRequest(inviter as any, joiner as any);
+  const result = await acceptPair(cleanLogin, inviterLogin);
+  // clear invite code after use
+  if (isSqlConfigured() && db) {
+    try { await (db as any).update(users).set({ inviteCode: null, inviteCodeExpires: null }).where(eq(users.login, inviterLogin)); } catch {}
+  }
+  try {
+    const store: any = readEmergencyFile();
+    if (store.users?.[inviterLogin]) { store.users[inviterLogin].inviteCode = null; store.users[inviterLogin].inviteCodeExpires = null; writeEmergencyFile(store); }
+  } catch {}
+  void result;
+  return { partnerLogin: inviterLogin };
 }

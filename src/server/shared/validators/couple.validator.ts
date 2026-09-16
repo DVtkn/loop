@@ -7,3 +7,9 @@ export const coupleSyncSchema = z.object({
   coupleId: z.string().optional().nullable(),
   payload: z.record(z.string(), z.unknown()),
 });
+
+export const inviteCodeSchema = z.object({});
+
+export const joinInviteSchema = z.object({
+  code: z.string().min(6, "Код слишком короткий").max(20, "Код слишком длинный"),
+});

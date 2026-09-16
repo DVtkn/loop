@@ -14,6 +14,8 @@ export const users = pgTable('users', {
   gender: text('gender'), // 'male' | 'female'
   avatarEmoji: text('avatar_emoji').notNull().default('sparkles'),
   partnerLogin: text('partner_login'),
+  inviteCode: text('invite_code'),
+  inviteCodeExpires: text('invite_code_expires'),
   pairedAt: text('paired_at'),
   startDate: text('start_date'),
   city: text('city'),

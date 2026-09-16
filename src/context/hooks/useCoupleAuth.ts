@@ -69,9 +69,6 @@ export function useCoupleAuth(
   const setCurrentUser = (user: UserAccount | null) => {
     setCurrentUserState(user);
     safeSetStorage('together_current_user', user);
-    if (user) {
-      setIsOnboarded(true);
-    }
   };
 
   const allUsers = Object.values(accountsDb).map(({ password: _, ...u }) => u);
@@ -128,7 +125,6 @@ export function useCoupleAuth(
       safeSetStorage('together_accounts_registry', updatedDb);
 
       setCurrentUser(safeUser);
-      setIsOnboarded(true);
 
       if (!data.alreadyExisted && onRegisterResetState) {
         onRegisterResetState(safeUser);

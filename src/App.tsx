@@ -19,6 +19,7 @@ const TestsView = lazy(() => import('./components/TestsView.tsx').then((m) => ({
 const CareBaseView = lazy(() => import('./components/CareBaseView.tsx').then((m) => ({ default: m.CareBaseView })));
 const DeepTalkView = lazy(() => import('./components/DeepTalkView.tsx').then((m) => ({ default: m.DeepTalkView })));
 const AchievementsModal = lazy(() => import('./components/AchievementsModal.tsx').then((m) => ({ default: m.AchievementsModal })));
+const OnboardingViewLazy = lazy(() => import('./components/OnboardingView.tsx').then((m) => ({ default: m.OnboardingView })));
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex-1 flex items-center justify-center min-h-[300px] p-6 animate-pulse">
@@ -68,12 +69,22 @@ const MainLayout: React.FC = () => {
     };
   }, []);
 
-  // If user is not logged in / not onboarded yet, show AuthView (Login / Register with login & password)
-  if (!isOnboarded || !currentUser) {
+  if (!currentUser) {
     return (
       <div className="h-full w-full text-[var(--text)] selection:bg-[var(--accent)]/20 selection:text-[var(--accent)] transition-colors overflow-hidden relative">
         <AmbientBackground />
         <AuthView />
+        <IOSInstallPrompt />
+      </div>
+    );
+  }
+  if (!isOnboarded) {
+    return (
+      <div className="h-full w-full text-[var(--text)] selection:bg-[var(--accent)]/20 selection:text-[var(--accent)] transition-colors overflow-hidden relative">
+        <AmbientBackground />
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <OnboardingViewLazy onComplete={() => {}} />
+        </Suspense>
         <IOSInstallPrompt />
       </div>
     );

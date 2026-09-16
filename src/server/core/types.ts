@@ -26,7 +26,9 @@ export interface SafeUser {
   gender?: string | null;
   avatarEmoji: string;
   partnerLogin?: string | null;
-  pairedAt?: string | null;
+  inviteCode?: string | null;
+  inviteCodeExpires?: string | null;
+  pairedAt: string | null;
   startDate?: string | null;
   city?: string | null;
   loveLanguage?: string | null;

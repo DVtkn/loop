@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext';
 import { AVATAR_PROFILES, ColoredIcon, getAvatarProfileMeta } from './ColoredIcon';
+import { apiFetch } from '../utils/api';
 
 interface OnboardingViewProps {
   onComplete?: () => void;
@@ -34,6 +35,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
   const [myJoinName, setMyJoinName] = useState<string>('');
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [createdLinkCode, setCreatedLinkCode] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [isJoining, setIsJoining] = useState<boolean>(false);
 
   const [selectedAvatar1, setSelectedAvatar1] = useState<string>('leaf');
   const [selectedAvatar2, setSelectedAvatar2] = useState<string>('sparkles');
@@ -52,18 +56,47 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
     setStep('create_step3');
   };
 
-  const handleFinishCreate = () => {
-    const finalDate = justStarted ? new Date().toISOString().split('T')[0] : startDate;
-    createNewCouple(partner1Name, partner2Name, finalDate);
-    const code = `LOOP-${Math.floor(1000 + Math.random() * 9000)}`;
-    setCreatedLinkCode(code);
-    setStep('create_success');
+  const handleFinishCreate = async () => {
+    setIsGenerating(true);
+    try {
+      const res = await apiFetch('/api/couple/generate-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      if (res.ok) {
+        const data: any = await res.json();
+        if (data.code) setCreatedLinkCode(String(data.code).toUpperCase());
+        else {
+          const fallback = `LOOP-${Math.floor(100000 + Math.random() * 900000)}`;
+          setCreatedLinkCode(fallback);
+        }
+      } else {
+        const fallback = `LOOP-${Math.floor(100000 + Math.random() * 900000)}`;
+        setCreatedLinkCode(fallback);
+      }
+    } catch {
+      const fallback = `LOOP-${Math.floor(100000 + Math.random() * 900000)}`;
+      setCreatedLinkCode(fallback);
+    } finally {
+      setIsGenerating(false);
+      setStep('create_success');
+    }
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!joinCode.trim() || !myJoinName.trim()) return;
-    joinCoupleByCode(joinCode.trim().toUpperCase(), myJoinName.trim());
-    if (onComplete) onComplete();
+    setJoinError(null);
+    setIsJoining(true);
+    try {
+      const res = await apiFetch('/api/couple/join', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: joinCode.trim().toUpperCase() }) });
+      if (!res.ok) {
+        const data: any = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.message || 'Неверный код');
+      }
+      joinCoupleByCode(joinCode.trim().toUpperCase(), myJoinName.trim());
+      if (onComplete) onComplete();
+    } catch (e: any) {
+      setJoinError(e?.message || 'Не удалось присоединиться по коду');
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   const handleCopyInvite = () => {
@@ -309,10 +342,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
                 id="onboarding-finish-create-btn"
                 type="button"
                 onClick={handleFinishCreate}
-                className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 shadow-md"
+                disabled={isGenerating}
+                className="flex-1 py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 shadow-md disabled:opacity-60"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Создать пару</span>
+                <span>{isGenerating ? 'Создаём...' : 'Создать пару'}</span>
               </button>
             </div>
           </div>
@@ -361,6 +395,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
             <button
               id="onboarding-enter-app-btn"
               onClick={() => {
+                const finalDate = justStarted ? new Date().toISOString().split('T')[0] : startDate;
+                createNewCouple(partner1Name, partner2Name, finalDate);
                 if (onComplete) onComplete();
               }}
               className="w-full py-3.5 px-5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 text-white font-bold rounded-2xl shadow-lg flex items-center justify-center gap-2"
@@ -405,6 +441,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
               </div>
             </div>
 
+            {joinError && <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-600">{joinError}</div>}
             <div className="flex gap-2 pt-2">
               <button
                 type="button"
@@ -416,12 +453,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
               <button
                 id="onboarding-join-submit-btn"
                 type="button"
-                disabled={!joinCode.trim() || !myJoinName.trim()}
+                disabled={!joinCode.trim() || !myJoinName.trim() || isJoining}
                 onClick={handleJoin}
                 className="flex-1 py-3 bg-rose-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 shadow-md"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Присоединиться</span>
+                <span>{isJoining ? 'Подключаем...' : 'Присоединиться'}</span>
               </button>
             </div>
           </div>

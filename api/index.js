@@ -5958,10 +5958,14 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:", "https://*"],
-        connectSrc: ["'self'", "https://*", "wss://*"]
+        connectSrc: ["'self'", "https://*", "wss://*"],
+        frameAncestors: ["'self'", "https://*.google.com", "https://aistudio.google.com", "https://*.run.app"]
       }
     },
-    crossOriginEmbedderPolicy: false
+    xFrameOptions: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false
   })
 );
 app.use(

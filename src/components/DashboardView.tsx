@@ -15,6 +15,7 @@ import { PartnerDetailModal } from './dashboard/PartnerDetailModal.tsx';
 import { MoodPickerModal } from './dashboard/MoodPickerModal.tsx';
 import { QuickActionModal } from './dashboard/QuickActionModal.tsx';
 import { SetStartDateModal } from './dashboard/SetStartDateModal.tsx';
+import { PetCard } from './PetCard.tsx';
 
 interface DashboardViewProps {
   setActiveTab: (tab: NavigationTab) => void;
@@ -306,7 +307,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onSetStartDate={() => setShowStartDateModal(true)}
         />
 
-        {/* 2. Блок 2: Превью совместимости и стрик */}
+        {/* 2. Блок: Тамагочи союза */}
+        {isPaired && (
+          <PetCard isPaired={isPaired} />
+        )}
+
+        {/* 3. Блок: Превью совместимости и стрик */}
         <CompatibilityAndStreak
           hasCompatibilityData={hasCompatibilityData}
           compatibilityPercent={compatibilityPercent}

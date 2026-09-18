@@ -17,6 +17,7 @@ __export(schema_exports, {
   chatMessages: () => chatMessages,
   coupleData: () => coupleData,
   coupleEvents: () => coupleEvents,
+  couplePets: () => couplePets,
   coupleReports: () => coupleReports,
   couples: () => couples,
   dateEvents: () => dateEvents,
@@ -32,7 +33,7 @@ __export(schema_exports, {
   users: () => users
 });
 import { numeric, pgTable, text, timestamp, boolean, jsonb, integer, real, unique, index, customType, foreignKey, varchar, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-var bytea, users, pairRequests, coupleData, couples, testSessions, testAnswers, chatMessages, relationshipMetrics, aiInsights, photos, dateEvents, careNotes, timeCapsules, pushSubscriptions, coupleEvents, userPsychProfiles, coupleReports, testDrafts;
+var bytea, users, pairRequests, coupleData, couples, testSessions, testAnswers, chatMessages, relationshipMetrics, aiInsights, photos, dateEvents, careNotes, timeCapsules, pushSubscriptions, coupleEvents, userPsychProfiles, coupleReports, testDrafts, couplePets;
 var init_schema = __esm({
   "src/server/db/schema.ts"() {
     "use strict";
@@ -295,6 +296,29 @@ var init_schema = __esm({
       updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
     }, (table) => ({
       userTestDraftIdx: uniqueIndex("user_test_draft_idx").on(table.userId, table.testId)
+    }));
+    couplePets = pgTable("couple_pets", {
+      id: text("id").primaryKey(),
+      // coupleId: [login1, login2].sort().join('_')
+      name: text("name").notNull().default("\u041C\u0443\u0440\u0447\u0438\u043A"),
+      hunger: integer("hunger").notNull().default(80),
+      // 0-100 satiety
+      energy: integer("energy").notNull().default(80),
+      // 0-100
+      joy: integer("joy").notNull().default(80),
+      // 0-100
+      level: integer("level").notNull().default(1),
+      exp: integer("exp").notNull().default(0),
+      mood: text("mood").notNull().default("happy"),
+      // 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved'
+      lastFedAt: text("last_fed_at"),
+      lastPlayedAt: text("last_played_at"),
+      lastSleptAt: text("last_slept_at"),
+      lastPettedAt: text("last_petted_at"),
+      createdAt: text("created_at").notNull(),
+      updatedAt: text("updated_at").notNull()
+    }, (t) => ({
+      createdIdx: index("couple_pets_created_idx").on(t.createdAt)
     }));
   }
 });
@@ -3105,36 +3129,286 @@ coupleRouter.post("/join", requireAuth, validateBody(joinInviteSchema), async (r
   }
 });
 
-// src/server/modules/chat/chat.routes.ts
+// src/server/modules/pet/pet.routes.ts
 import { Router as Router4 } from "express";
+
+// src/server/shared/validators/pet.validator.ts
+import { z as z4 } from "zod";
+var petActionSchema = z4.object({
+  action: z4.enum(["feed", "play", "sleep", "pet"])
+});
+var petRenameSchema = z4.object({
+  name: z4.string().min(1, "\u0418\u043C\u044F \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E").max(20, "\u0418\u043C\u044F \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435 (\u043C\u0430\u043A\u0441. 20 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432)")
+});
+
+// src/server/modules/pet/pet.service.ts
+init_client();
+init_schema();
+import { eq as eq8 } from "drizzle-orm";
+var DEFAULT_PET_STATE = {
+  id: "",
+  name: "\u041C\u0443\u0440\u0447\u0438\u043A",
+  hunger: 80,
+  energy: 80,
+  joy: 80,
+  level: 1,
+  exp: 0,
+  mood: "happy",
+  createdAt: "",
+  updatedAt: ""
+};
+async function getCoupleId(userLogin) {
+  if (!isSqlConfigured() || !db) return null;
+  const userRow = await db.select().from(users).where(eq8(users.login, userLogin)).limit(1);
+  if (!userRow.length || !userRow[0].partnerLogin) return null;
+  return getPairKey(userLogin, userRow[0].partnerLogin);
+}
+function clamp(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+}
+function deriveMood(state) {
+  if (state.energy < 20) return "sleepy";
+  if (state.hunger < 20) return "hungry";
+  if (state.joy >= 80) return "playful";
+  return "happy";
+}
+async function getPetState(userLogin) {
+  const coupleId = await getCoupleId(userLogin);
+  if (!coupleId) {
+    throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
+  }
+  if (isSqlConfigured() && db) {
+    try {
+      let row = await db.select().from(couplePets).where(eq8(couplePets.id, coupleId)).limit(1);
+      if (row.length === 0) {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        const init = { ...DEFAULT_PET_STATE, id: coupleId, createdAt: now, updatedAt: now };
+        await db.insert(couplePets).values(init);
+        row = [init];
+      }
+      return row[0];
+    } catch (e) {
+      logger.warn("getPetState SQL failed", void 0, e);
+    }
+  }
+  throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+}
+async function performPetAction(userLogin, action) {
+  const coupleId = await getCoupleId(userLogin);
+  if (!coupleId) {
+    throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
+  }
+  if (!isSqlConfigured() || !db) {
+    throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  }
+  try {
+    const result = await db.transaction(async (tx) => {
+      let row = await tx.select().from(couplePets).where(eq8(couplePets.id, coupleId)).limit(1);
+      let state;
+      let isNew = false;
+      if (row.length === 0) {
+        const now = (/* @__PURE__ */ new Date()).toISOString();
+        state = { ...DEFAULT_PET_STATE, id: coupleId, createdAt: now, updatedAt: now };
+        isNew = true;
+      } else {
+        state = row[0];
+      }
+      let expGained = 0;
+      let levelUp = false;
+      switch (action) {
+        case "feed":
+          state.hunger = clamp(state.hunger + 30, 0, 100);
+          state.joy = clamp(state.joy + 5, 0, 100);
+          expGained = 10;
+          state.lastFedAt = (/* @__PURE__ */ new Date()).toISOString();
+          state.mood = state.joy >= 50 ? "happy" : state.mood;
+          break;
+        case "play":
+          state.energy = clamp(state.energy - 20, 0, 100);
+          state.joy = clamp(state.joy + 30, 0, 100);
+          expGained = 15;
+          state.lastPlayedAt = (/* @__PURE__ */ new Date()).toISOString();
+          state.mood = "playful";
+          break;
+        case "sleep":
+          state.energy = clamp(state.energy + 40, 0, 100);
+          state.hunger = clamp(state.hunger - 10, 0, 100);
+          expGained = 5;
+          state.lastSleptAt = (/* @__PURE__ */ new Date()).toISOString();
+          state.mood = "sleepy";
+          break;
+        case "pet":
+          state.joy = clamp(state.joy + 20, 0, 100);
+          expGained = 10;
+          state.lastPettedAt = (/* @__PURE__ */ new Date()).toISOString();
+          state.mood = "loved";
+          break;
+      }
+      state.exp += expGained;
+      while (state.exp >= 100) {
+        state.level += 1;
+        state.exp -= 100;
+        levelUp = true;
+      }
+      state.mood = deriveMood(state);
+      state.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      if (isNew) {
+        await tx.insert(couplePets).values(state);
+      } else {
+        await tx.update(couplePets).set(state).where(eq8(couplePets.id, coupleId));
+      }
+      const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      await tx.insert(coupleEvents).values({
+        id: eventId,
+        coupleId,
+        targetLogin: "",
+        senderLogin: userLogin,
+        eventType: "pet_action",
+        payload: { action, petName: state.name, level: state.level, mood: state.mood },
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      return { state, expGained, levelUp };
+    });
+    if (isSqlConfigured() && db) {
+      const userRow = await db.select().from(users).where(eq8(users.login, userLogin)).limit(1);
+      if (userRow.length && userRow[0].partnerLogin) {
+        sendSSEEventToUser(userRow[0].partnerLogin, "pet_updated", {
+          coupleId,
+          action,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      }
+    }
+    return {
+      success: true,
+      state: result.state,
+      message: getActionMessage(action, result.levelUp),
+      levelUp: result.levelUp,
+      expGained: result.expGained
+    };
+  } catch (e) {
+    logger.error("performPetAction error", e);
+    throw e;
+  }
+}
+async function renamePet(userLogin, name) {
+  const coupleId = await getCoupleId(userLogin);
+  if (!coupleId) {
+    throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
+  }
+  if (!isSqlConfigured() || !db) {
+    throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  }
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw { status: 400, message: "\u0418\u043C\u044F \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C" };
+  }
+  let state;
+  try {
+    const result = await db.update(couplePets).set({ name: trimmedName, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }).where(eq8(couplePets.id, coupleId)).returning();
+    state = result.length ? result[0] : void 0;
+    if (!state) {
+      const rows = await db.select().from(couplePets).where(eq8(couplePets.id, coupleId)).limit(1);
+      state = rows.length ? rows[0] : void 0;
+    }
+  } catch (e) {
+    logger.warn("renamePet update failed", void 0, e);
+  }
+  if (!state) {
+    throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+  }
+  return { success: true, state };
+}
+function getActionMessage(action, levelUp) {
+  if (levelUp) return "\u0423\u0440\u043E\u0432\u0435\u043D\u044C \u043F\u043E\u0432\u044B\u0448\u0435\u043D! \u{1F389}";
+  switch (action) {
+    case "feed":
+      return "\u041D\u044F\u043C-\u043D\u044F\u043C! \u{1F356} \u0421\u044B\u0442\u043E\u0441\u0442\u044C \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430";
+    case "play":
+      return "\u0412\u0435\u0441\u0435\u043B\u043E! \u{1F3AE} \u0420\u0430\u0434\u043E\u0441\u0442\u044C \u0432\u044B\u0440\u043E\u0441\u043B\u0430";
+    case "sleep":
+      return "\u0421\u043B\u0430\u0434\u043A\u0438\u0445 \u0441\u043D\u043E\u0432... \u{1F4A4} \u042D\u043D\u0435\u0440\u0433\u0438\u044F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430";
+    case "pet":
+      return "\u041B\u0430\u0441\u043A\u0430! \u2764\uFE0F \u0420\u0430\u0434\u043E\u0441\u0442\u044C \u0432\u044B\u0440\u043E\u0441\u043B\u0430";
+    default:
+      return "\u0414\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043E";
+  }
+}
+
+// src/server/modules/pet/pet.routes.ts
+var petRouter = Router4();
+petRouter.get("/state", requireAuth, async (req, res, next) => {
+  try {
+    const login = req.user?.login;
+    if (!login) {
+      return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+    }
+    const state = await getPetState(login);
+    return res.json(state);
+  } catch (err) {
+    logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F \u0441\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u044F \u043F\u0438\u0442\u043E\u043C\u0446\u0430", err);
+    next(err);
+  }
+});
+petRouter.post("/action", requireAuth, validateBody(petActionSchema), async (req, res, next) => {
+  try {
+    const login = req.user?.login;
+    if (!login) {
+      return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+    }
+    const { action } = req.body;
+    const result = await performPetAction(login, action);
+    return res.json(result);
+  } catch (err) {
+    logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u043F\u0438\u0442\u043E\u043C\u0446\u0430", err);
+    next(err);
+  }
+});
+petRouter.post("/rename", requireAuth, validateBody(petRenameSchema), async (req, res, next) => {
+  try {
+    const login = req.user?.login;
+    if (!login) {
+      return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+    }
+    const { name } = req.body;
+    const result = await renamePet(login, name);
+    return res.json(result);
+  } catch (err) {
+    logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u043D\u0438\u044F \u043F\u0438\u0442\u043E\u043C\u0446\u0430", err);
+    next(err);
+  }
+});
+
+// src/server/modules/chat/chat.routes.ts
+import { Router as Router5 } from "express";
 init_storageService();
 
 // src/server/shared/validators/chat.validator.ts
-import { z as z4 } from "zod";
-var chatMessageCreateSchema = z4.object({
-  coupleId: z4.string().min(3).max(100),
-  senderLogin: z4.string(),
-  role: z4.string().optional(),
-  content: z4.string().min(1, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C").max(2e3, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435")
+import { z as z5 } from "zod";
+var chatMessageCreateSchema = z5.object({
+  coupleId: z5.string().min(3).max(100),
+  senderLogin: z5.string(),
+  role: z5.string().optional(),
+  content: z5.string().min(1, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C").max(2e3, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435")
 });
-var aiChatMessageSchema = z4.object({
-  messages: z4.array(
-    z4.object({
-      role: z4.string().min(1).max(20),
-      content: z4.string().min(1).max(4e3)
+var aiChatMessageSchema = z5.object({
+  messages: z5.array(
+    z5.object({
+      role: z5.string().min(1).max(20),
+      content: z5.string().min(1).max(4e3)
     })
   ).min(1, "\u0421\u043F\u0438\u0441\u043E\u043A \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C"),
   userLogin: loginSchema.optional(),
-  context: z4.record(z4.string(), z4.unknown()).optional()
+  context: z5.record(z5.string(), z5.unknown()).optional()
 });
-var aiReportSchema = z4.object({
-  coupleProfile: z4.record(z4.string(), z4.unknown()).optional(),
-  radarScores: z4.record(z4.string(), z4.unknown()).optional()
+var aiReportSchema = z5.object({
+  coupleProfile: z5.record(z5.string(), z5.unknown()).optional(),
+  radarScores: z5.record(z5.string(), z5.unknown()).optional()
 });
-var aiDateIdeaSchema = z4.object({
-  budget: z4.string().max(50).optional(),
-  vibe: z4.string().max(50).optional(),
-  location: z4.string().max(100).optional()
+var aiDateIdeaSchema = z5.object({
+  budget: z5.string().max(50).optional(),
+  vibe: z5.string().max(50).optional(),
+  location: z5.string().max(100).optional()
 });
 
 // src/server/modules/chat/safety.filter.ts
@@ -3440,7 +3714,7 @@ function calculateCoupleAnalysis(profile, pulseHistory, tests) {
 }
 
 // src/server/modules/chat/chat.routes.ts
-var chatRouter = Router4();
+var chatRouter = Router5();
 chatRouter.get(["/messages", "/messages/:coupleId", "/message"], requireAuth, async (req, res, next) => {
   try {
     const userLogin = req.user?.login;
@@ -3528,7 +3802,7 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req, res, next) =
     return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F" });
   }
 });
-var aiRouter = Router4();
+var aiRouter = Router5();
 aiRouter.get("/health", async (req, res) => {
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   if (!GROQ_API_KEY) {
@@ -3737,12 +4011,12 @@ aiRouter.post("/date-idea", aiLimiter, requireAuth, validateBody(aiDateIdeaSchem
 });
 
 // src/server/modules/analytics/analytics.routes.ts
-import { Router as Router5 } from "express";
+import { Router as Router6 } from "express";
 
 // src/server/modules/analytics/analytics.service.ts
 init_client();
 init_schema();
-import { desc as desc2, eq as eq9 } from "drizzle-orm";
+import { desc as desc2, eq as eq10 } from "drizzle-orm";
 
 // src/server/services/insights.ts
 init_client();
@@ -3845,7 +4119,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
 init_client();
 init_schema();
 import crypto7 from "crypto";
-import { eq as eq8, and as and5 } from "drizzle-orm";
+import { eq as eq9, and as and5 } from "drizzle-orm";
 
 // src/shared/tests.registry.ts
 var TESTS_REGISTRY = {
@@ -4093,17 +4367,17 @@ function calculateIndividualVector(userAnswers) {
       }
     }
   }
-  const clamp = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
+  const clamp2 = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
   for (const k of Object.keys(scales)) {
-    scales[k] = clamp(scales[k]);
+    scales[k] = clamp2(scales[k]);
   }
   const dominantVectors = {
-    trustSafety: clamp((scales.s4 + (100 - scales.s1) + (100 - scales.s2) + (100 - scales.s3)) / 4),
-    emotionalCloseness: clamp((scales.s5 + scales.s6 + scales.s7 + scales.s8) / 4),
-    conflictDynamics: clamp((scales.s12 + (100 - scales.s9) + (100 - scales.s10) + (100 - scales.s11)) / 4),
-    valuesHorizon: clamp((scales.s13 + scales.s14 + scales.s15 + scales.s16) / 4),
-    intimacyPassion: clamp((scales.s17 + scales.s18 + scales.s19 + scales.s20) / 4),
-    lifestyleResilience: clamp((scales.s21 + scales.s22 + scales.s23 + scales.s24) / 4)
+    trustSafety: clamp2((scales.s4 + (100 - scales.s1) + (100 - scales.s2) + (100 - scales.s3)) / 4),
+    emotionalCloseness: clamp2((scales.s5 + scales.s6 + scales.s7 + scales.s8) / 4),
+    conflictDynamics: clamp2((scales.s12 + (100 - scales.s9) + (100 - scales.s10) + (100 - scales.s11)) / 4),
+    valuesHorizon: clamp2((scales.s13 + scales.s14 + scales.s15 + scales.s16) / 4),
+    intimacyPassion: clamp2((scales.s17 + scales.s18 + scales.s19 + scales.s20) / 4),
+    lifestyleResilience: clamp2((scales.s21 + scales.s22 + scales.s23 + scales.s24) / 4)
   };
   let consistency = 95;
   if (totalValidAnswers > 0) {
@@ -4127,15 +4401,15 @@ function calculateIndividualVector(userAnswers) {
 
 // src/server/modules/tests/couple-matrix.calc.ts
 function calculateCoupleMatrix(p1Scales, p2Scales) {
-  const clamp = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
+  const clamp2 = (v) => Math.round(Math.min(100, Math.max(10, v)) * 10) / 10;
   const avgS4 = (p1Scales.s4 + p2Scales.s4) / 2;
   const avgSuspicionSafety = (200 - p1Scales.s3 - p2Scales.s3) / 2;
   const deltaAttachment = (Math.abs(p1Scales.s1 - p2Scales.s1) + Math.abs(p1Scales.s2 - p2Scales.s2)) / 2;
-  const trustScore = clamp(avgS4 * 0.45 + avgSuspicionSafety * 0.35 + (100 - deltaAttachment) * 0.2);
+  const trustScore = clamp2(avgS4 * 0.45 + avgSuspicionSafety * 0.35 + (100 - deltaAttachment) * 0.2);
   const avgChannels = (p1Scales.s5 + p2Scales.s5 + p1Scales.s6 + p2Scales.s6 + p1Scales.s7 + p2Scales.s7 + p1Scales.s8 + p2Scales.s8) / 8;
   const touchMatch = 100 - Math.abs(p1Scales.s8 - p2Scales.s8);
   const timeMatch = 100 - Math.abs(p1Scales.s6 - p2Scales.s6);
-  const closenessScore = clamp(avgChannels * 0.6 + touchMatch * 0.2 + timeMatch * 0.2);
+  const closenessScore = clamp2(avgChannels * 0.6 + touchMatch * 0.2 + timeMatch * 0.2);
   const avgSoothing = (p1Scales.s12 + p2Scales.s12) / 2;
   const avgLowCriticism = (200 - p1Scales.s11 - p2Scales.s11) / 2;
   let conflictBase = avgSoothing * 0.55 + avgLowCriticism * 0.45;
@@ -4146,23 +4420,23 @@ function calculateCoupleMatrix(p1Scales, p2Scales) {
     conflictBase -= 20;
     destructivePatterns.push("\u041F\u0430\u0442\u0442\u0435\u0440\u043D \xAB\u041F\u0440\u0435\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u2014 \u0414\u0438\u0441\u0442\u0430\u043D\u0446\u0438\u0440\u0443\u044E\u0449\u0438\u0439\u0441\u044F\xBB (Pursuit-Withdrawal loop)");
   }
-  const communicationScore = clamp(conflictBase);
+  const communicationScore = clamp2(conflictBase);
   const deltaAutonomy = Math.abs(p1Scales.s13 - p2Scales.s13);
   const deltaAmbitions = Math.abs(p1Scales.s14 - p2Scales.s14);
   const deltaKids = Math.abs(p1Scales.s15 - p2Scales.s15);
   const deltaTraditions = Math.abs(p1Scales.s16 - p2Scales.s16);
   const avgFutureCommitment = (p1Scales.s15 + p2Scales.s15) / 2;
   const valuesPenalty = deltaKids * 0.35 + deltaAmbitions * 0.25 + deltaAutonomy * 0.25 + deltaTraditions * 0.15;
-  const valuesScore = clamp(avgFutureCommitment * 0.4 + (100 - valuesPenalty) * 0.6);
+  const valuesScore = clamp2(avgFutureCommitment * 0.4 + (100 - valuesPenalty) * 0.6);
   const avgDesireTrigger = (p1Scales.s17 + p2Scales.s17) / 2;
   const avgInitiative = (p1Scales.s19 + p2Scales.s19) / 2;
   const avgOpenness = (p1Scales.s20 + p2Scales.s20) / 2;
   const deltaSpontaneity = Math.abs(p1Scales.s18 - p2Scales.s18);
-  const intimacyScore = clamp(avgDesireTrigger * 0.35 + avgInitiative * 0.25 + avgOpenness * 0.2 + (100 - deltaSpontaneity) * 0.2);
+  const intimacyScore = clamp2(avgDesireTrigger * 0.35 + avgInitiative * 0.25 + avgOpenness * 0.2 + (100 - deltaSpontaneity) * 0.2);
   const deltaOrder = Math.abs(p1Scales.s21 - p2Scales.s21);
   const deltaBudget = Math.abs(p1Scales.s22 - p2Scales.s22);
   const avgCrisisHardiness = (p1Scales.s24 + p2Scales.s24) / 2;
-  const lifestyleScore = clamp(avgCrisisHardiness * 0.4 + (100 - deltaOrder * 0.4 - deltaBudget * 0.4) * 0.6);
+  const lifestyleScore = clamp2(avgCrisisHardiness * 0.4 + (100 - deltaOrder * 0.4 - deltaBudget * 0.4) * 0.6);
   const radar = {
     trust: trustScore,
     closeness: closenessScore,
@@ -4339,7 +4613,7 @@ var EXPECTED_QUESTIONS = Object.fromEntries(
 async function resolveTestCoupleId(userLogin) {
   const clean = (s) => s.toLowerCase().trim().replace(/^@/, "");
   if (!isSqlConfigured() || !db) return clean(userLogin);
-  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq8(users.login, userLogin));
+  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq9(users.login, userLogin));
   if (!u) return clean(userLogin);
   if (!u.partnerLogin) return clean(u.login);
   return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
@@ -4361,13 +4635,13 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq8(users.login, userLogin));
+      const [u] = await tx.select().from(users).where(eq9(users.login, userLogin));
       const userId = u ? u.id : userLogin;
       let session = await tx.select().from(testSessions).where(
         and5(
-          eq8(testSessions.coupleId, coupleId),
-          eq8(testSessions.testId, testId),
-          eq8(testSessions.status, "in_progress")
+          eq9(testSessions.coupleId, coupleId),
+          eq9(testSessions.testId, testId),
+          eq9(testSessions.status, "in_progress")
         )
       ).limit(1);
       if (!session.length) {
@@ -4397,10 +4671,10 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       }));
       await tx.insert(testAnswers).values(answerRecords);
       await tx.delete(testDrafts).where(
-        and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))
+        and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
       );
       await _recalculateUserProfile(tx, coupleId, userId, testId);
-      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq8(testSessions.id, sessionId));
+      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq9(testSessions.id, sessionId));
       const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
         status: "completed",
@@ -4425,15 +4699,15 @@ async function submitTestAnswer(params) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq8(users.login, params.userLogin));
+      const [u] = await tx.select().from(users).where(eq9(users.login, params.userLogin));
       const userId = u ? u.id : params.userLogin;
       let sessionId = params.sessionId;
       if (!sessionId) {
         let session = await tx.select().from(testSessions).where(
           and5(
-            eq8(testSessions.coupleId, params.coupleId),
-            eq8(testSessions.testId, params.testId),
-            eq8(testSessions.status, "in_progress")
+            eq9(testSessions.coupleId, params.coupleId),
+            eq9(testSessions.testId, params.testId),
+            eq9(testSessions.status, "in_progress")
           )
         ).limit(1);
         if (!session.length) {
@@ -4485,7 +4759,7 @@ async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
   if (!isSqlConfigured() || !db) {
     return { status: "saved_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.insert(testDrafts).values({
     userId,
@@ -4506,19 +4780,19 @@ async function getTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return null;
   }
-  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
   const userId = u ? u.id : userLogin;
-  const [draft] = await db.select().from(testDrafts).where(and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))).limit(1);
+  const [draft] = await db.select().from(testDrafts).where(and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))).limit(1);
   return draft ?? null;
 }
 async function clearTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return { status: "cleared_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.delete(testDrafts).where(
-    and5(eq8(testDrafts.userId, userId), eq8(testDrafts.testId, testId))
+    and5(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
   );
   return { status: "cleared", testId };
 }
@@ -4530,7 +4804,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [u] = await db.select().from(users).where(eq8(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
   if (!u) return [];
   const userId = u.id;
   if (!u.partnerLogin) {
@@ -4540,7 +4814,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [partner] = await db.select({ id: users.id }).from(users).where(eq8(users.login, u.partnerLogin));
+  const [partner] = await db.select({ id: users.id }).from(users).where(eq9(users.login, u.partnerLogin));
   const partnerId = partner?.id;
   if (!partnerId) {
     return CATALOG_TEST_IDS.map((testId) => ({
@@ -4550,18 +4824,18 @@ async function getTestsStatusForUser(userLogin) {
     }));
   }
   const coupleId = await resolveTestCoupleId(userLogin);
-  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(
+  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(
     and5(
-      eq8(testAnswers.userId, userId),
-      eq8(testSessions.status, "completed"),
-      eq8(testSessions.coupleId, coupleId)
+      eq9(testAnswers.userId, userId),
+      eq9(testSessions.status, "completed"),
+      eq9(testSessions.coupleId, coupleId)
     )
   );
-  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(
+  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(
     and5(
-      eq8(testAnswers.userId, partnerId),
-      eq8(testSessions.status, "completed"),
-      eq8(testSessions.coupleId, coupleId)
+      eq9(testAnswers.userId, partnerId),
+      eq9(testSessions.status, "completed"),
+      eq9(testSessions.coupleId, coupleId)
     )
   );
   const mySet = new Set(myCompleted.map((r) => r.testId));
@@ -4575,7 +4849,7 @@ async function getTestsStatusForUser(userLogin) {
 async function _recalculateUserProfile(tx, coupleId, userId, testId) {
   const rows = await tx.select({
     answers: testAnswers
-  }).from(testAnswers).innerJoin(testSessions, eq8(testAnswers.sessionId, testSessions.id)).where(and5(eq8(testAnswers.userId, userId), eq8(testSessions.coupleId, coupleId)));
+  }).from(testAnswers).innerJoin(testSessions, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testAnswers.userId, userId), eq9(testSessions.coupleId, coupleId)));
   if (!rows.length) return;
   const rawForEngine = rows.map((r) => ({
     questionId: r.answers.questionId,
@@ -4618,7 +4892,7 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId) {
   });
 }
 async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
-  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq8(testAnswers.sessionId, testSessions.id)).where(and5(eq8(testSessions.coupleId, coupleId), eq8(testSessions.status, "completed")));
+  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(and5(eq9(testSessions.coupleId, coupleId), eq9(testSessions.status, "completed")));
   const completedByUser = /* @__PURE__ */ new Map();
   for (const row of tests) {
     const { testId, userId: uId } = row;
@@ -4637,8 +4911,8 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
     return { state: "PARTNER_PENDING" };
   }
   const [profile1, profile2] = await Promise.all([
-    tx.select().from(userPsychProfiles).where(eq8(userPsychProfiles.userId, userIds[0])).limit(1),
-    tx.select().from(userPsychProfiles).where(eq8(userPsychProfiles.userId, userIds[1])).limit(1)
+    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[0])).limit(1),
+    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[1])).limit(1)
   ]);
   const scales1 = profile1[0]?.traitScores;
   const scales2 = profile2[0]?.traitScores;
@@ -4689,14 +4963,14 @@ async function fetchAiInsights(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const insights = await db.select().from(aiInsights).where(eq9(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
+  const insights = await db.select().from(aiInsights).where(eq10(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
   return insights;
 }
 async function getUserPsychProfiles(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const profiles = await db.select().from(userPsychProfiles).where(eq9(userPsychProfiles.coupleId, coupleId));
+  const profiles = await db.select().from(userPsychProfiles).where(eq10(userPsychProfiles.coupleId, coupleId));
   return profiles;
 }
 async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
@@ -4713,15 +4987,15 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
       profiles: []
     };
   }
-  const [couple] = await db.select().from(couples).where(eq9(couples.id, coupleId)).limit(1);
-  const profiles = await db.select().from(userPsychProfiles).where(eq9(userPsychProfiles.coupleId, coupleId));
-  const [report] = await db.select().from(coupleReports).where(eq9(coupleReports.coupleId, coupleId)).limit(1);
+  const [couple] = await db.select().from(couples).where(eq10(couples.id, coupleId)).limit(1);
+  const profiles = await db.select().from(userPsychProfiles).where(eq10(userPsychProfiles.coupleId, coupleId));
+  const [report] = await db.select().from(coupleReports).where(eq10(coupleReports.coupleId, coupleId)).limit(1);
   let completedTestsCount = 0;
   if (currentUserIdOrLogin) {
     const allUsers2 = await db.select().from(users);
     const currentUser2 = allUsers2.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
     if (currentUser2) {
-      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(eq9(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
+      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(eq10(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
       completedTestsCount = userCompletedSessions.length;
     }
   }
@@ -4773,7 +5047,7 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
 }
 
 // src/server/modules/analytics/analytics.routes.ts
-var analyticsRouter = Router5();
+var analyticsRouter = Router6();
 analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, async (req, res, next) => {
   try {
     const { coupleId } = req.params;
@@ -4837,7 +5111,7 @@ analyticsRouter.get("/psych-profiles/:coupleId", requireAuth, requirePairOwnersh
 });
 
 // src/server/modules/photos/photos.routes.ts
-import { Router as Router6 } from "express";
+import { Router as Router7 } from "express";
 import multer from "multer";
 
 // src/server/services/photoStorage.ts
@@ -5259,7 +5533,7 @@ var PhotoStorageService = class {
 var photoStorage = new PhotoStorageService();
 
 // src/server/modules/photos/photos.routes.ts
-var photoRouter = Router6();
+var photoRouter = Router7();
 var photoUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -5414,26 +5688,26 @@ photoRouter.delete("/:id", requireAuth, async (req, res) => {
 });
 
 // src/server/modules/realtime/realtime.routes.ts
-import { Router as Router7 } from "express";
+import { Router as Router8 } from "express";
 
 // src/server/shared/validators/touch.validator.ts
-import { z as z5 } from "zod";
-var touchEventSchema = z5.object({
+import { z as z6 } from "zod";
+var touchEventSchema = z6.object({
   senderLogin: loginSchema,
-  senderName: z5.string().max(50).optional(),
+  senderName: z6.string().max(50).optional(),
   targetLogin: loginSchema,
-  actionType: z5.string().min(1).max(50),
-  title: z5.string().max(100).optional(),
-  subtitle: z5.string().max(100).optional(),
-  icon: z5.string().max(50).optional(),
-  iconBg: z5.string().max(50).optional(),
-  iconColor: z5.string().max(50).optional(),
-  customNote: z5.string().max(200).optional()
+  actionType: z6.string().min(1).max(50),
+  title: z6.string().max(100).optional(),
+  subtitle: z6.string().max(100).optional(),
+  icon: z6.string().max(50).optional(),
+  iconBg: z6.string().max(50).optional(),
+  iconColor: z6.string().max(50).optional(),
+  customNote: z6.string().max(200).optional()
 });
 
 // src/server/modules/realtime/realtime.routes.ts
 import webpush from "web-push";
-var realtimeRouter = Router7();
+var realtimeRouter = Router8();
 realtimeRouter.post("/heartbeat", async (req, res) => {
   try {
     const login = req.user?.login || req.body?.login;
@@ -5518,7 +5792,7 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 } else {
   logger.info("VAPID \u043A\u043B\u044E\u0447\u0438 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u044B \u0432 .env, web-push \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0438");
 }
-var pushRouter = Router7();
+var pushRouter = Router8();
 pushRouter.get("/vapid-public-key", (_req, res) => {
   return res.json({ publicKey: VAPID_PUBLIC_KEY || null });
 });
@@ -5570,9 +5844,9 @@ pushRouter.post("/send-test", requireAuth, async (req, res) => {
 });
 
 // src/server/modules/tests/tests.routes.ts
-import { Router as Router8 } from "express";
-import { z as z6 } from "zod";
-var testsRouter = Router8();
+import { Router as Router9 } from "express";
+import { z as z7 } from "zod";
+var testsRouter = Router9();
 testsRouter.get("/status", requireAuth, async (req, res, next) => {
   try {
     const userLogin = req.user?.login;
@@ -5636,17 +5910,17 @@ testsRouter.post(
   requireAuth,
   requirePairOwnership,
   validateBody(
-    z6.object({
-      testId: z6.string().min(1),
-      answers: z6.array(
-        z6.object({
-          questionId: z6.string(),
-          value: z6.union([z6.string(), z6.number()]),
-          scaleId: z6.string().max(64).nullish(),
-          reactionTimeMs: z6.number().int().nonnegative().nullish(),
-          toggleCount: z6.number().int().nonnegative().nullish(),
-          targetType: z6.enum(["self", "partner_observation"]).nullish(),
-          rawPayload: z6.record(z6.string(), z6.unknown()).nullish()
+    z7.object({
+      testId: z7.string().min(1),
+      answers: z7.array(
+        z7.object({
+          questionId: z7.string(),
+          value: z7.union([z7.string(), z7.number()]),
+          scaleId: z7.string().max(64).nullish(),
+          reactionTimeMs: z7.number().int().nonnegative().nullish(),
+          toggleCount: z7.number().int().nonnegative().nullish(),
+          targetType: z7.enum(["self", "partner_observation"]).nullish(),
+          rawPayload: z7.record(z7.string(), z7.unknown()).nullish()
         })
       ).min(1)
     })
@@ -5675,14 +5949,14 @@ testsRouter.post(
   requireAuth,
   requirePairOwnership,
   validateBody(
-    z6.object({
-      testId: z6.string().min(1),
-      questionId: z6.string().min(1),
-      selectedValue: z6.union([z6.string(), z6.number()]).optional(),
-      reactionTimeMs: z6.number().nullable().optional(),
-      toggleCount: z6.number().nullable().optional(),
-      targetType: z6.string().nullable().optional(),
-      rawPayload: z6.any().optional()
+    z7.object({
+      testId: z7.string().min(1),
+      questionId: z7.string().min(1),
+      selectedValue: z7.union([z7.string(), z7.number()]).optional(),
+      reactionTimeMs: z7.number().nullable().optional(),
+      toggleCount: z7.number().nullable().optional(),
+      targetType: z7.string().nullable().optional(),
+      rawPayload: z7.any().optional()
     })
   ),
   async (req, res, next) => {
@@ -5715,13 +5989,13 @@ testsRouter.post(
   "/draft",
   requireAuth,
   validateBody(
-    z6.object({
-      testId: z6.string().min(1),
-      currentQuestionIndex: z6.number().int().min(0),
-      answers: z6.array(
-        z6.object({
-          questionId: z6.string(),
-          value: z6.union([z6.string(), z6.number()])
+    z7.object({
+      testId: z7.string().min(1),
+      currentQuestionIndex: z7.number().int().min(0),
+      answers: z7.array(
+        z7.object({
+          questionId: z7.string(),
+          value: z7.union([z7.string(), z7.number()])
         })
       ).min(1)
     })
@@ -6064,6 +6338,7 @@ apiRouter.post("/log-error", (req, res) => {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/pair", pairingRouter);
 apiRouter.use("/couple", coupleRouter);
+apiRouter.use("/pet", petRouter);
 apiRouter.use("/couple", realtimeRouter);
 apiRouter.use("/chat", chatRouter);
 apiRouter.use("/ai", aiRouter);

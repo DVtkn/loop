@@ -266,3 +266,22 @@ export const testDrafts = pgTable('test_drafts', {
 }, (table) => ({
   userTestDraftIdx: uniqueIndex('user_test_draft_idx').on(table.userId, table.testId)
 }));
+
+export const couplePets = pgTable('couple_pets', {
+  id: text('id').primaryKey(), // coupleId: [login1, login2].sort().join('_')
+  name: text('name').notNull().default('Мурчик'),
+  hunger: integer('hunger').notNull().default(80), // 0-100 satiety
+  energy: integer('energy').notNull().default(80), // 0-100
+  joy: integer('joy').notNull().default(80), // 0-100
+  level: integer('level').notNull().default(1),
+  exp: integer('exp').notNull().default(0),
+  mood: text('mood').notNull().default('happy'), // 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved'
+  lastFedAt: text('last_fed_at'),
+  lastPlayedAt: text('last_played_at'),
+  lastSleptAt: text('last_slept_at'),
+  lastPettedAt: text('last_petted_at'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (t) => ({
+  createdIdx: index('couple_pets_created_idx').on(t.createdAt),
+}));

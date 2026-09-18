@@ -537,5 +537,44 @@ export interface CoupleData {
   deepQuestionsHistory?: any[];
   dailyQuiz?: any;
   ranking?: any;
+  pet?: CouplePetState;
   [key: string]: any;
+}
+
+// --- Couple Tamagotchi (Pet) Types ---
+export type PetMood = 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved';
+
+export interface CouplePetState {
+  id: string;
+  name: string;
+  hunger: number; // 0-100 satiety
+  energy: number; // 0-100
+  joy: number; // 0-100
+  level: number;
+  exp: number;
+  mood: PetMood;
+  lastFedAt?: string;
+  lastPlayedAt?: string;
+  lastSleptAt?: string;
+  lastPettedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type PetActionType = 'feed' | 'play' | 'sleep' | 'pet';
+
+export interface PetActionResult {
+  success: boolean;
+  state?: CouplePetState;
+  message: string;
+  levelUp?: boolean;
+  expGained: number;
+}
+
+export interface PetEventLog {
+  id: string;
+  coupleId: string;
+  action: PetActionType;
+  performedBy: string;
+  createdAt: string;
 }

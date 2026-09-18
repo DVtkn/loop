@@ -15,6 +15,7 @@ import { writeEmergencyFile } from "./services/storageService";
 import { authRouter } from "./modules/auth/auth.routes";
 import { pairingRouter } from "./modules/pairing/pairing.routes";
 import { coupleRouter } from "./modules/couple-data/couple.routes";
+import { petRouter } from "./modules/pet/pet.routes";
 import { chatRouter, aiRouter } from "./modules/chat/chat.routes";
 import { analyticsRouter } from "./modules/analytics/analytics.routes";
 import { photoRouter } from "./modules/photos/photos.routes";
@@ -343,6 +344,7 @@ apiRouter.post("/log-error", (req, res) => {
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/pair", pairingRouter);
 apiRouter.use("/couple", coupleRouter);
+apiRouter.use("/pet", petRouter);
 apiRouter.use("/couple", realtimeRouter);
 apiRouter.use("/chat", chatRouter);
 apiRouter.use("/ai", aiRouter);

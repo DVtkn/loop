@@ -5,6 +5,7 @@ import { getPetStateApi, performPetActionApi } from "../api/pet.api.ts";
 import { CouplePetState, PetActionType } from "../types.ts";
 import { TamagotchiDevice } from "./TamagotchiDevice.tsx";
 import { triggerHaptic } from "../utils/haptics.ts";
+import { safeGetStorage } from "../utils/safeStorage.ts";
 
 interface PetCardProps {
   isPaired: boolean;
@@ -12,7 +13,8 @@ interface PetCardProps {
 
 function getToken(): string | null {
   try {
-    const token = localStorage.getItem("loop_auth_token");
+    // Use safeGetStorage which properly parses JSON-stringified token from safeSetStorage
+    const token = safeGetStorage<string | null>("loop_auth_token", null);
     return token && token.trim() ? token.trim() : null;
   } catch {
     return null;

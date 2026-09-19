@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Gamepad2, Plus, LogIn, AlertCircle } from "lucide-react";
-import { getPetStateApi, performPetActionApi } from "../api/pet.api.ts";
-import { CouplePetState, PetActionType } from "../types.ts";
+import { Heart, Gamepad2, Plus, LogIn, AlertCircle, Sparkles } from "lucide-react";
+import { 
+  getPetStateApi, 
+  birthPetApi, 
+  performPetActionApi 
+} from "../api/pet.api.ts";
+import { CouplePetState, PetActionType, PetSpecies } from "../types.ts";
 import { TamagotchiDevice } from "./TamagotchiDevice.tsx";
 import { triggerHaptic } from "../utils/haptics.ts";
 import { safeGetStorage } from "../utils/safeStorage.ts";
@@ -13,13 +17,17 @@ interface PetCardProps {
 
 function getToken(): string | null {
   try {
-    // Use safeGetStorage which properly parses JSON-stringified token from safeSetStorage
     const token = safeGetStorage<string | null>("loop_auth_token", null);
     return token && token.trim() ? token.trim() : null;
   } catch {
     return null;
   }
 }
+
+const SPECIES_EMOJI: Record<PetSpecies, string> = {
+  dog: "🐕",
+  cat: "🐱",
+};
 
 const MOOD_EMOJI: Record<string, string> = {
   happy: "😺",
@@ -45,6 +53,12 @@ function getMoodLabel(mood: string): string {
   return MOOD_LABEL[mood] || mood;
 }
 
+function getStatColor(value: number): string {
+  if (value >= 70) return "bg-emerald-400";
+  if (value >= 40) return "bg-amber-400";
+  return "bg-rose-400";
+}
+
 export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const token = getToken();
   const [petState, setPetState] = useState<CouplePetState | null>(null);
@@ -52,6 +66,10 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<"species" | "name">("species");
+  const [selectedSpecies, setSelectedSpecies] = useState<PetSpecies>("dog");
+  const [petName, setPetName] = useState("Бусинка");
 
   const loadPetState = async () => {
     if (!token) {
@@ -65,15 +83,15 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       setNeedsAuth(false);
       const state = await getPetStateApi(token);
       setPetState(state);
+      if (state.isOnboardingCompleted === false) {
+        setShowOnboarding(true);
+      }
     } catch (e: any) {
       const msg = e.message || "Ошибка загрузки питомца";
-      // Handle session expired (401)
       if (msg.includes("Сессия истекла") || msg.includes("401") || msg.includes("токен недействителен")) {
         setNeedsAuth(true);
         setError(null);
-      }
-      // If user is not paired in DB but frontend thinks they are
-      else if (msg.includes("не состоите в паре") || msg.includes("403")) {
+      } else if (msg.includes("не состоите в паре") || msg.includes("403")) {
         setError(null);
         setPetState(null);
       } else {
@@ -91,8 +109,25 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     } else {
       setPetState(null);
       setNeedsAuth(false);
+      setShowOnboarding(false);
     }
   }, [isPaired, token]);
+
+  const handleBirth = async () => {
+    if (!token) { setNeedsAuth(true); return; }
+    try {
+      setLoading(true);
+      const result = await birthPetApi({ species: selectedSpecies, name: petName }, token);
+      setPetState(result);
+      setShowOnboarding(false);
+      setShowDevice(true);
+      triggerHaptic("success");
+    } catch (e: any) {
+      setError(e.message || "Ошибка создания питомца");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAction = async (action: PetActionType) => {
     if (!token) { setNeedsAuth(true); return; }
@@ -100,7 +135,8 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       triggerHaptic("light");
       const result = await performPetActionApi(action, token);
       setPetState(result.state || petState);
-      if (result.levelUp) {
+      if (result.levelUp || result.leveledUp) {
+        triggerHaptic("success");
         setTimeout(() => {
           alert(`🎉 Уровень повышен! ${petState?.name} теперь ${result.state?.level} уровня!`);
         }, 500);
@@ -170,39 +206,83 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     );
   }
 
-  if (!isPaired) {
+  // Onboarding modal
+  if (showOnboarding) {
     return (
-      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-dashed border-[var(--divider)] shadow-xs flex items-center justify-between gap-3 transition-all hover:border-[var(--accent)]/40 cursor-pointer">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-            <span className="text-2xl">🐾</span>
+      <>
+        <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🐾</span>
+            <span className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+              Аркада
+            </span>
           </div>
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</div>
-            <div className="text-xs sm:text-sm text-[var(--text-2)] font-medium">Создайте пару, чтобы завести питомца</div>
+          <div className="text-center py-4">
+            <div className="text-4xl mb-2">{SPECIES_EMOJI[selectedSpecies]}</div>
+            <h3 className="font-bold text-lg text-[var(--text)] mb-1">Оживи питомца пары</h3>
+            <p className="text-sm text-[var(--text-2)] mb-4">Получи +50 XP союза за рождение питомца!</p>
+            
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-xs text-[var(--text-2)] mb-2">Выбери питомца</label>
+                <div className="flex justify-center gap-3">
+                  {(["dog", "cat"] as PetSpecies[]).map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSelectedSpecies(s)}
+                      className={`p-3 rounded-xl border-2 transition-all ${
+                        selectedSpecies === s 
+                          ? "border-amber-400 bg-amber-400/10" 
+                          : "border-[var(--divider)] hover:border-[var(--accent)]/40"
+                      }`}
+                    >
+                      <span className="text-3xl block">{SPECIES_EMOJI[s]}</span>
+                      <span className="text-xs font-medium text-[var(--text-2)]">
+                        {s === "dog" ? "Чихуахуа" : "Кошечка"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs text-[var(--text-2)] mb-2">Имя питомца</label>
+                <input
+                  type="text"
+                  value={petName}
+                  onChange={(e) => setPetName(e.target.value.slice(0, 20))}
+                  maxLength={20}
+                  className="w-full px-3 py-2 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] text-[var(--text)] placeholder-[var(--text-3)] text-sm focus:border-[var(--accent)] focus:outline-none"
+                  placeholder="Бусинка"
+                />
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleBirth}
+              disabled={loading || !petName.trim()}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-white text-sm font-bold hover:opacity-90 disabled:opacity-50 transition-all"
+            >
+              {loading ? "Рождение..." : "Запустить консоль LOOP.exe 🎮"}
+            </button>
           </div>
-        </div>
-      </section>
+        </section>
+      </>
     );
   }
 
-  if (error && !petState) {
+  // No pet state loaded yet
+  if (!petState && loading) {
     return (
-      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 animate-pulse">
             <span className="text-2xl">🐾</span>
           </div>
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</div>
-            <div className="text-xs text-[var(--text-3)]">{error}</div>
-          </div>
-          <button
-            onClick={loadPetState}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
-          >
-            Повторить
-          </button>
+          <div className="text-xs text-[var(--text-3)]">Загрузка питомца...</div>
         </div>
       </section>
     );
@@ -217,7 +297,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🐾</span>
+            <span className="text-lg">{petState ? SPECIES_EMOJI[petState.species] : "🐾"}</span>
             <span className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</span>
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
               Аркада
@@ -233,7 +313,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         {petState ? (
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-xl bg-[#0d1b0d] border border-[#1a3a1a] flex items-center justify-center shrink-0 text-3xl">
-              {getMoodEmoji(petState.mood)}
+              {getMoodEmoji(petState.mood || 'happy')}
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2">
@@ -242,7 +322,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
                   Lv.{petState.level}
                 </span>
               </div>
-              <div className="text-[10px] text-[var(--text-3)]">{getMoodLabel(petState.mood)}</div>
+              <div className="text-[10px] text-[var(--text-3)]">{getMoodLabel(petState.mood || 'happy')}</div>
             </div>
           </div>
         ) : loading ? (
@@ -254,12 +334,29 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
           </div>
         ) : null}
 
-        {/* Stats */}
+        {/* Stats - 4 bars */}
         {petState && (
           <div className="space-y-1.5">
-            <StatBar label="Сытость" value={petState.hunger} />
-            <StatBar label="Энергия" value={petState.energy} />
-            <StatBar label="Радость" value={petState.joy} />
+            <StatBar label="Сытость" value={petState.hunger} color={getStatColor(petState.hunger)} />
+            <StatBar label="Радость" value={petState.joy} color={getStatColor(petState.joy)} />
+            <StatBar label="Энергия" value={petState.energy} color={getStatColor(petState.energy)} />
+            <StatBar label="Чистота" value={petState.cleanliness} color={getStatColor(petState.cleanliness)} />
+          </div>
+        )}
+
+        {/* XP Bar */}
+        {petState && petState.xpForNextLevel && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[var(--text-2)] w-12 shrink-0">XP</span>
+            <div className="flex-1 h-1.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all duration-500" 
+                style={{ width: `${Math.min(100, (petState.xpProgress || 0) / petState.xpForNextLevel * 100)}%` }} 
+              />
+            </div>
+            <span className="text-[10px] text-amber-400 w-8 text-right">
+              {petState.xpProgress}/{petState.xpForNextLevel}
+            </span>
           </div>
         )}
 
@@ -290,7 +387,15 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
               <TamagotchiDevice
                 isOpen={showDevice}
                 onClose={() => setShowDevice(false)}
-                petState={petState}
+                petState={{
+                  name: petState.name,
+                  hunger: petState.hunger,
+                  energy: petState.energy,
+                  joy: petState.joy,
+                  level: petState.level,
+                  experience: petState.experience,
+                  mood: petState.mood,
+                }}
                 onAction={handleAction}
                 isLoading={loading}
               />
@@ -302,13 +407,12 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   );
 };
 
-function StatBar({ label, value }: { label: string; value: number }) {
-  const barColor = value >= 60 ? "bg-emerald-400" : value >= 30 ? "bg-amber-400" : "bg-rose-400";
+function StatBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-[10px] text-[var(--text-2)] w-12 shrink-0">{label}</span>
       <div className="flex-1 h-1.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${value}%` }} />
+        <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${value}%` }} />
       </div>
       <span className="text-[10px] text-[var(--text-3)] w-6 text-right">{value}%</span>
     </div>

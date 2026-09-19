@@ -542,26 +542,48 @@ export interface CoupleData {
 }
 
 // --- Couple Tamagotchi (Pet) Types ---
-export type PetMood = 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved';
+export type PetSpecies = 'dog' | 'cat';
+export type PetNameStatus = 'pending_partner' | 'confirmed';
+export type PetActionType = 'feed' | 'play' | 'wash' | 'sleep' | 'hug';
+export type PetMood = 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved' | 'dirty';
 
 export interface CouplePetState {
   id: string;
+  coupleId: string;
+  pairKey: string;
+  species: PetSpecies;
   name: string;
-  hunger: number; // 0-100 satiety
-  energy: number; // 0-100
-  joy: number; // 0-100
-  level: number;
-  exp: number;
+  nameStatus: PetNameStatus;
+  nameProposedBy?: string;
+  isOnboardingCompleted: boolean;
+  
+  // Life stats (0-100)
+  hunger: number;
+  joy: number;
+  energy: number;
+  cleanliness: number;
   mood: PetMood;
-  lastFedAt?: string;
-  lastPlayedAt?: string;
-  lastSleptAt?: string;
-  lastPettedAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  
+  // Progress and level
+  level: number;
+  experience: number;
+  weightKg: string;
+  
+  // Timestamps
+  lastFedAt: string;
+  lastPlayedAt: string;
+  lastRestedAt: string;
+  lastWashedAt: string;
+  lastInteractionAt: string;
+  lastActionBy?: string;
+  
+  createdAt: string;
+  updatedAt: string;
+  
+  // Computed
+  xpForNextLevel?: number;
+  xpProgress?: number;
 }
-
-export type PetActionType = 'feed' | 'play' | 'sleep' | 'pet';
 
 export interface PetActionResult {
   success: boolean;
@@ -569,12 +591,23 @@ export interface PetActionResult {
   message: string;
   levelUp?: boolean;
   expGained: number;
+  xpGained?: number;
+  leveledUp?: boolean;
 }
 
-export interface PetEventLog {
-  id: string;
-  coupleId: string;
-  action: PetActionType;
-  performedBy: string;
-  createdAt: string;
+export interface PetBirthRequest {
+  species: PetSpecies;
+  name: string;
+}
+
+export interface PetNameProposal {
+  name: string;
+}
+
+export interface PetNameConfirm {
+  confirm: boolean;
+}
+
+export interface PetSwitchRequest {
+  species: PetSpecies;
 }

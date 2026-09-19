@@ -14,7 +14,7 @@ interface TamagotchiState {
   energy: number;
   joy: number;
   level: number;
-  exp: number;
+  experience: number;
   mood: string;
 }
 
@@ -104,7 +104,7 @@ export const TamagotchiDevice: React.FC<TamagotchiDeviceProps> = ({
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-[#33ff33] opacity-60">LOOP-PET v1.0</span>
-                    <span className="text-[10px] font-mono text-[#33ff33] opacity-60">{petState.level}.{String(petState.exp).padStart(2, "0")}</span>
+                    <span className="text-[10px] font-mono text-[#33ff33] opacity-60">{petState.level}.{String(petState.experience).padStart(2, "0")}</span>
                   </div>
 
                   {/* Pet avatar */}
@@ -136,10 +136,10 @@ export const TamagotchiDevice: React.FC<TamagotchiDeviceProps> = ({
                     <div className="flex-1 h-1.5 bg-[#0a2a0a] rounded-full overflow-hidden border border-[#1a3a1a]">
                       <div
                         className="h-full bg-[#c44dff] rounded-full transition-all duration-500"
-                        style={{ width: `${petState.exp}%` }}
+                        style={{ width: `${petState.experience}%` }}
                       />
                     </div>
-                    <span className="text-[9px] font-mono text-[#c44dff] w-6 text-right">{petState.exp}</span>
+                    <span className="text-[9px] font-mono text-[#c44dff] w-6 text-right">{petState.experience}</span>
                   </div>
                 </div>
               </div>
@@ -170,7 +170,7 @@ export const TamagotchiDevice: React.FC<TamagotchiDeviceProps> = ({
               />
               <ActionButton
                 label="🤗 Ласка"
-                onClick={() => handleAction("pet")}
+                onClick={() => handleAction("hug")}
                 loading={isLoading}
                 color="bg-rose-500/20 hover:bg-rose-500/30"
                 textColor="text-rose-400"

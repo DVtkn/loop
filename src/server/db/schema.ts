@@ -268,20 +268,41 @@ export const testDrafts = pgTable('test_drafts', {
 }));
 
 export const couplePets = pgTable('couple_pets', {
-  id: text('id').primaryKey(), // coupleId: [login1, login2].sort().join('_')
-  name: text('name').notNull().default('Мурчик'),
-  hunger: integer('hunger').notNull().default(80), // 0-100 satiety
-  energy: integer('energy').notNull().default(80), // 0-100
-  joy: integer('joy').notNull().default(80), // 0-100
+  id: uuid('id').defaultRandom().primaryKey(),
+  coupleId: uuid('couple_id').references(() => couples.id, { onDelete: 'cascade' }).notNull().unique(),
+  pairKey: varchar('pair_key', { length: 120 }).notNull().unique(),
+  
+  // Identification and birth status
+  species: varchar('species', { length: 20 }).notNull().default('dog'), // 'dog' | 'cat'
+  name: varchar('name', { length: 50 }).notNull().default('Бусинка'),
+  nameStatus: varchar('name_status', { length: 20 }).notNull().default('confirmed'), // 'pending_partner' | 'confirmed'
+  nameProposedBy: uuid('name_proposed_by').references(() => users.id),
+  isOnboardingCompleted: boolean('is_onboarding_completed').notNull().default(false),
+  
+  // Life stats (0-100)
+  hunger: integer('hunger').notNull().default(85),     // Satiety
+  joy: integer('joy').notNull().default(90),           // Joy
+  energy: integer('energy').notNull().default(65),     // Energy
+  cleanliness: integer('cleanliness').notNull().default(80), // Cleanliness
+  mood: varchar('mood', { length: 20 }).notNull().default('happy'), // Mood state
+  
+  // Progress and level
   level: integer('level').notNull().default(1),
-  exp: integer('exp').notNull().default(0),
-  mood: text('mood').notNull().default('happy'), // 'happy' | 'sleepy' | 'hungry' | 'playful' | 'loved'
-  lastFedAt: text('last_fed_at'),
-  lastPlayedAt: text('last_played_at'),
-  lastSleptAt: text('last_slept_at'),
-  lastPettedAt: text('last_petted_at'),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
+  experience: integer('experience').notNull().default(0), // Total pet XP
+  weightKg: numeric('weight_kg', { precision: 4, scale: 2 }).notNull().default('1.20'),
+  
+  // Timestamps for stat decay calculation
+  lastFedAt: timestamp('last_fed_at', { withTimezone: true }).defaultNow().notNull(),
+  lastPlayedAt: timestamp('last_played_at', { withTimezone: true }).defaultNow().notNull(),
+  lastRestedAt: timestamp('last_rested_at', { withTimezone: true }).defaultNow().notNull(),
+  lastWashedAt: timestamp('last_washed_at', { withTimezone: true }).defaultNow().notNull(),
+  lastInteractionAt: timestamp('last_interaction_at', { withTimezone: true }).defaultNow().notNull(),
+  lastActionBy: uuid('last_action_by').references(() => users.id),
+  
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
 }, (t) => ({
   createdIdx: index('couple_pets_created_idx').on(t.createdAt),
+  coupleIdIdx: index('couple_pets_couple_id_idx').on(t.coupleId),
+  pairKeyIdx: index('couple_pets_pair_key_idx').on(t.pairKey),
 }));

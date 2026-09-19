@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Heart, Gamepad2, Plus } from "lucide-react";
+import { Heart, Gamepad2, Plus, LogIn, AlertCircle } from "lucide-react";
 import { getPetStateApi, performPetActionApi } from "../api/pet.api.ts";
 import { CouplePetState, PetActionType } from "../types.ts";
 import { TamagotchiDevice } from "./TamagotchiDevice.tsx";
@@ -12,7 +12,8 @@ interface PetCardProps {
 
 function getToken(): string | null {
   try {
-    return localStorage.getItem("loop_auth_token");
+    const token = localStorage.getItem("loop_auth_token");
+    return token && token.trim() ? token.trim() : null;
   } catch {
     return null;
   }
@@ -43,23 +44,34 @@ function getMoodLabel(mood: string): string {
 }
 
 export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
-  const token = getToken() || "";
+  const token = getToken();
   const [petState, setPetState] = useState<CouplePetState | null>(null);
   const [showDevice, setShowDevice] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const loadPetState = async () => {
-    if (!token) { setError("Нет токена авторизации"); return; }
+    if (!token) {
+      setNeedsAuth(true);
+      setError(null);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
+      setNeedsAuth(false);
       const state = await getPetStateApi(token);
       setPetState(state);
     } catch (e: any) {
       const msg = e.message || "Ошибка загрузки питомца";
-      // If user is not paired in DB but frontend thinks they are, clear error and show unpaired state
-      if (msg.includes("не состоите в паре") || msg.includes("403")) {
+      // Handle session expired (401)
+      if (msg.includes("Сессия истекла") || msg.includes("401") || msg.includes("токен недействителен")) {
+        setNeedsAuth(true);
+        setError(null);
+      }
+      // If user is not paired in DB but frontend thinks they are
+      else if (msg.includes("не состоите в паре") || msg.includes("403")) {
         setError(null);
         setPetState(null);
       } else {
@@ -76,11 +88,12 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       loadPetState();
     } else {
       setPetState(null);
+      setNeedsAuth(false);
     }
-  }, [isPaired]);
+  }, [isPaired, token]);
 
   const handleAction = async (action: PetActionType) => {
-    if (!token) return;
+    if (!token) { setNeedsAuth(true); return; }
     try {
       triggerHaptic("light");
       const result = await performPetActionApi(action, token);
@@ -91,9 +104,69 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         }, 500);
       }
     } catch (e: any) {
-      triggerHaptic("heavy");
+      const msg = e.message || "";
+      if (msg.includes("Сессия истекла") || msg.includes("401") || msg.includes("токен недействителен")) {
+        setNeedsAuth(true);
+      } else {
+        triggerHaptic("heavy");
+      }
     }
   };
+
+  // Show auth required state
+  if (!isPaired || needsAuth || !token) {
+    return (
+      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-dashed border-[var(--divider)] shadow-xs flex flex-col gap-3 transition-all hover:border-[var(--accent)]/40 cursor-pointer">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+            <span className="text-2xl">🐾</span>
+          </div>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</div>
+            <div className="text-xs sm:text-sm text-[var(--text-2)] font-medium">
+              {needsAuth ? "Сессия истекла — войдите заново" : "Создайте пару, чтобы завести питомца"}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => { window.location.href = "/"; }}
+          className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
+        >
+          <LogIn className="w-4 h-4" />
+          <span>{needsAuth ? "Войти снова" : "Войти"}</span>
+        </button>
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-lg">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  if (error && !petState) {
+    return (
+      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+            <span className="text-2xl">🐾</span>
+          </div>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</div>
+            <div className="text-xs text-[var(--text-3)]">{error}</div>
+          </div>
+          <button
+            onClick={loadPetState}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
+          >
+            Повторить
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   if (!isPaired) {
     return (

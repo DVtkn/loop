@@ -2,13 +2,17 @@ import { CouplePetState, PetActionResult, PetActionType } from "../types.ts";
 
 const API_BASE = "";
 
+function getErrorMessage(err: any): string {
+  return err.error || err.message || "Неизвестная ошибка";
+}
+
 export async function getPetStateApi(token: string): Promise<CouplePetState> {
   const res = await fetch(`${API_BASE}/api/pet/state`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.message || "Ошибка получения состояния питомца");
+    throw new Error(getErrorMessage(err));
   }
   return res.json();
 }
@@ -27,7 +31,7 @@ export async function performPetActionApi(
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.message || "Ошибка выполнения действия");
+    throw new Error(getErrorMessage(err));
   }
   return res.json();
 }
@@ -43,7 +47,7 @@ export async function renamePetApi(name: string, token: string): Promise<CoupleP
   });
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.message || "Ошибка переименования питомца");
+    throw new Error(getErrorMessage(err));
   }
   return res.json();
 }

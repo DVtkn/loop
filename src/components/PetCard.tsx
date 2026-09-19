@@ -57,7 +57,14 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       const state = await getPetStateApi(token);
       setPetState(state);
     } catch (e: any) {
-      setError(e.message || "Ошибка загрузки питомца");
+      const msg = e.message || "Ошибка загрузки питомца";
+      // If user is not paired in DB but frontend thinks they are, clear error and show unpaired state
+      if (msg.includes("не состоите в паре") || msg.includes("403")) {
+        setError(null);
+        setPetState(null);
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

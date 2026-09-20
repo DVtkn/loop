@@ -142,36 +142,62 @@ export async function runLifecycleSuite() {
   });
   assert(touchRes.status === 200 || touchRes.status === 201, "3.1 Quick touch recorded and dispatched");
 
-  // -------------------------------------------------------------
-  // MODULE 4: PSYCHOMETRIC TESTS & TRANSACTIONAL SCORING
-  // -------------------------------------------------------------
-  console.log("\n▶ MODULE 4: Psychometric Tests & Concurrency");
+// -------------------------------------------------------------
+   // MODULE 4: PSYCHOMETRIC TESTS & TRANSACTIONAL SCORING
+   // -------------------------------------------------------------
+   console.log("\n▶ MODULE 4: Psychometric Tests & Concurrency");
 
-  const testSubmit = await fetchApi("/api/tests/submit-answer", maleToken, "POST", {
-    coupleId,
-    testId: "love_languages",
-    questionId: "q1",
-    selectedValue: 5,
-    expectedQuestionsCount: 15,
-  });
-  assert(
-    testSubmit.status === 200 && (testSubmit.data?.status === "waiting_for_partner" || testSubmit.data?.status === "recorded_locally" || testSubmit.data?.success),
-    "4.1 Test answer submitted atomically with pessimistic session lock"
-  );
+   // 4.1 Test answer submitted atomically with pessimistic session lock
+   const testSubmit = await fetchApi("/api/tests/submit", maleToken, "POST", {
+     testId: "TEST-S2",
+     answers: [
+       { questionId: "q1", value: 1 },
+       { questionId: "q2", value: 2 },
+       { questionId: "q3", value: 1 },
+       { questionId: "q4", value: 2 },
+       { questionId: "q5", value: 1 },
+       { questionId: "q6", value: 2 }
+     ]
+   });
+   console.log("Test submit response:", testSubmit);
+   assert(
+     testSubmit.status === 200 && (testSubmit.data?.status === "waiting_for_partner" || testSubmit.data?.status === "recorded_locally" || testSubmit.data?.success),
+     "4.1 Test answer submitted atomically with pessimistic session lock"
+   );
 
-  // 4.2 Deterministic Report Generation (No LLM)
-  const reportRes = await fetchApi("/api/ai/generate-report", maleToken, "POST", {
-    coupleProfile: {
-      partner1: { name: "Артём", loveLanguage: "Качественное время" },
-      partner2: { name: "Алина", loveLanguage: "Слова поощрения" },
-    },
-    pulseHistory: [],
-    tests: [],
-  });
-  assert(
-    reportRes.status === 200 && reportRes.data?.source === "deterministic_engine" && !!reportRes.data?.title,
-    "4.2 Couple report generated via 100% deterministic mathematical psychology engine"
-  );
+   // 4.2 Deterministic Report Generation (No LLM)
+   // Complete the same test for the female user
+   await fetchApi("/api/tests/submit", femaleToken, "POST", {
+     testId: "TEST-S2",
+     answers: [
+       { questionId: "q1", value: 1 },
+       { questionId: "q2", value: 2 },
+       { questionId: "q3", value: 1 },
+       { questionId: "q4", value: 2 },
+       { questionId: "q5", value: 1 },
+       { questionId: "q6", value: 2 }
+     ]
+   });
+   // Generate report with test data indicating both partners completed TEST-S2
+   const reportRes = await fetchApi("/api/ai/generate-report", maleToken, "POST", {
+     coupleProfile: {
+       partner1: { name: "Артём", loveLanguage: "Качественное время" },
+       partner2: { name: "Алина", loveLanguage: "Слова поощрения" },
+     },
+     pulseHistory: [],
+     tests: [
+       {
+         id: "TEST-S2",
+         slug: "five-love-languages",
+         partner1Done: true,
+         partner2Done: true
+       }
+     ]
+   });
+   assert(
+     reportRes.status === 200 && reportRes.data?.source === "deterministic_engine" && !!reportRes.data?.title,
+     "4.2 Couple report generated via 100% deterministic mathematical psychology engine"
+   );
 
   // -------------------------------------------------------------
   // MODULE 5: DAILY QUESTION & BLIND REVEAL

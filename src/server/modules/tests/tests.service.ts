@@ -135,8 +135,8 @@ export async function atomicSubmitTestAnswers(
         and(eq(testDrafts.userId, userId), eq(testDrafts.testId, testId))
       );
 
-      // 6. Пересчёт психопрофиля пользователя (24 шкалы)
-      await _recalculateUserProfile(tx, coupleId, userId, testId);
+// 6. Пересчёт психопрофиля пользователя (24 шкалы)
+       await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
 
       // 7. Помечаем сессию завершённой (до триггера, иначе последний сабмит не засчитается)
       await tx.update(testSessions)
@@ -403,66 +403,67 @@ export async function getTestsStatusForUser(userLogin: string) {
 
 /** Пересчёт психопрофиля пользователя (24 шкалы) через настоящий движок */
 async function _recalculateUserProfile(
-  tx: any,
-  coupleId: string,
-  userId: string,
-  testId: string
+   tx: any,
+   coupleId: string,
+   userId: string,
+   testId: string,
+   sessionId: string
 ) {
-  // Получаем ВСЕ ответы пользователя по текущей паре (не только этот тест) —
-  // профиль строится кумулятивно из всех пройденных им модулей.
-  const rows = await tx
-    .select({
-      answers: testAnswers,
-    })
-    .from(testAnswers)
-    .innerJoin(testSessions, eq(testAnswers.sessionId, testSessions.id))
-    .where(and(eq(testAnswers.userId, userId), eq(testSessions.coupleId, coupleId)));
+   // Получаем ВСЕ ответы пользователя по текущей паре (не только этот тест) —
+   // профиль строится кумулятивно из всех пройденных им модулей.
+   const rows = await tx
+     .select({
+       answers: testAnswers,
+     })
+     .from(testAnswers)
+     .innerJoin(testSessions, eq(testAnswers.sessionId, testSessions.id))
+     .where(and(eq(testAnswers.userId, userId), eq(testSessions.coupleId, coupleId)));
 
-  if (!rows.length) return;
+   if (!rows.length) return;
 
-  const rawForEngine = rows.map((r: any) => ({
-    questionId: r.answers.questionId,
-    selectedValue: r.answers.selectedValue,
-    weight: r.answers.weight,
-    reactionTimeMs: r.answers.reactionTimeMs,
-    toggleCount: r.answers.toggleCount,
-    targetType: r.answers.targetType,
-    rawPayload: r.answers.rawPayload,
-  }));
+   const rawForEngine = rows.map((r: any) => ({
+     questionId: r.answers.questionId,
+     selectedValue: r.answers.selectedValue,
+     weight: r.answers.weight,
+     reactionTimeMs: r.answers.reactionTimeMs,
+     toggleCount: r.answers.toggleCount,
+     targetType: r.answers.targetType,
+     rawPayload: r.answers.rawPayload,
+   }));
 
-  // Запускаем движок 24 шкал
-  const profile = calculatePsychProfile(rawForEngine);
+   // Запускаем движок 24 шкал
+   const profile = calculatePsychProfile(rawForEngine);
 
-  // Upsert профиля — храним полные 24 шкалы + 5 мета-векторов
-  await tx.insert(userPsychProfiles).values({
-    userId,
-    coupleId,
-    sessionId: "",
-    traitScores: profile.traitScores,
-    dominantVectors: profile.dominantVectors,
-    eSafety: String(profile.eSafety),
-    aAutonomy: String(profile.aAutonomy),
-    cCloseness: String(profile.cCloseness),
-    rRepair: String(profile.rRepair),
-    vFuture: String(profile.vFuture),
-    consistencyScore: String(profile.consistencyScore),
-    rawResponses: rawForEngine,
-    updatedAt: new Date(),
-  }).onConflictDoUpdate({
-    target: [userPsychProfiles.userId],
-    set: {
-      traitScores: profile.traitScores,
-      dominantVectors: profile.dominantVectors,
-      eSafety: String(profile.eSafety),
-      aAutonomy: String(profile.aAutonomy),
-      cCloseness: String(profile.cCloseness),
-      rRepair: String(profile.rRepair),
-      vFuture: String(profile.vFuture),
-      consistencyScore: String(profile.consistencyScore),
-      rawResponses: rawForEngine,
-      updatedAt: new Date(),
-    },
-  });
+   // Upsert профиля — храним полные 24 шкалы + 5 мета-векторов
+   await tx.insert(userPsychProfiles).values({
+     userId,
+     coupleId,
+     sessionId,
+     traitScores: profile.traitScores,
+     dominantVectors: profile.dominantVectors,
+     eSafety: String(profile.eSafety),
+     aAutonomy: String(profile.aAutonomy),
+     cCloseness: String(profile.cCloseness),
+     rRepair: String(profile.rRepair),
+     vFuture: String(profile.vFuture),
+     consistencyScore: String(profile.consistencyScore),
+     rawResponses: rawForEngine,
+     updatedAt: new Date(),
+   }).onConflictDoUpdate({
+     target: [userPsychProfiles.userId],
+     set: {
+       traitScores: profile.traitScores,
+       dominantVectors: profile.dominantVectors,
+       eSafety: String(profile.eSafety),
+       aAutonomy: String(profile.aAutonomy),
+       cCloseness: String(profile.cCloseness),
+       rRepair: String(profile.rRepair),
+       vFuture: String(profile.vFuture),
+       consistencyScore: String(profile.consistencyScore),
+       rawResponses: rawForEngine,
+       updatedAt: new Date(),
+     },
+   });
 }
 
 /** Триггер: проверка готовности couple report и расчёт радара */

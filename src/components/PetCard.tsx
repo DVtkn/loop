@@ -8,6 +8,7 @@ import {
 } from "../api/pet.api.ts";
 import { CouplePetState, PetActionType, PetSpecies } from "../types.ts";
 import { TamagotchiDevice } from "./TamagotchiDevice.tsx";
+import { LoopConsole } from "./LoopConsole.tsx";
 import { triggerHaptic } from "../utils/haptics.ts";
 import { safeGetStorage } from "../utils/safeStorage.ts";
 
@@ -63,7 +64,10 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const token = getToken();
   const [petState, setPetState] = useState<CouplePetState | null>(null);
   const [showDevice, setShowDevice] = useState(false);
+  const [showGameConsole, setShowGameConsole] = useState(false);
+  const [gameConsolePetState, setGameConsolePetState] = useState<CouplePetState | null>(null);
   const [loading, setLoading] = useState(false);
+  const [gameLoading, setGameLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -81,6 +85,8 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       setLoading(true);
       setError(null);
       setNeedsAuth(false);
+      setShowGameConsole(false); // Hide game console when reloading state
+      setGameConsolePetState(null);
       const state = await getPetStateApi(token);
       setPetState(state);
       if (state.isOnboardingCompleted === false) {
@@ -99,6 +105,15 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenConsole = () => {
+    if (petState && petState.isOnboardingCompleted) {
+      setShowGameConsole(true);
+      setGameConsolePetState(petState);
+    } else {
+      setShowDevice(true);
     }
   };
 
@@ -363,7 +378,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         {/* Button */}
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); setShowDevice(true); }}
+          onClick={(e) => { e.stopPropagation(); handleOpenConsole(e); }}
           className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500/10 to-rose-500/10 text-amber-600 dark:text-amber-400 text-sm font-bold hover:from-amber-500/20 hover:to-rose-500/20 transition-all group-hover:shadow-sm"
         >
           <Gamepad2 className="w-4 h-4" />
@@ -372,8 +387,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         </button>
       </section>
 
-      {/* Tamagotchi Device Modal */}
-      <AnimatePresence>
+{/* Onboarding Console Modal */}
         {showDevice && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -383,11 +397,11 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            {petState && (
-              <TamagotchiDevice
+            {petState ? (
+              <LoopConsole
                 isOpen={showDevice}
                 onClose={() => setShowDevice(false)}
-                petState={{
+                initialPetState={{
                   name: petState.name,
                   hunger: petState.hunger,
                   energy: petState.energy,
@@ -396,13 +410,77 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
                   experience: petState.experience,
                   mood: petState.mood,
                 }}
-                onAction={handleAction}
-                isLoading={loading}
+                onPetCreated={(updatedPetState) => {
+                  setPetState(updatedPetState);
+                  setShowDevice(false);
+                  // Show game console after pet is created
+                  setShowGameConsole(true);
+                  setGameConsolePetState(updatedPetState);
+                }}
+              />
+            ) : (
+              <LoopConsole
+                isOpen={showDevice}
+                onClose={() => setShowDevice(false)}
+                onPetCreated={(petState) => {
+                  setPetState(petState);
+                  setShowDevice(false);
+                  // Show game console after pet is created
+                  setShowGameConsole(true);
+                  setGameConsolePetState(petState);
+                }}
               />
             )}
           </motion.div>
         )}
-      </AnimatePresence>
+        
+        {/* Game Console Modal */}
+        {showGameConsole && gameConsolePetState && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setShowGameConsole(false);
+              setGameConsolePetState(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <TamagotchiDevice
+              isOpen={showGameConsole}
+              onClose={() => {
+                setShowGameConsole(false);
+                setGameConsolePetState(null);
+              }}
+              petState={{
+                name: gameConsolePetState.name,
+                hunger: gameConsolePetState.hunger,
+                energy: gameConsolePetState.energy,
+                joy: gameConsolePetState.joy,
+                level: gameConsolePetState.level,
+                experience: gameConsolePetState.experience,
+                mood: gameConsolePetState.mood,
+              }}
+              onAction={async (action: PetActionType) => {
+                if (!token) return;
+                try {
+                  setGameLoading(true);
+                  const result = await performPetActionApi(action, token);
+                  // Update the game console state with the result
+                  setGameConsolePetState(result.state || gameConsolePetState);
+                  // Also update the main pet state
+                  setPetState(result.state || petState);
+                } catch (e: any) {
+                  console.error("Game action error:", e);
+                } finally {
+                  setGameLoading(false);
+                }
+              }}
+              isLoading={gameLoading}
+            />
+          </motion.div>
+        )}
     </>
   );
 };

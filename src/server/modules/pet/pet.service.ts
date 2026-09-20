@@ -179,6 +179,11 @@ export async function createPet(
     throw { status: 503, message: "База данных недоступна" };
   }
 
+  const existingPet = await db.select().from(couplePets).where(eq(couplePets.coupleId, coupleInfo.coupleId)).limit(1);
+  if (existingPet.length > 0) {
+    throw { status: 400, message: "Питомец уже существует" };
+  }
+
   const now = new Date().toISOString();
   const petId = crypto.randomUUID();
   
@@ -389,7 +394,8 @@ export async function confirmPetName(userLogin: string, confirm: boolean): Promi
   try {
     const result = await db.update(couplePets)
       .set({ 
-        nameStatus: confirm ? "confirmed" : "pending_partner",
+        nameStatus: "confirmed",
+        nameProposedBy: null,
         updatedAt: now
       })
       .where(eq(couplePets.coupleId, coupleInfo.coupleId))

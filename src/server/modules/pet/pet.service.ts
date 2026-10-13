@@ -212,9 +212,7 @@ export async function createPet(
   };
 
   try {
-    console.log('Inserting pet:', JSON.stringify(newPet, null, 2));
     await db.insert(couplePets).values(newPet as any);
-    console.log('Pet inserted successfully');
     
     await awardCoupleXP(coupleInfo.coupleId, 50, "pet_birth");
     await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name, species });

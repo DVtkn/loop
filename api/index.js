@@ -3333,9 +3333,7 @@ async function createPet(userLogin, species, name) {
     updatedAt: nowISO
   };
   try {
-    console.log("Inserting pet:", JSON.stringify(newPet, null, 2));
     await db.insert(couplePets).values(newPet);
-    console.log("Pet inserted successfully");
     await awardCoupleXP(coupleInfo.coupleId, 50, "pet_birth");
     await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name, species });
     await notifyPartner(coupleInfo, userLogin, "pet_birth", { petName: name, species });
@@ -4945,7 +4943,7 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       await tx.delete(testDrafts).where(
         and6(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
       );
-      await _recalculateUserProfile(tx, coupleId, userId, testId);
+      await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
       await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq9(testSessions.id, sessionId));
       const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
@@ -5118,7 +5116,7 @@ async function getTestsStatusForUser(userLogin) {
     isCompletedByPartner: partnerSet.has(testId)
   }));
 }
-async function _recalculateUserProfile(tx, coupleId, userId, testId) {
+async function _recalculateUserProfile(tx, coupleId, userId, testId, sessionId) {
   const rows = await tx.select({
     answers: testAnswers
   }).from(testAnswers).innerJoin(testSessions, eq9(testAnswers.sessionId, testSessions.id)).where(and6(eq9(testAnswers.userId, userId), eq9(testSessions.coupleId, coupleId)));
@@ -5136,7 +5134,7 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId) {
   await tx.insert(userPsychProfiles).values({
     userId,
     coupleId,
-    sessionId: "",
+    sessionId,
     traitScores: profile.traitScores,
     dominantVectors: profile.dominantVectors,
     eSafety: String(profile.eSafety),

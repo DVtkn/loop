@@ -13,7 +13,9 @@ export function errorHandler(err: any, req: Request, res: Response, next: NextFu
   }
 
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || "Внутренняя ошибка сервера";
+  // 5xx наружу — только generic: внутрь message может попасть сырой SQL/стек драйвера
+  const message =
+    statusCode >= 500 ? "Внутренняя ошибка сервера" : err.message || "Внутренняя ошибка сервера";
   const fallbackCode =
     statusCode === 400
       ? "BAD_REQUEST"

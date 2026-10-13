@@ -81,26 +81,26 @@ test.describe('Couple Full Lifecycle E2E', () => {
     // Reset passwords
     const reset1 = await request.post(`${BASE_URL}/api/auth/reset-password`, {
       headers: { 'Content-Type': 'application/json' },
-      data: { login: 'dmitry', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
+      data: { login: 'ezmax', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
     });
     expect(reset1.ok()).toBeTruthy();
     
     const reset2 = await request.post(`${BASE_URL}/api/auth/reset-password`, {
       headers: { 'Content-Type': 'application/json' },
-      data: { login: 'anna', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
+      data: { login: 'ezanna', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
     });
     expect(reset2.ok()).toBeTruthy();
     
     // Login via API
     const login1 = await request.post(`${BASE_URL}/api/auth/login`, {
-      data: { login: 'dmitry', password: 'TestPass123!' }
+      data: { login: 'ezmax', password: 'TestPass123!' }
     });
     const loginData1 = await login1.json();
     const maxToken = loginData1.token;
     expect(maxToken).toBeTruthy();
     
     const login2 = await request.post(`${BASE_URL}/api/auth/login`, {
-      data: { login: 'anna', password: 'TestPass123!' }
+      data: { login: 'ezanna', password: 'TestPass123!' }
     });
     const loginData2 = await login2.json();
     const annaToken = loginData2.token;
@@ -141,7 +141,7 @@ test.describe('Couple Full Lifecycle E2E', () => {
     const page = await context.newPage();
     
     await page.goto(`${BASE_URL}/`);
-    await page.fill('#auth-login-input', 'dmitry');
+    await page.fill('#auth-login-input', 'ezmax');
     await page.fill('#auth-password-input', 'TestPass123!');
     await page.click('button[type="submit"]');
     await page.waitForTimeout(2000);
@@ -163,13 +163,13 @@ test.describe('Couple Full Lifecycle E2E', () => {
     
     // Login via API
     const login1 = await request.post(`${BASE_URL}/api/auth/login`, {
-      data: { login: 'dmitry', password: 'TestPass123!' }
+      data: { login: 'ezmax', password: 'TestPass123!' }
     });
     const loginData1 = await login1.json();
     const maxToken = loginData1.token;
     
     const login2 = await request.post(`${BASE_URL}/api/auth/login`, {
-      data: { login: 'anna', password: 'TestPass123!' }
+      data: { login: 'ezanna', password: 'TestPass123!' }
     });
     const loginData2 = await login2.json();
     const annaToken = loginData2.token;
@@ -231,7 +231,7 @@ test.describe('Couple Full Lifecycle E2E', () => {
     const page = await context.newPage();
     
     await page.goto(`${BASE_URL}/`);
-    await page.fill('#auth-login-input', 'dmitry');
+    await page.fill('#auth-login-input', 'ezmax');
     await page.fill('#auth-password-input', 'TestPass123!');
     await page.click('button[type="submit"]');
     await page.waitForTimeout(2000);

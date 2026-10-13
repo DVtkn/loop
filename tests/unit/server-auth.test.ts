@@ -143,9 +143,9 @@ describe('errorHandler — код ошибки по статусу', () => {
     expect(res.body).toMatchObject({ code: 'NOT_FOUND' });
   });
 
-  it('500 без кода → INTERNAL_ERROR', () => {
-    const res = run({ status: 500, message: 'Упало' });
-    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR' });
+  it('500 без кода → INTERNAL_ERROR + generic без утечек', () => {
+    const res = run({ status: 500, message: 'Failed query: insert into "users" values ($1)' });
+    expect(res.body).toMatchObject({ code: 'INTERNAL_ERROR', error: 'Внутренняя ошибка сервера' });
   });
 
   it('пустая ошибка → 500 + дефолтное сообщение', () => {

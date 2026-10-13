@@ -1,7 +1,7 @@
 import { eq, or, and } from 'drizzle-orm';
 import crypto from 'crypto';
 import { db, isSqlConfigured } from '../db/client.ts';
-import { users, pairRequests } from '../db/schema.ts';
+import { users, pairRequests, couples } from '../db/schema.ts';
 import { logger } from '../core/logger.ts';
 import { readEmergencyFile, writeEmergencyFile, findUserByLogin, getCoupleData, saveCoupleData } from './storageService.ts';
 import { DbUser, DbPairRequest } from '../core/types.ts';
@@ -68,6 +68,24 @@ export async function acceptPair(cleanMe: string, cleanPartner: string) {
 
     const updatedMe = await findUserByLogin(cleanMe);
     const updatedPartner = await findUserByLogin(cleanPartner);
+
+    // Строка союза в couples — от неё зависят FK (питомец и др.). Создаём идемпотентно.
+    if (updatedMe?.id && updatedPartner?.id) {
+      const key = [cleanMe, cleanPartner].sort().join('_');
+      try {
+        await db
+          .insert(couples)
+          .values({
+            id: key,
+            user1Id: updatedMe.id,
+            user2Id: updatedPartner.id,
+            startDate: now.split('T')[0],
+          })
+          .onConflictDoNothing();
+      } catch (e) {
+        logger.warn('Не удалось создать строку couples (не блокер)', { key }, e as unknown);
+      }
+    }
 
     if (updatedMe && updatedPartner) {
       const key = [cleanMe, cleanPartner].sort().join('_');

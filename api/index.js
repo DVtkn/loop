@@ -983,6 +983,19 @@ async function acceptPair(cleanMe, cleanPartner) {
     }
     const updatedMe2 = await findUserByLogin(cleanMe);
     const updatedPartner2 = await findUserByLogin(cleanPartner);
+    if (updatedMe2?.id && updatedPartner2?.id) {
+      const key = [cleanMe, cleanPartner].sort().join("_");
+      try {
+        await db.insert(couples).values({
+          id: key,
+          user1Id: updatedMe2.id,
+          user2Id: updatedPartner2.id,
+          startDate: now.split("T")[0]
+        }).onConflictDoNothing();
+      } catch (e) {
+        logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0442\u0440\u043E\u043A\u0443 couples (\u043D\u0435 \u0431\u043B\u043E\u043A\u0435\u0440)", { key }, e);
+      }
+    }
     if (updatedMe2 && updatedPartner2) {
       const key = [cleanMe, cleanPartner].sort().join("_");
       const existingData = await getCoupleData(key);
@@ -1537,7 +1550,7 @@ function errorHandler(err, req, res, next) {
     });
   }
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430";
+  const message = statusCode >= 500 ? "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430" : err.message || "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430";
   const fallbackCode = statusCode === 400 ? "BAD_REQUEST" : statusCode === 401 ? "UNAUTHORIZED" : statusCode === 403 ? "FORBIDDEN" : statusCode === 404 ? "NOT_FOUND" : statusCode === 409 ? "CONFLICT" : statusCode === 422 ? "UNPROCESSABLE_ENTITY" : "INTERNAL_ERROR";
   return res.status(statusCode).json({
     error: message,

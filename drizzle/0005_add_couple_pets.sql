@@ -1,4 +1,7 @@
-CREATE TABLE IF NOT EXISTS couple_pets (
+-- Drop the old couple_pets table and recreate with proper schema
+DROP TABLE IF EXISTS couple_pets CASCADE;
+
+CREATE TABLE couple_pets (
   id text PRIMARY KEY,
   name text NOT NULL DEFAULT 'Мурчик',
   hunger integer NOT NULL DEFAULT 80,

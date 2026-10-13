@@ -179,7 +179,9 @@ export async function createPet(
     throw { status: 503, message: "База данных недоступна" };
   }
 
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowISO = now.toISOString();
+  
   const petId = crypto.randomUUID();
   
   const newPet: CouplePetState = {
@@ -199,18 +201,20 @@ export async function createPet(
     level: 1,
     experience: 50,
     weightKg: "1.20",
-    lastFedAt: now,
-    lastPlayedAt: now,
-    lastRestedAt: now,
-    lastWashedAt: now,
-    lastInteractionAt: now,
+    lastFedAt: nowISO,
+    lastPlayedAt: nowISO,
+    lastRestedAt: nowISO,
+    lastWashedAt: nowISO,
+    lastInteractionAt: nowISO,
     lastActionBy: coupleInfo.userId,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: nowISO,
+    updatedAt: nowISO,
   };
 
   try {
+    console.log('Inserting pet:', JSON.stringify(newPet, null, 2));
     await db.insert(couplePets).values(newPet as any);
+    console.log('Pet inserted successfully');
     
     await awardCoupleXP(coupleInfo.coupleId, 50, "pet_birth");
     await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name, species });
@@ -225,6 +229,7 @@ export async function createPet(
     };
   } catch (e) {
     logger.error("createPet error", e);
+    console.error("createPet error:", e);
     throw e;
   }
 }

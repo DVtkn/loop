@@ -9,7 +9,7 @@ import {
   PetSpecies
 } from "../types.ts";
 
-const API_BASE = "";
+const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 function getErrorMessage(err: any): string {
   return err.error || err.message || "Неизвестная ошибка";

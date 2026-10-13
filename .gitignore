@@ -17,3 +17,8 @@ data/db_store.json
 
 # пример env не игнорим
 !.env.example
+
+# локальное состояние агентов и логи
+.opencode/
+.playwright-mcp/
+*.log

@@ -269,14 +269,14 @@ export const testDrafts = pgTable('test_drafts', {
 
 export const couplePets = pgTable('couple_pets', {
   id: uuid('id').defaultRandom().primaryKey(),
-  coupleId: uuid('couple_id').references(() => couples.id, { onDelete: 'cascade' }).notNull().unique(),
+  coupleId: text('couple_id').references(() => couples.id, { onDelete: 'cascade' }).notNull().unique(),
   pairKey: varchar('pair_key', { length: 120 }).notNull().unique(),
   
   // Identification and birth status
   species: varchar('species', { length: 20 }).notNull().default('dog'), // 'dog' | 'cat'
   name: varchar('name', { length: 50 }).notNull().default('Бусинка'),
   nameStatus: varchar('name_status', { length: 20 }).notNull().default('confirmed'), // 'pending_partner' | 'confirmed'
-  nameProposedBy: uuid('name_proposed_by').references(() => users.id),
+  nameProposedBy: text('name_proposed_by').references(() => users.id),
   isOnboardingCompleted: boolean('is_onboarding_completed').notNull().default(false),
   
   // Life stats (0-100)
@@ -297,7 +297,7 @@ export const couplePets = pgTable('couple_pets', {
   lastRestedAt: timestamp('last_rested_at', { withTimezone: true }).defaultNow().notNull(),
   lastWashedAt: timestamp('last_washed_at', { withTimezone: true }).defaultNow().notNull(),
   lastInteractionAt: timestamp('last_interaction_at', { withTimezone: true }).defaultNow().notNull(),
-  lastActionBy: uuid('last_action_by').references(() => users.id),
+  lastActionBy: text('last_action_by').references(() => users.id),
   
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()

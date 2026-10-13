@@ -43,6 +43,13 @@
       "when": 1789680000000,
       "tag": "0005_add_couple_pets",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789780000000,
+      "tag": "0006_update_couple_pets",
+      "breakpoints": true
     }
   ]
 }

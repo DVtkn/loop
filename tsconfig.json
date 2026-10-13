@@ -22,7 +22,8 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "esModuleInterop": true
   },
   "exclude": ["node_modules", "dist", "e2e"]
 }

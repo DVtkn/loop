@@ -299,7 +299,7 @@ var init_schema = __esm({
     }));
     couplePets = pgTable("couple_pets", {
       id: uuid("id").defaultRandom().primaryKey(),
-      coupleId: uuid("couple_id").references(() => couples.id, { onDelete: "cascade" }).notNull().unique(),
+      coupleId: text("couple_id").references(() => couples.id, { onDelete: "cascade" }).notNull().unique(),
       pairKey: varchar("pair_key", { length: 120 }).notNull().unique(),
       // Identification and birth status
       species: varchar("species", { length: 20 }).notNull().default("dog"),
@@ -307,7 +307,7 @@ var init_schema = __esm({
       name: varchar("name", { length: 50 }).notNull().default("\u0411\u0443\u0441\u0438\u043D\u043A\u0430"),
       nameStatus: varchar("name_status", { length: 20 }).notNull().default("confirmed"),
       // 'pending_partner' | 'confirmed'
-      nameProposedBy: uuid("name_proposed_by").references(() => users.id),
+      nameProposedBy: text("name_proposed_by").references(() => users.id),
       isOnboardingCompleted: boolean("is_onboarding_completed").notNull().default(false),
       // Life stats (0-100)
       hunger: integer("hunger").notNull().default(85),
@@ -331,7 +331,7 @@ var init_schema = __esm({
       lastRestedAt: timestamp("last_rested_at", { withTimezone: true }).defaultNow().notNull(),
       lastWashedAt: timestamp("last_washed_at", { withTimezone: true }).defaultNow().notNull(),
       lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }).defaultNow().notNull(),
-      lastActionBy: uuid("last_action_by").references(() => users.id),
+      lastActionBy: text("last_action_by").references(() => users.id),
       createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
       updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
     }, (t) => ({
@@ -3303,7 +3303,8 @@ async function createPet(userLogin, species, name) {
   if (!isSqlConfigured() || !db) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
   }
-  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const now = /* @__PURE__ */ new Date();
+  const nowISO = now.toISOString();
   const petId = crypto.randomUUID();
   const newPet = {
     id: petId,
@@ -3322,17 +3323,19 @@ async function createPet(userLogin, species, name) {
     level: 1,
     experience: 50,
     weightKg: "1.20",
-    lastFedAt: now,
-    lastPlayedAt: now,
-    lastRestedAt: now,
-    lastWashedAt: now,
-    lastInteractionAt: now,
+    lastFedAt: nowISO,
+    lastPlayedAt: nowISO,
+    lastRestedAt: nowISO,
+    lastWashedAt: nowISO,
+    lastInteractionAt: nowISO,
     lastActionBy: coupleInfo.userId,
-    createdAt: now,
-    updatedAt: now
+    createdAt: nowISO,
+    updatedAt: nowISO
   };
   try {
+    console.log("Inserting pet:", JSON.stringify(newPet, null, 2));
     await db.insert(couplePets).values(newPet);
+    console.log("Pet inserted successfully");
     await awardCoupleXP(coupleInfo.coupleId, 50, "pet_birth");
     await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name, species });
     await notifyPartner(coupleInfo, userLogin, "pet_birth", { petName: name, species });
@@ -3345,6 +3348,7 @@ async function createPet(userLogin, species, name) {
     };
   } catch (e) {
     logger.error("createPet error", e);
+    console.error("createPet error:", e);
     throw e;
   }
 }

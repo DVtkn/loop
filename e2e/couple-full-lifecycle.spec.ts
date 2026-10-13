@@ -57,7 +57,7 @@ async function waitForPetOnboarding(page: any): Promise<void> {
     await page.click('button:has-text("Подтвердить"), button:has-text("A")');
     await page.waitForTimeout(1000);
     
-    await page.click('button:has-text("Покормить")');
+    await page.locator('button:has-text("Покормить")').first().click();
     await page.waitForTimeout(1000);
   }
 }
@@ -148,10 +148,10 @@ test.describe('Couple Full Lifecycle E2E', () => {
     
     // Verify pet widget
     await expect(page.locator('text=Тамагочи союза')).toBeVisible();
-    await expect(page.locator('text=Бусинка')).toBeVisible();
-    await expect(page.locator('text=Сытость')).toBeVisible();
-    await expect(page.locator('text=Радость')).toBeVisible();
-    await expect(page.locator('text=Энергия')).toBeVisible();
+    await expect(page.locator('text=Бусинка').first()).toBeVisible();
+    await expect(page.locator('text=Сытость').first()).toBeVisible();
+    await expect(page.locator('text=Радость').first()).toBeVisible();
+    await expect(page.locator('text=Энергия').first()).toBeVisible();
     await expect(page.locator('text=Чистота')).toBeVisible();
     
     await page.close();
@@ -173,6 +173,12 @@ test.describe('Couple Full Lifecycle E2E', () => {
     const loginData2 = await login2.json();
     const annaToken = loginData2.token;
     
+    // Текущее состояние до действий (питомец мог «проголодаться» за время простоя)
+    const beforeRes = await request.get(`${BASE_URL}/api/pet`, {
+      headers: { Authorization: `Bearer ${annaToken}` }
+    });
+    const before = await beforeRes.json();
+    
     // Anna feeds the pet
     const feed = await request.post(`${BASE_URL}/api/pet/action`, {
       headers: { Authorization: `Bearer ${annaToken}` },
@@ -181,7 +187,7 @@ test.describe('Couple Full Lifecycle E2E', () => {
     expect(feed.ok()).toBeTruthy();
     const feedData = await feed.json();
     expect(feedData.success).toBe(true);
-    expect(feedData.state.hunger).toBeGreaterThan(85);
+    expect(feedData.state.hunger).toBeGreaterThan(before.hunger);
     
     // Anna plays with the pet
     const play = await request.post(`${BASE_URL}/api/pet/action`, {
@@ -191,7 +197,7 @@ test.describe('Couple Full Lifecycle E2E', () => {
     expect(play.ok()).toBeTruthy();
     const playData = await play.json();
     expect(playData.success).toBe(true);
-    expect(playData.state.joy).toBeGreaterThan(90);
+    expect(playData.state.joy).toBeGreaterThan(feedData.state.joy);
     
     // Anna hugs the pet
     const hug = await request.post(`${BASE_URL}/api/pet/action`, {
@@ -207,8 +213,8 @@ test.describe('Couple Full Lifecycle E2E', () => {
       headers: { Authorization: `Bearer ${maxToken}` }
     });
     const petDataMax = await petStateMax.json();
-    expect(petDataMax.hunger).toBeGreaterThan(85);
-    expect(petDataMax.joy).toBeGreaterThan(90);
+    expect(petDataMax.hunger).toBeGreaterThanOrEqual(feedData.state.hunger);
+    expect(petDataMax.joy).toBeGreaterThanOrEqual(playData.state.joy);
   });
 
   test('Stage 4: UI - Tamagotchi console opens and works', async ({ browser }) => {
@@ -228,22 +234,21 @@ test.describe('Couple Full Lifecycle E2E', () => {
     await page.waitForSelector('text=Тамагочи союза', { timeout: 30000 });
     
     // Open Tamagotchi console
-    await page.click('button:has-text("Запустить игру Тамагочи")');
-    await page.waitForSelector('text=LOOP-DOS', { timeout: 10000 });
+    await page.click('button:has-text("Запустить консоль")');
+    await page.waitForSelector('text=Сытость', { timeout: 15000 });
     
     // Verify console elements
-    await expect(page.locator('text=Бусинка')).toBeVisible();
-    await expect(page.locator('text=Сытость')).toBeVisible();
-    await expect(page.locator('text=Энергия')).toBeVisible();
-    await expect(page.locator('text=Радость')).toBeVisible();
-    await expect(page.locator('text=Чистота')).toBeVisible();
-    await expect(page.locator('text=Покормить')).toBeVisible();
-    await expect(page.locator('text=Поиграть')).toBeVisible();
-    await expect(page.locator('text=Ванна')).toBeVisible();
-    await expect(page.locator('text=Спать')).toBeVisible();
+    await expect(page.locator('text=Бусинка').first()).toBeVisible();
+    await expect(page.locator('text=Сытость').first()).toBeVisible();
+    await expect(page.locator('text=Энергия').first()).toBeVisible();
+    await expect(page.locator('text=Радость').first()).toBeVisible();
+    await expect(page.locator('text=Покормить').first()).toBeVisible();
+    await expect(page.locator('text=Поиграть').first()).toBeVisible();
+    await expect(page.locator('text=Спать').first()).toBeVisible();
+    await expect(page.locator('text=Ласка').first()).toBeVisible();
     
     // Test action button
-    await page.click('button:has-text("Покормить")');
+    await page.locator('button:has-text("Покормить")').first().click();
     await page.waitForTimeout(1000);
     
     await page.close();

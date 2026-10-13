@@ -326,14 +326,14 @@ var init_schema = __esm({
       // Total pet XP
       weightKg: numeric("weight_kg", { precision: 4, scale: 2 }).notNull().default("1.20"),
       // Timestamps for stat decay calculation
-      lastFedAt: timestamp("last_fed_at", { withTimezone: true }).defaultNow().notNull(),
-      lastPlayedAt: timestamp("last_played_at", { withTimezone: true }).defaultNow().notNull(),
-      lastRestedAt: timestamp("last_rested_at", { withTimezone: true }).defaultNow().notNull(),
-      lastWashedAt: timestamp("last_washed_at", { withTimezone: true }).defaultNow().notNull(),
-      lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true }).defaultNow().notNull(),
+      lastFedAt: timestamp("last_fed_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+      lastPlayedAt: timestamp("last_played_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+      lastRestedAt: timestamp("last_rested_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+      lastWashedAt: timestamp("last_washed_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+      lastInteractionAt: timestamp("last_interaction_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
       lastActionBy: text("last_action_by").references(() => users.id),
-      createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-      updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+      createdAt: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+      updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull()
     }, (t) => ({
       createdIdx: index("couple_pets_created_idx").on(t.createdAt),
       coupleIdIdx: index("couple_pets_couple_id_idx").on(t.coupleId),
@@ -3294,8 +3294,8 @@ async function getPetState(userLogin) {
         energy: decayed.energy,
         cleanliness: decayed.cleanliness,
         mood: decayed.mood,
-        lastInteractionAt: new Date(decayed.lastInteractionAt),
-        updatedAt: new Date(decayed.updatedAt)
+        lastInteractionAt: new Date(decayed.lastInteractionAt).toISOString(),
+        updatedAt: new Date(decayed.updatedAt).toISOString()
       }).where(eq8(couplePets.coupleId, coupleInfo.coupleId));
     }
     return decayed;
@@ -3311,6 +3311,10 @@ async function createPet(userLogin, species, name) {
   }
   if (!isSqlConfigured() || !db) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  }
+  const existingPet = await db.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
+  if (existingPet.length > 0) {
+    throw { status: 400, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u043F\u0430\u0440\u044B \u0443\u0436\u0435 \u0441\u043E\u0437\u0434\u0430\u043D" };
   }
   const now = /* @__PURE__ */ new Date();
   const nowISO = now.toISOString();
@@ -3465,7 +3469,7 @@ async function proposePetName(userLogin, name) {
       name: trimmedName,
       nameStatus: "pending_partner",
       nameProposedBy: coupleInfo.userId,
-      updatedAt: now
+      updatedAt: now.toISOString()
     }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
     const state = result.length ? result[0] : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
@@ -3487,7 +3491,7 @@ async function confirmPetName(userLogin, confirm) {
   try {
     const result = await db.update(couplePets).set({
       nameStatus: confirm ? "confirmed" : "pending_partner",
-      updatedAt: now
+      updatedAt: now.toISOString()
     }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
     const state = result.length ? result[0] : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
@@ -3505,7 +3509,7 @@ async function switchPetSpecies(userLogin, species) {
   try {
     const result = await db.update(couplePets).set({
       species,
-      updatedAt: now
+      updatedAt: now.toISOString()
     }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
     const state = result.length ? result[0] : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };

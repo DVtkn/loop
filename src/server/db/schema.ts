@@ -292,15 +292,15 @@ export const couplePets = pgTable('couple_pets', {
   weightKg: numeric('weight_kg', { precision: 4, scale: 2 }).notNull().default('1.20'),
   
   // Timestamps for stat decay calculation
-  lastFedAt: timestamp('last_fed_at', { withTimezone: true }).defaultNow().notNull(),
-  lastPlayedAt: timestamp('last_played_at', { withTimezone: true }).defaultNow().notNull(),
-  lastRestedAt: timestamp('last_rested_at', { withTimezone: true }).defaultNow().notNull(),
-  lastWashedAt: timestamp('last_washed_at', { withTimezone: true }).defaultNow().notNull(),
-  lastInteractionAt: timestamp('last_interaction_at', { withTimezone: true }).defaultNow().notNull(),
+  lastFedAt: timestamp('last_fed_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  lastPlayedAt: timestamp('last_played_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  lastRestedAt: timestamp('last_rested_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  lastWashedAt: timestamp('last_washed_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  lastInteractionAt: timestamp('last_interaction_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   lastActionBy: text('last_action_by').references(() => users.id),
   
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull()
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow().notNull()
 }, (t) => ({
   createdIdx: index('couple_pets_created_idx').on(t.createdAt),
   coupleIdIdx: index('couple_pets_couple_id_idx').on(t.coupleId),

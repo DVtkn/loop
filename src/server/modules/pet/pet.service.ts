@@ -152,8 +152,8 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
           energy: decayed.energy,
           cleanliness: decayed.cleanliness,
           mood: decayed.mood,
-          lastInteractionAt: new Date(decayed.lastInteractionAt),
-          updatedAt: new Date(decayed.updatedAt)
+          lastInteractionAt: new Date(decayed.lastInteractionAt).toISOString(),
+          updatedAt: new Date(decayed.updatedAt).toISOString()
         })
         .where(eq(couplePets.coupleId, coupleInfo.coupleId));
     }
@@ -177,6 +177,15 @@ export async function createPet(
 
   if (!isSqlConfigured() || !db) {
     throw { status: 503, message: "База данных недоступна" };
+  }
+
+  const existingPet = await db
+    .select()
+    .from(couplePets)
+    .where(eq(couplePets.pairKey, coupleInfo.pairKey))
+    .limit(1);
+  if (existingPet.length > 0) {
+    throw { status: 400, message: "Питомец для этой пары уже создан" };
   }
 
   const now = new Date();
@@ -361,7 +370,7 @@ const now = new Date();
           name: trimmedName,
           nameStatus: "pending_partner",
           nameProposedBy: coupleInfo.userId,
-          updatedAt: now
+          updatedAt: now.toISOString()
         })
         .where(eq(couplePets.coupleId, coupleInfo.coupleId))
         .returning();
@@ -393,7 +402,7 @@ export async function confirmPetName(userLogin: string, confirm: boolean): Promi
     const result = await db.update(couplePets)
       .set({ 
         nameStatus: confirm ? "confirmed" : "pending_partner",
-        updatedAt: now
+        updatedAt: now.toISOString()
       })
       .where(eq(couplePets.coupleId, coupleInfo.coupleId))
       .returning();
@@ -420,7 +429,7 @@ export async function switchPetSpecies(userLogin: string, species: "dog" | "cat"
     const result = await db.update(couplePets)
       .set({ 
         species: species as PetSpecies,
-        updatedAt: now
+        updatedAt: now.toISOString()
       })
       .where(eq(couplePets.coupleId, coupleInfo.coupleId))
       .returning();

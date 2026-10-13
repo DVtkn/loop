@@ -16,9 +16,9 @@ import { logger } from "../../shared/utils/logger.ts";
 export const realtimeRouter = Router();
 
 // Heartbeat endpoint for Vercel Serverless (client pings every 25-30s)
-realtimeRouter.post("/heartbeat", async (req: AuthenticatedRequest, res) => {
+realtimeRouter.post("/heartbeat", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const login = req.user?.login || req.body?.login;
+    const login = req.user?.login;
     if (!login) {
       return res.status(400).json({ error: "Не указан логин" });
     }
@@ -31,9 +31,9 @@ realtimeRouter.post("/heartbeat", async (req: AuthenticatedRequest, res) => {
 });
 
 // Smart Polling endpoint for Vercel Serverless (client polls every 2-3s in active tab)
-realtimeRouter.get("/events-poll", async (req: AuthenticatedRequest, res) => {
+realtimeRouter.get("/events-poll", requireAuth, async (req: AuthenticatedRequest, res) => {
   try {
-    const login = (req.user?.login || req.query?.login || "") as string;
+    const login = (req.user?.login || "") as string;
     if (!login) {
       return res.status(400).json({ error: "Не указан логин" });
     }
@@ -64,7 +64,11 @@ realtimeRouter.post("/touch", requireAuth, validateBody(touchEventSchema), async
 // Endpoint for fetching recent touches for a user (polling fallback)
 realtimeRouter.get("/touches/:login", requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const touches = getUserTouches(req.params.login);
+    const paramLogin = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+    if (!req.user?.login || paramLogin !== req.user.login) {
+      return res.status(403).json({ error: "Нет доступа" });
+    }
+    const touches = getUserTouches(paramLogin);
     return res.json({ touches });
   } catch (err) {
     logger.error("Ошибка загрузки касаний", err);
@@ -75,6 +79,10 @@ realtimeRouter.get("/touches/:login", requireAuth, async (req: AuthenticatedRequ
 // Server-Sent Events (SSE) stream for instant real-time delivery (<50ms)
 realtimeRouter.get("/events-stream/:login", requireAuth, (req: AuthenticatedRequest, res) => {
   const login = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+  if (!req.user?.login || login !== req.user.login) {
+    res.status(403).json({ error: "Нет доступа" });
+    return;
+  }
 
   res.writeHead(200, {
     "Content-Type": "text/event-stream",

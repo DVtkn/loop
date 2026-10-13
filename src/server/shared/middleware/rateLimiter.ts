@@ -1,9 +1,10 @@
 import rateLimit from "express-rate-limit";
 import { Request, Response } from "express";
 import { logger } from "../utils/logger.ts";
+import { isTestSuiteAllowed } from "./testSuiteGate.ts";
 
 const isTestEnvironment = (req: Request) =>
-  process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true";
+  process.env.NODE_ENV === "test" || isTestSuiteAllowed(req.headers["x-test-suite"]);
 
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour

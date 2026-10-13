@@ -941,7 +941,21 @@ import { eq as eq4, or as or3, and as and2 } from "drizzle-orm";
 import crypto5 from "crypto";
 async function acceptPair(cleanMe, cleanPartner) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  if (isProd5()) {
+  if (isSqlConfigured() && db) {
+    const pending = await db.select().from(pairRequests).where(and2(eq4(pairRequests.fromLogin, cleanPartner), eq4(pairRequests.toLogin, cleanMe)));
+    if (pending.length === 0) {
+      throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
+    }
+  } else {
+    const storeForCheck = readEmergencyFile();
+    const hasRequest = (storeForCheck.pairRequests || []).some(
+      (r) => r.fromLogin === cleanPartner && r.toLogin === cleanMe
+    );
+    if (!hasRequest) {
+      throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
+    }
+  }
+  if (isProd4()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
     }
@@ -978,7 +992,7 @@ async function acceptPair(cleanMe, cleanPartner) {
           coupleProfile: {
             id: "c-" + Date.now(),
             status: "ACTIVE",
-            linkCode: `LOOP-${Math.floor(1e3 + Math.random() * 9e3)}`,
+            linkCode: `LOOP-${crypto5.randomInt(1e3, 1e4)}`,
             startDate: now.split("T")[0],
             city: updatedMe2.city || updatedPartner2.city || "\u041C\u043E\u0441\u043A\u0432\u0430",
             partner1: {
@@ -1072,7 +1086,7 @@ async function acceptPair(cleanMe, cleanPartner) {
         coupleProfile: {
           id: "c-" + Date.now(),
           status: "ACTIVE",
-          linkCode: `LOOP-${Math.floor(1e3 + Math.random() * 9e3)}`,
+          linkCode: `LOOP-${crypto5.randomInt(1e3, 1e4)}`,
           startDate: now.split("T")[0],
           city: updatedMe.city || updatedPartner.city || "\u041C\u043E\u0441\u043A\u0432\u0430",
           partner1: {
@@ -1113,7 +1127,7 @@ async function disconnectPair(cleanLogin) {
     return { error: "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D", status: 404 };
   }
   const partnerLogin = user.partnerLogin ? String(user.partnerLogin).toLowerCase() : null;
-  if (isProd5()) {
+  if (isProd4()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
     }
@@ -1203,7 +1217,7 @@ async function createPairRequest(fromUser, toUser) {
     status: "PENDING",
     createdAt: now
   };
-  if (isProd5()) {
+  if (isProd4()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
     }
@@ -1250,7 +1264,7 @@ async function createPairRequest(fromUser, toUser) {
   writeEmergencyFile(store);
   return reqObj;
 }
-var isProd5;
+var isProd4;
 var init_pairService = __esm({
   "src/server/services/pairService.ts"() {
     "use strict";
@@ -1259,9 +1273,16 @@ var init_pairService = __esm({
     init_logger();
     init_storageService();
     init_errors();
-    isProd5 = () => process.env.NODE_ENV === "production";
+    isProd4 = () => process.env.NODE_ENV === "production";
   }
 });
+
+// src/server/shared/middleware/testSuiteGate.ts
+function isTestSuiteAllowed(value) {
+  const secret = (process.env.TEST_SUITE_SECRET || "").trim();
+  if (secret) return value === secret;
+  return process.env.NODE_ENV !== "production" && value === "true";
+}
 
 // src/server/app.ts
 init_client();
@@ -1289,12 +1310,12 @@ function parseAllowedOrigins() {
 function loadConfig() {
   const port = 3e3;
   const nodeEnv = process.env.NODE_ENV || "development";
-  const isProd8 = nodeEnv === "production";
+  const isProd7 = nodeEnv === "production";
   let jwtSecret = process.env.JWT_SECRET;
-  if (isProd8) {
+  if (isProd7) {
     if (!jwtSecret || jwtSecret === "loop_secret_fallback_12345" || jwtSecret.trim() === "") {
-      logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: \u041F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0430\u044F JWT_SECRET \u043E\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442 \u0438\u043B\u0438 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u0442 \u043F\u043B\u0435\u0439\u0441\u0445\u043E\u043B\u0434\u0435\u0440. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u044B\u0439 \u043A\u043B\u044E\u0447. \u0414\u043B\u044F \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 JWT_SECRET \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 Vercel.");
-      jwtSecret = process.env.JWT_SECRET || "loop_prod_secure_secret_fallback_key_2025";
+      logger.error("\u041A\u0420\u0418\u0422\u0418\u0427\u041D\u041E: JWT_SECRET \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043F\u0440\u043E\u0434\u0430\u043A\u0448\u0435\u043D\u0435 \u2014 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E (fail-fast), \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u044B\u0432\u0430\u0442\u044C \u0442\u043E\u043A\u0435\u043D\u044B \u043F\u0443\u0431\u043B\u0438\u0447\u043D\u044B\u043C \u043A\u043B\u044E\u0447\u043E\u043C.");
+      throw new Error("JWT_SECRET is required in production");
     }
     const hasDb = Boolean(
       process.env.DATABASE_URL?.trim() || process.env.NEON_DATABASE_URL?.trim() || process.env.MY_DATABASE_URL?.trim() || process.env.SQL_HOST?.trim()
@@ -1531,7 +1552,7 @@ import { Router } from "express";
 
 // src/server/shared/middleware/rateLimiter.ts
 import rateLimit from "express-rate-limit";
-var isTestEnvironment = (req) => process.env.NODE_ENV === "test" || req.headers["x-test-suite"] === "true";
+var isTestEnvironment = (req) => process.env.NODE_ENV === "test" || isTestSuiteAllowed(req.headers["x-test-suite"]);
 var registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1e3,
   // 1 hour
@@ -1993,48 +2014,12 @@ function toSafeUser(user) {
 // src/server/modules/auth/auth.service.ts
 init_errors();
 var DUMMY_HASH = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
-var isProd4 = () => process.env.NODE_ENV === "production";
 async function verifyPassword(password, hash) {
   try {
     return await bcrypt.compare(password, hash);
   } catch {
     return false;
   }
-}
-async function getAllUsersSafe() {
-  const userMap = {};
-  if (isProd4()) {
-    if (!isSqlConfigured() || !db) {
-      throw new DatabaseUnavailableError();
-    }
-    try {
-      const allSqlUsers = await db.select().from(users);
-      for (const u of allSqlUsers) {
-        userMap[u.login.toLowerCase()] = toSafeUser(u);
-      }
-      return Object.values(userMap);
-    } catch (err) {
-      logger.error("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL \u0432 production (fail-fast)", err);
-      throw new DatabaseUnavailableError();
-    }
-  }
-  if (isSqlConfigured() && db) {
-    try {
-      const allSqlUsers = await db.select().from(users);
-      for (const u of allSqlUsers) {
-        userMap[u.login.toLowerCase()] = toSafeUser(u);
-      }
-    } catch (err) {
-      logger.warn("\u0421\u0431\u043E\u0439 \u0447\u0442\u0435\u043D\u0438\u044F \u0441\u043F\u0438\u0441\u043A\u0430 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u0435\u0439 \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", void 0, err);
-    }
-  }
-  const store = readEmergencyFile();
-  for (const [k, u] of Object.entries(store.users || {})) {
-    if (u && typeof u === "object" && !userMap[k.toLowerCase()]) {
-      userMap[k.toLowerCase()] = toSafeUser(u);
-    }
-  }
-  return Object.values(userMap);
 }
 async function registerUser(params) {
   const cleanLogin = String(params.login).trim().toLowerCase().replace(/^@/, "");
@@ -2176,16 +2161,11 @@ async function syncAccounts(accounts) {
 
 // src/server/modules/auth/auth.routes.ts
 var authRouter = Router();
-authRouter.get("/users", async (req, res, next) => {
-  try {
-    const users3 = await getAllUsersSafe();
-    return res.json({ users: users3 });
-  } catch (err) {
-    next(err);
-  }
-});
 authRouter.post("/sync", async (req, res, next) => {
   try {
+    if (!isTestSuiteAllowed(req.headers["x-admin-secret"])) {
+      return res.status(404).json({ error: "Not found" });
+    }
     const { accounts } = req.body;
     if (!Array.isArray(accounts)) {
       return res.status(400).json({ error: "accounts must be an array" });
@@ -2251,6 +2231,10 @@ authRouter.post("/change-password", requireAuth, validateBody(changePasswordSche
 authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req, res, next) => {
   try {
     const { login, newPassword } = req.body;
+    const secretGate = isTestSuiteAllowed(req.body?.secretKey);
+    if (!secretGate) {
+      return res.status(403).json({ error: "\u0421\u0431\u0440\u043E\u0441 \u043F\u0430\u0440\u043E\u043B\u044F \u043F\u043E \u043B\u043E\u0433\u0438\u043D\u0443 \u043E\u0442\u043A\u043B\u044E\u0447\u0451\u043D \u0432 \u0446\u0435\u043B\u044F\u0445 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u0438. \u041E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u0432 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u043A\u0443 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F." });
+    }
     await resetUserPassword(login, newPassword);
     return res.json({ status: "ok", message: "\u041F\u0430\u0440\u043E\u043B\u044C \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0441\u0431\u0440\u043E\u0448\u0435\u043D" });
   } catch (err) {
@@ -2262,6 +2246,7 @@ authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req
 import { Router as Router2 } from "express";
 
 // src/server/shared/middleware/requirePairOwnership.ts
+init_storageService();
 function getPairKey(login, partnerLogin) {
   if (!partnerLogin) return login.toLowerCase().trim().replace(/^@/, "");
   return [
@@ -2280,7 +2265,21 @@ function isUserInCouple(coupleId, userLogin) {
   }
   return false;
 }
-function requirePairOwnership(req, res, next) {
+async function getAllowedCoupleKeys(userLogin) {
+  const keys = /* @__PURE__ */ new Set([userLogin, `ai_${userLogin}`]);
+  try {
+    const user = await findUserByLogin(userLogin);
+    const rawPartner = user?.partnerLogin ? String(user.partnerLogin).toLowerCase().trim().replace(/^@/, "") : null;
+    if (rawPartner) {
+      keys.add(`${userLogin}_${rawPartner}`);
+      keys.add(`${rawPartner}_${userLogin}`);
+      keys.add(getPairKey(userLogin, rawPartner));
+    }
+  } catch {
+  }
+  return keys;
+}
+async function requirePairOwnership(req, res, next) {
   const userLogin = req.user?.login;
   if (!userLogin) {
     return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
@@ -2348,6 +2347,15 @@ function requirePairOwnership(req, res, next) {
     coupleId = getPairKey(userLogin, paramLogin);
   }
   if (coupleId) {
+    const allowed = await getAllowedCoupleKeys(userLogin);
+    if (!allowed.has(coupleId)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: \u043A\u043B\u044E\u0447 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 \u0441\u043E\u044E\u0437\u043E\u043C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F)", {
+        userLogin,
+        targetCoupleId: coupleId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
     req.couple = { id: coupleId };
   }
   next();
@@ -2378,7 +2386,7 @@ import { eq as eq5, and as and3 } from "drizzle-orm";
 init_storageService();
 init_pairService();
 init_errors();
-var isProd6 = () => process.env.NODE_ENV === "production";
+var isProd5 = () => process.env.NODE_ENV === "production";
 async function requestPairConnection(fromLogin, toLogin) {
   if (fromLogin === toLogin) {
     throw { status: 400, message: "\u041D\u0435\u043B\u044C\u0437\u044F \u0441\u0432\u044F\u0437\u0430\u0442\u044C \u043F\u0430\u0440\u0443 \u0441 \u0441\u0430\u043C\u0438\u043C \u0441\u043E\u0431\u043E\u0439" };
@@ -2396,7 +2404,7 @@ async function requestPairConnection(fromLogin, toLogin) {
   return reqObj;
 }
 async function rejectPairRequest(fromLogin, toLogin) {
-  if (isProd6()) {
+  if (isProd5()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
     }
@@ -2436,7 +2444,7 @@ async function getPairStatus(login) {
   }
   let incoming = [];
   let outgoing = [];
-  if (isProd6()) {
+  if (isProd5()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
     }
@@ -2570,6 +2578,7 @@ var joinInviteSchema = z3.object({
 
 // src/server/modules/couple-data/couple.service.ts
 init_storageService();
+import crypto7 from "crypto";
 
 // src/server/services/analytics.ts
 init_client();
@@ -3001,7 +3010,7 @@ async function fetchCoupleDataByLogins(login1, login2) {
 async function generateInviteCode(requesterLogin) {
   const cleanLogin = String(requesterLogin || "").toLowerCase().trim().replace(/^@/, "");
   if (!cleanLogin) throw { status: 401, message: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" };
-  const code = `LOOP-${Math.floor(1e5 + Math.random() * 9e5)}`;
+  const code = `LOOP-${crypto7.randomInt(1e5, 1e6)}`;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1e3).toISOString();
   if (isSqlConfigured() && db) {
     try {
@@ -4292,7 +4301,7 @@ import { desc as desc2, eq as eq10 } from "drizzle-orm";
 init_client();
 init_schema();
 init_logger();
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 async function detectRiskZones(metrics) {
   const risks = [];
   if (metrics.length < 14) return risks;
@@ -4370,7 +4379,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
   }
   try {
     await db.insert(aiInsights).values({
-      id: crypto7.randomUUID(),
+      id: crypto8.randomUUID(),
       coupleId,
       type,
       content: insightContent,
@@ -4388,7 +4397,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
 // src/server/modules/tests/tests.service.ts
 init_client();
 init_schema();
-import crypto8 from "crypto";
+import crypto9 from "crypto";
 import { eq as eq9, and as and6 } from "drizzle-orm";
 
 // src/shared/tests.registry.ts
@@ -4889,8 +4898,8 @@ async function resolveTestCoupleId(userLogin) {
   return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
 }
 async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
-  const isProd8 = process.env.NODE_ENV === "production";
-  if (isProd8 && (!isSqlConfigured() || !db)) {
+  const isProd7 = process.env.NODE_ENV === "production";
+  if (isProd7 && (!isSqlConfigured() || !db)) {
     throw new DatabaseUnavailableError();
   }
   const testDef = TESTS_REGISTRY[testId];
@@ -4915,7 +4924,7 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
         )
       ).limit(1);
       if (!session.length) {
-        const newSessionId = crypto8.randomUUID();
+        const newSessionId = crypto9.randomUUID();
         const [created] = await tx.insert(testSessions).values({
           id: newSessionId,
           testId,
@@ -4927,7 +4936,7 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       }
       const sessionId = session[0].id;
       const answerRecords = answers.map((a) => ({
-        id: crypto8.randomUUID(),
+        id: crypto9.randomUUID(),
         sessionId,
         userId,
         questionId: a.questionId,
@@ -4959,8 +4968,8 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
   return { status: "recorded_locally", testId, message: "Dev mode: no DB" };
 }
 async function submitTestAnswer(params) {
-  const isProd8 = process.env.NODE_ENV === "production";
-  if (isProd8 && (!isSqlConfigured() || !db)) {
+  const isProd7 = process.env.NODE_ENV === "production";
+  if (isProd7 && (!isSqlConfigured() || !db)) {
     throw new DatabaseUnavailableError();
   }
   const testDef = TESTS_REGISTRY[params.testId];
@@ -4981,7 +4990,7 @@ async function submitTestAnswer(params) {
           )
         ).limit(1);
         if (!session.length) {
-          const newSessionId = crypto8.randomUUID();
+          const newSessionId = crypto9.randomUUID();
           const [created] = await tx.insert(testSessions).values({
             id: newSessionId,
             testId: params.testId,
@@ -4994,7 +5003,7 @@ async function submitTestAnswer(params) {
         sessionId = session[0].id;
       }
       await tx.insert(testAnswers).values({
-        id: crypto8.randomUUID(),
+        id: crypto9.randomUUID(),
         sessionId,
         userId,
         questionId: params.questionId,
@@ -5219,7 +5228,7 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
   };
   await tx.insert(coupleReports).values({
     ...reportValues,
-    id: crypto8.randomUUID(),
+    id: crypto9.randomUUID(),
     createdAt: /* @__PURE__ */ new Date()
   }).onConflictDoUpdate({
     target: [coupleReports.coupleId],
@@ -5389,8 +5398,8 @@ init_client();
 init_logger();
 init_storageService();
 init_errors();
-import crypto9 from "crypto";
-var isProd7 = () => process.env.NODE_ENV === "production";
+import crypto10 from "crypto";
+var isProd6 = () => process.env.NODE_ENV === "production";
 function detectMimeType(buffer) {
   if (!buffer || buffer.length < 12) return null;
   if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) {
@@ -5411,12 +5420,12 @@ var PhotoStorageService = class {
    * Сохранить фото в базу данных (BYTEA) и вернуть только метаданные
    */
   async savePhoto(input) {
-    const id = input.id || crypto9.randomUUID();
+    const id = input.id || crypto10.randomUUID();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const caption = input.caption?.trim() || null;
     const width = typeof input.width === "number" ? input.width : null;
     const height = typeof input.height === "number" ? input.height : null;
-    if (isProd7()) {
+    if (isProd6()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5513,7 +5522,7 @@ var PhotoStorageService = class {
   async listPhotos(coupleId, limit = 100, offset = 0) {
     const safeLimit = Math.min(Math.max(1, limit), 100);
     const safeOffset = Math.max(0, offset);
-    if (isProd7()) {
+    if (isProd6()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5593,7 +5602,7 @@ var PhotoStorageService = class {
    * Получить метаданные одного фото (без байтов)
    */
   async getPhotoById(id) {
-    if (isProd7()) {
+    if (isProd6()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5680,7 +5689,7 @@ var PhotoStorageService = class {
    * Получить бинарные данные (Buffer) фото и MIME-тип
    */
   async getPhotoBytes(id) {
-    if (isProd7()) {
+    if (isProd6()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5757,7 +5766,7 @@ var PhotoStorageService = class {
    * Удалить фото
    */
   async deletePhoto(id) {
-    if (isProd7()) {
+    if (isProd6()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5978,9 +5987,9 @@ var touchEventSchema = z6.object({
 // src/server/modules/realtime/realtime.routes.ts
 import webpush from "web-push";
 var realtimeRouter = Router8();
-realtimeRouter.post("/heartbeat", async (req, res) => {
+realtimeRouter.post("/heartbeat", requireAuth, async (req, res) => {
   try {
-    const login = req.user?.login || req.body?.login;
+    const login = req.user?.login;
     if (!login) {
       return res.status(400).json({ error: "\u041D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D \u043B\u043E\u0433\u0438\u043D" });
     }
@@ -5991,9 +6000,9 @@ realtimeRouter.post("/heartbeat", async (req, res) => {
     return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 heartbeat" });
   }
 });
-realtimeRouter.get("/events-poll", async (req, res) => {
+realtimeRouter.get("/events-poll", requireAuth, async (req, res) => {
   try {
-    const login = req.user?.login || req.query?.login || "";
+    const login = req.user?.login || "";
     if (!login) {
       return res.status(400).json({ error: "\u041D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D \u043B\u043E\u0433\u0438\u043D" });
     }
@@ -6020,7 +6029,11 @@ realtimeRouter.post("/touch", requireAuth, validateBody(touchEventSchema), async
 });
 realtimeRouter.get("/touches/:login", requireAuth, async (req, res, next) => {
   try {
-    const touches = getUserTouches(req.params.login);
+    const paramLogin = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+    if (!req.user?.login || paramLogin !== req.user.login) {
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" });
+    }
+    const touches = getUserTouches(paramLogin);
     return res.json({ touches });
   } catch (err) {
     logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043A\u0430\u0441\u0430\u043D\u0438\u0439", err);
@@ -6029,6 +6042,10 @@ realtimeRouter.get("/touches/:login", requireAuth, async (req, res, next) => {
 });
 realtimeRouter.get("/events-stream/:login", requireAuth, (req, res) => {
   const login = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+  if (!req.user?.login || login !== req.user.login) {
+    res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" });
+    return;
+  }
   res.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
@@ -6317,9 +6334,9 @@ testsRouter.delete("/draft/:testId", requireAuth, async (req, res, next) => {
 // src/server/app.ts
 var app = express();
 async function initDatabase() {
-  const isProd8 = process.env.NODE_ENV === "production";
+  const isProd7 = process.env.NODE_ENV === "production";
   if (!isSqlConfigured()) {
-    if (isProd8) {
+    if (isProd7) {
       logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: DATABASE_URL \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0430 \u0432 production (Vercel). \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0443\u044E DATABASE_URL \u0432 Project Settings -> Environment Variables \u043D\u0430 Vercel.");
       return;
     }
@@ -6364,12 +6381,14 @@ async function initDatabase() {
       `CREATE INDEX IF NOT EXISTS couple_data_id_idx ON couple_data(id)`,
       `CREATE TABLE IF NOT EXISTS chat_messages (
         id text PRIMARY KEY,
+        couple_id text NOT NULL,
         sender_login text NOT NULL,
-        recipient_login text NOT NULL,
-        text text NOT NULL,
+        role text NOT NULL,
+        content text NOT NULL,
+        is_read boolean DEFAULT false,
         created_at text NOT NULL
       )`,
-      `CREATE INDEX IF NOT EXISTS chat_messages_sender_recipient_idx ON chat_messages(sender_login, recipient_login)`,
+      `CREATE INDEX IF NOT EXISTS chat_messages_couple_created_idx ON chat_messages(couple_id, created_at)`,
       `CREATE TABLE IF NOT EXISTS test_sessions (
         id text PRIMARY KEY,
         test_id text NOT NULL,
@@ -6461,7 +6480,7 @@ async function initDatabase() {
     logger.info("\u0422\u0430\u0431\u043B\u0438\u0446\u044B \u0438 \u0438\u043D\u0434\u0435\u043A\u0441\u044B \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B/\u0441\u043E\u0437\u0434\u0430\u043D\u044B \u0432 PostgreSQL");
   } catch (err) {
     const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;
-    if (isProd8) {
+    if (isProd7) {
       logger.error("\u041F\u0440\u0435\u0434\u0443\u043F\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435 \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446 PostgreSQL \u0432 production:", { error: errorObj });
     } else {
       logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435/\u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446 PostgreSQL, \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0430\u0435\u043C\u0441\u044F \u043D\u0430 \u0430\u0432\u0430\u0440\u0438\u0439\u043D\u044B\u0439 \u0440\u0435\u0436\u0438\u043C:", { error: errorObj });
@@ -6516,13 +6535,30 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-        return callback(null, true);
+      try {
+        const url = new URL(origin);
+        const host = url.hostname;
+        const isLocal = host === "localhost" || host === "127.0.0.1";
+        if (isLocal && process.env.NODE_ENV !== "production") return callback(null, true);
+        const extra = (process.env.ALLOWED_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean).map((o) => {
+          try {
+            return new URL(o).hostname;
+          } catch {
+            return "";
+          }
+        }).filter(Boolean);
+        const allowed = /* @__PURE__ */ new Set([
+          "loopza.vercel.app",
+          "loop-vtkn1.vercel.app",
+          "loop-git-main-vtkn1.vercel.app",
+          ...extra
+        ]);
+        if (allowed.has(host)) return callback(null, true);
+        if (/^loop-[a-z0-9-]+-vtkn1\.vercel\.app$/.test(host)) return callback(null, true);
+        return callback(null, false);
+      } catch {
+        return callback(null, false);
       }
-      if (origin.endsWith(".vercel.app") || origin.includes("ais-") || origin.includes("google.com")) {
-        return callback(null, true);
-      }
-      return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -6570,6 +6606,9 @@ apiRouter.get("/health", async (req, res) => {
   });
 });
 apiRouter.post("/admin/clear-all-data", async (req, res) => {
+  if (!isTestSuiteAllowed(req.headers["x-admin-secret"])) {
+    return res.status(404).json({ error: "Not found" });
+  }
   try {
     if (isSqlConfigured() && db) {
       try {

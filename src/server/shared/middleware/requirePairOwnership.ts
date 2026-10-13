@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "./auth.middleware.ts";
 import { logger } from "../utils/logger.ts";
+import { findUserByLogin } from "../../services/storageService.ts";
 
 /**
  * Генерирует канонический ключ пары: [login1, login2].sort().join('_')
@@ -38,9 +39,29 @@ export function isUserInCouple(coupleId: string, userLogin?: string): boolean {
 }
 
 /**
+ * Набор ключей, к которым пользователь реально имеет доступ:
+ * собственный логин, ИИ-пара и фактический союз (по данным пользователя).
+ */
+async function getAllowedCoupleKeys(userLogin: string): Promise<Set<string>> {
+  const keys = new Set<string>([userLogin, `ai_${userLogin}`]);
+  try {
+    const user = await findUserByLogin(userLogin);
+    const rawPartner = user?.partnerLogin ? String(user.partnerLogin).toLowerCase().trim().replace(/^@/, "") : null;
+    if (rawPartner) {
+      keys.add(`${userLogin}_${rawPartner}`);
+      keys.add(`${rawPartner}_${userLogin}`);
+      keys.add(getPairKey(userLogin, rawPartner));
+    }
+  } catch {
+    // при сбое хранилища остаются только собственные ключи
+  }
+  return keys;
+}
+
+/**
  * Middleware для строгой проверки прав доступа к данным пары (защита от IDOR)
  */
-export function requirePairOwnership(
+export async function requirePairOwnership(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
@@ -123,8 +144,17 @@ export function requirePairOwnership(
     coupleId = getPairKey(userLogin, paramLogin);
   }
 
-  // Attach coupleId to request for downstream handlers
+  // Финальная строгая проверка: ключ пары должен совпадать с фактическим союзом пользователя
   if (coupleId) {
+    const allowed = await getAllowedCoupleKeys(userLogin);
+    if (!allowed.has(coupleId)) {
+      logger.security("Отказ в доступе (IDOR: ключ не совпадает с союзом пользователя)", {
+        userLogin,
+        targetCoupleId: coupleId,
+        ip: req.ip,
+      });
+      return res.status(403).json({ error: "Нет доступа", code: "FORBIDDEN" });
+    }
     req.couple = { id: coupleId };
   }
 

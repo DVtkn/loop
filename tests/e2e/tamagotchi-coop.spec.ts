@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -11,8 +12,8 @@ test.describe('Tamagotchi Co-op Test', () => {
 
     test.setTimeout(240000);
 
-    const ctxA = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': 'true' } });
-    const ctxB = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': 'true' } });
+    const ctxA = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') } });
+    const ctxB = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') } });
     const pageA = await ctxA.newPage();
     const pageB = await ctxB.newPage();
 

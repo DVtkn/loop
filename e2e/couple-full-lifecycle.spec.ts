@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || process.env.BASE_URL || 'http://127.0.0.1:3000';
@@ -79,13 +80,13 @@ test.describe('Couple Full Lifecycle E2E', () => {
     // Reset passwords
     const reset1 = await request.post(`${BASE_URL}/api/auth/reset-password`, {
       headers: { 'Content-Type': 'application/json' },
-      data: { login: 'dmitry', newPassword: 'TestPass123!' }
+      data: { login: 'dmitry', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
     });
     expect(reset1.ok()).toBeTruthy();
     
     const reset2 = await request.post(`${BASE_URL}/api/auth/reset-password`, {
       headers: { 'Content-Type': 'application/json' },
-      data: { login: 'anna', newPassword: 'TestPass123!' }
+      data: { login: 'anna', newPassword: 'TestPass123!', secretKey: process.env.TEST_SUITE_SECRET || '' }
     });
     expect(reset2.ok()).toBeTruthy();
     

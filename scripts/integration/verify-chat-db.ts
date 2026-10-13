@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db, isSqlConfigured } from "../../src/server/db/client.ts";
 import { chatMessages, users } from "../../src/server/db/schema.ts";
 import { eq } from "drizzle-orm";
@@ -14,7 +15,7 @@ async function run() {
   // 1. Регистрация и авторизация тестового пользователя
   const regRes = await fetch(`${BASE_URL}/api/auth/register`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-test-suite": "true" },
+    headers: { "Content-Type": "application/json", "x-test-suite": (process.env.TEST_SUITE_SECRET || '') },
     body: JSON.stringify({
       login: testLogin,
       password,
@@ -38,7 +39,7 @@ async function run() {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
-      "x-test-suite": "true",
+      "x-test-suite": (process.env.TEST_SUITE_SECRET || ''),
     },
     body: JSON.stringify({
       content: msgText,

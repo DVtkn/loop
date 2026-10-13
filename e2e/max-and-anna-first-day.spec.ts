@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { test, expect } from '@playwright/test';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -8,8 +9,8 @@ const PWD = 'TestPass123!';
 
 test.setTimeout(240000);
 test('Max and Anna first day - full journey', async ({ browser }) => {
-  const ctxA = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': 'true' } });
-  const ctxB = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': 'true' } });
+  const ctxA = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') } });
+  const ctxB = await browser.newContext({ extraHTTPHeaders: { 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') } });
   const pageA = await ctxA.newPage();
   const pageB = await ctxB.newPage();
 

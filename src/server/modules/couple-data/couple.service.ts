@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { getCoupleData, saveCoupleData, mergeCoupleData, readEmergencyFile, writeEmergencyFile } from "../../services/storageService.ts";
 import { recordDailyMetrics } from "../../services/analytics.ts";
 import { computeCoupleRatingAnalytics } from "../../../utils/rankingEngine.ts";
@@ -99,7 +100,7 @@ export async function fetchCoupleDataByLogins(login1: string, login2: string) {
 export async function generateInviteCode(requesterLogin?: string): Promise<string> {
   const cleanLogin = String(requesterLogin || "").toLowerCase().trim().replace(/^@/, "");
   if (!cleanLogin) throw { status: 401, message: "Требуется авторизация" };
-  const code = `LOOP-${Math.floor(100000 + Math.random() * 900000)}`;
+  const code = `LOOP-${crypto.randomInt(100000, 1000000)}`;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   if (isSqlConfigured() && db) {
     try {

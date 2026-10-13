@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db, isSqlConfigured } from '../../../src/server/db/client.ts';
 import { chatMessages, users } from '../../../src/server/db/schema.ts';
 import { eq } from "drizzle-orm";
@@ -5,7 +6,7 @@ import { eq } from "drizzle-orm";
 const BASE_URL = "http://localhost:3000";
 
 async function fetchApi(path: string, token: string | null, method = "GET", body?: any) {
-  const headers: Record<string, string> = { "Content-Type": "application/json", "x-test-suite": "true" };
+  const headers: Record<string, string> = { "Content-Type": "application/json", "x-test-suite": (process.env.TEST_SUITE_SECRET || '') };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, {

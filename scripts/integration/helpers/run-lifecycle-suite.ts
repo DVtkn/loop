@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db, isSqlConfigured } from '../../../src/server/db/client.ts';
 import { users, pairRequests, chatMessages, coupleData, careNotes, testSessions, testAnswers, coupleReports } from '../../../src/server/db/schema.ts';
 import { eq, or } from "drizzle-orm";
@@ -7,7 +8,7 @@ import { calculateCoupleAnalysis } from '../../../src/utils/psychologyEngine.ts'
 const BASE_URL = "http://localhost:3000";
 
 async function fetchApi(path: string, token: string | null, method = "GET", body?: any) {
-  const headers: any = { "Content-Type": "application/json", "x-test-suite": "true" };
+  const headers: any = { "Content-Type": "application/json", "x-test-suite": (process.env.TEST_SUITE_SECRET || '') };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, {

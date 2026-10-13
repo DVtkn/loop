@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { chromium } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -15,7 +16,7 @@ async function main() {
   // Регистрация Артёма
   const resArtem = await fetch(`${BASE_URL}/api/auth/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-test-suite': 'true' },
+    headers: { 'Content-Type': 'application/json', 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
     body: JSON.stringify({
       login: artemLogin,
       password,
@@ -30,7 +31,7 @@ async function main() {
   // Регистрация Анны
   const resAnna = await fetch(`${BASE_URL}/api/auth/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-test-suite': 'true' },
+    headers: { 'Content-Type': 'application/json', 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
     body: JSON.stringify({
       login: annaLogin,
       password,
@@ -45,12 +46,12 @@ async function main() {
   // Связывание в пару
   await fetch(`${BASE_URL}/api/pair/request`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenArtem}`, 'x-test-suite': 'true' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenArtem}`, 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
     body: JSON.stringify({ fromLogin: artemLogin, toLogin: annaLogin }),
   });
   await fetch(`${BASE_URL}/api/pair/accept`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenAnna}`, 'x-test-suite': 'true' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenAnna}`, 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
     body: JSON.stringify({ fromLogin: artemLogin, toLogin: annaLogin, relationshipStartDate: '2024-05-10' }),
   });
   console.log('2. Пара успешно создана и связана в Neon DB.');

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -13,7 +14,7 @@ test.describe('Chat Persistence & Realtime E2E Audit', () => {
     // Регистрация Артёма
     const resArtem = await fetch(`${BASE_URL}/api/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-test-suite': 'true' },
+      headers: { 'Content-Type': 'application/json', 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
       body: JSON.stringify({
         login: artemLogin,
         password,
@@ -29,7 +30,7 @@ test.describe('Chat Persistence & Realtime E2E Audit', () => {
     // Регистрация Анны
     const resAnna = await fetch(`${BASE_URL}/api/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-test-suite': 'true' },
+      headers: { 'Content-Type': 'application/json', 'x-test-suite': (process.env.TEST_SUITE_SECRET || '') },
       body: JSON.stringify({
         login: annaLogin,
         password,
@@ -48,7 +49,7 @@ test.describe('Chat Persistence & Realtime E2E Audit', () => {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${tokenArtem}`,
-        'x-test-suite': 'true',
+        'x-test-suite': (process.env.TEST_SUITE_SECRET || ''),
       },
       body: JSON.stringify({
         fromLogin: artemLogin,
@@ -62,7 +63,7 @@ test.describe('Chat Persistence & Realtime E2E Audit', () => {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${tokenAnna}`,
-        'x-test-suite': 'true',
+        'x-test-suite': (process.env.TEST_SUITE_SECRET || ''),
       },
       body: JSON.stringify({
         fromLogin: artemLogin,

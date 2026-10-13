@@ -12,6 +12,25 @@ const isProd = () => process.env.NODE_ENV === 'production';
 export async function acceptPair(cleanMe: string, cleanPartner: string) {
   const now = new Date().toISOString();
 
+  // Защита от навязывания пары: принимаем только подтверждённый запрос
+  if (isSqlConfigured() && db) {
+    const pending = await db
+      .select()
+      .from(pairRequests)
+      .where(and(eq(pairRequests.fromLogin, cleanPartner), eq(pairRequests.toLogin, cleanMe)));
+    if (pending.length === 0) {
+      throw { status: 403, message: "Нет подтверждённого запроса на соединение" };
+    }
+  } else {
+    const storeForCheck = readEmergencyFile();
+    const hasRequest = (storeForCheck.pairRequests || []).some(
+      (r) => r.fromLogin === cleanPartner && r.toLogin === cleanMe
+    );
+    if (!hasRequest) {
+      throw { status: 403, message: "Нет подтверждённого запроса на соединение" };
+    }
+  }
+
   if (isProd()) {
     if (!isSqlConfigured() || !db) {
       throw new DatabaseUnavailableError();
@@ -59,7 +78,7 @@ export async function acceptPair(cleanMe: string, cleanPartner: string) {
           coupleProfile: {
             id: 'c-' + Date.now(),
             status: 'ACTIVE',
-            linkCode: `LOOP-${Math.floor(1000 + Math.random() * 9000)}`,
+            linkCode: `LOOP-${crypto.randomInt(1000, 10000)}`,
             startDate: now.split('T')[0],
             city: updatedMe.city || updatedPartner.city || 'Москва',
             partner1: {
@@ -171,7 +190,7 @@ export async function acceptPair(cleanMe: string, cleanPartner: string) {
         coupleProfile: {
           id: 'c-' + Date.now(),
           status: 'ACTIVE',
-          linkCode: `LOOP-${Math.floor(1000 + Math.random() * 9000)}`,
+          linkCode: `LOOP-${crypto.randomInt(1000, 10000)}`,
           startDate: now.split('T')[0],
           city: updatedMe.city || updatedPartner.city || 'Москва',
           partner1: {

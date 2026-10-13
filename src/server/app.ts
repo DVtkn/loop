@@ -1,3 +1,4 @@
+import { isTestSuiteAllowed } from "./shared/middleware/testSuiteGate.ts";
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
@@ -75,12 +76,14 @@ export async function initDatabase() {
       `CREATE INDEX IF NOT EXISTS couple_data_id_idx ON couple_data(id)`,
       `CREATE TABLE IF NOT EXISTS chat_messages (
         id text PRIMARY KEY,
+        couple_id text NOT NULL,
         sender_login text NOT NULL,
-        recipient_login text NOT NULL,
-        text text NOT NULL,
+        role text NOT NULL,
+        content text NOT NULL,
+        is_read boolean DEFAULT false,
         created_at text NOT NULL
       )`,
-      `CREATE INDEX IF NOT EXISTS chat_messages_sender_recipient_idx ON chat_messages(sender_login, recipient_login)`,
+      `CREATE INDEX IF NOT EXISTS chat_messages_couple_created_idx ON chat_messages(couple_id, created_at)`,
       `CREATE TABLE IF NOT EXISTS test_sessions (
         id text PRIMARY KEY,
         test_id text NOT NULL,
@@ -235,18 +238,30 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
-      // Allow localhost in development
-      if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-        return callback(null, true);
+      try {
+        const url = new URL(origin);
+        const host = url.hostname;
+        const isLocal = host === "localhost" || host === "127.0.0.1";
+        if (isLocal && process.env.NODE_ENV !== "production") return callback(null, true);
+        const extra = (process.env.ALLOWED_ORIGINS || "")
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean)
+          .map((o) => { try { return new URL(o).hostname; } catch { return ""; } })
+          .filter(Boolean);
+        const allowed = new Set([
+          "loopza.vercel.app",
+          "loop-vtkn1.vercel.app",
+          "loop-git-main-vtkn1.vercel.app",
+          ...extra,
+        ]);
+        if (allowed.has(host)) return callback(null, true);
+        if (/^loop-[a-z0-9-]+-vtkn1\.vercel\.app$/.test(host)) return callback(null, true);
+        return callback(null, false);
+      } catch {
+        return callback(null, false);
       }
-      // Allow any Vercel preview or production deployment domain
-      if (origin.endsWith(".vercel.app") || origin.includes("ais-") || origin.includes("google.com")) {
-        return callback(null, true);
-      }
-      // Otherwise allow to avoid blocking valid clients
-      return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -303,6 +318,9 @@ apiRouter.get("/health", async (req, res) => {
 
 // Admin endpoint for tests / staging resets
 apiRouter.post("/admin/clear-all-data", async (req, res) => {
+  if (!isTestSuiteAllowed(req.headers["x-admin-secret"])) {
+    return res.status(404).json({ error: "Not found" });
+  }
   try {
     if (isSqlConfigured() && db) {
       try {

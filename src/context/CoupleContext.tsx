@@ -964,7 +964,9 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       startSmartPolling();
     }
 
-    startSmartPolling();
+    // SSE — основной канал; Smart Polling — только fallback при обрыве SSE.
+    // Разовый догоняющий опрос без запуска интервала, чтобы не двоить трафик.
+    executeSmartPoll();
 
     const handleTabActive = () => {
       if (document.visibilityState === 'visible') {
@@ -1630,10 +1632,9 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   }, []);
 
-  return (
-    <CoupleContext.Provider
-      value={{
-        theme,
+  const contextValue: CoupleContextType = useMemo(
+    () => ({
+      theme,
         setTheme,
         font,
         setFont,
@@ -1742,8 +1743,122 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         formattedTimeTogether,
         isPartnerOnline,
         partnerStatusDetails,
-      }}
-    >
+      }),
+    [
+      theme,
+      setTheme,
+      font,
+      setFont,
+      screen,
+      setScreen,
+      isOnboarded,
+      setIsOnboarded,
+      activeTab,
+      setActiveTab,
+      currentUser,
+      accountsDb,
+      allUsers,
+      authLogin,
+      authRegister,
+      authResetPassword,
+      authLogout,
+      switchAccount,
+      updateUserProfile,
+      updateCoupleStartDate,
+      changePassword,
+      incomingRequests,
+      outgoingRequests,
+      sendPairRequestByLogin,
+      acceptPairRequest,
+      rejectPairRequest,
+      disconnectPair,
+      createNewCouple,
+      joinCoupleByCode,
+      loadDemoCouple,
+      resetCoupleData,
+      updatePartnerNames,
+      usSubTab,
+      setUsSubTab,
+      datesSubTab,
+      setDatesSubTab,
+      owlMode,
+      setOwlMode,
+      activePartnerTouch,
+      dismissPartnerTouch,
+      sendTouchAction,
+      loveTaps,
+      sendLoveTap,
+      timeCapsules,
+      addTimeCapsule,
+      openTimeCapsule,
+      dailyQuiz,
+      submitDailyQuizAnswer,
+      deepCards,
+      questionAnswer,
+      answerQuestionOfDay,
+      feedItems,
+      addFeedItem,
+      clearFeed,
+      currentPartnerId,
+      setCurrentPartnerId,
+      coupleProfile,
+      updateCoupleProfile,
+      pulseHistory,
+      addPulseCheckin,
+      challenges,
+      toggleChallenge,
+      tests,
+      refreshTestsStatus,
+      submitTestAnswers,
+      resetTests,
+      smallCravings,
+      addSmallCraving,
+      toggleCraving,
+      flowerPreferences,
+      updateFlowerPreferences,
+      wishlist,
+      addWishlistItem,
+      toggleSecretReserve,
+      deleteWishlistItem,
+      venues,
+      addVenue,
+      deleteVenue,
+      selectedCity,
+      setSelectedCity,
+      dateInvites,
+      createDateInvite,
+      acceptDateInvite,
+      completeAndReviewDate,
+      confirmDatePlan,
+      scheduleEvents,
+      addScheduleEvent,
+      updateScheduleEvent,
+      deleteScheduleEvent,
+      coupleXP,
+      xpHistory,
+      addCoupleXP,
+      coupleLevelInfo,
+      moodHistory,
+      addMoodStatus,
+      aiMessages,
+      sendAIMessage,
+      partnerMessages,
+      sendPartnerMessage,
+      fetchPartnerMessages,
+      isAITyping,
+      unreadChatCount,
+      clearUnreadChatCount,
+      achievements,
+      triggerConfetti,
+      daysTogether,
+      formattedTimeTogether,
+      isPartnerOnline,
+      partnerStatusDetails,
+    ]
+  );
+
+  return (
+    <CoupleContext.Provider value={contextValue}>
       {children}
     </CoupleContext.Provider>
   );

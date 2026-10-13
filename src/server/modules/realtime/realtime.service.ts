@@ -57,7 +57,7 @@ export async function recordCoupleEvent(params: {
   payload: any;
   id?: string;
 }) {
-  const eventId = params.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const eventId = params.id || `evt-${Date.now()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 5)}`;
   const nowIso = new Date().toISOString();
 
   if (isSqlConfigured() && db) {
@@ -118,7 +118,7 @@ export async function sendQuickTouch(params: {
   }
 
   const newTouch: TouchRecord = {
-    id: `touch-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `touch-${now}-${crypto.randomUUID().replace(/-/g, "").slice(0, 5)}`,
     senderLogin: sLogin,
     senderName: params.senderName || sLogin,
     targetLogin: tLogin,

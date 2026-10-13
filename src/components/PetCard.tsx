@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Heart, Gamepad2, Plus, LogIn, AlertCircle, Sparkles } from "lucide-react";
 import { getPetStateApi } from "../api/pet.api.ts";
 import { CouplePetState, PetActionType, PetSpecies } from "../types.ts";
 import { LoopConsole } from "./LoopConsole.tsx";
 import { triggerHaptic } from "../utils/haptics.ts";
+import { dispatchInAppNotification } from "../utils/pushManager.ts";
 import { safeGetStorage } from "../utils/safeStorage.ts";
 
 interface PetCardProps {
@@ -117,6 +118,26 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     }
   }, [isPaired, token]);
 
+  const careNotifiedRef = useRef<string | null>(null);
+
+  // Одноразовое уведомление (раз в день), если питомцу нужен уход
+  useEffect(() => {
+    if (!petState || !petState.isOnboardingCompleted) return;
+    const lowStat = (["hunger", "joy", "energy", "cleanliness"] as const).some(
+      (k) => petState[k] < 30
+    );
+    if (!lowStat) return;
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `${petState.id}:${day}`;
+    if (careNotifiedRef.current === key) return;
+    careNotifiedRef.current = key;
+    dispatchInAppNotification({
+      title: `${petState.name} скучает 🐾`,
+      body: "Питомцу союза нужен уход — загляни в LOOP.exe",
+      icon: "pet",
+    });
+  }, [petState]);
+
   // Show auth required state
   if (!isPaired || needsAuth || !token) {
     return (
@@ -189,6 +210,10 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   // Determine what to show based on pet state
   const hasPet = petState !== null;
   const isOnboardingCompleted = petState?.isOnboardingCompleted ?? false;
+  const needsCare =
+    hasPet &&
+    isOnboardingCompleted &&
+    (["hunger", "joy", "energy", "cleanliness"] as const).some((k) => petState![k] < 30);
 
   return (
     <>
@@ -204,6 +229,11 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 uppercase tracking-wider">
               Аркада
             </span>
+            {needsCare && (
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#FB083C]/10 text-[#FB083C] uppercase tracking-wider animate-pulse">
+                Нужен уход
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1 text-xs text-[var(--text-3)]">
             <Heart className="w-3 h-3 text-rose-400 fill-rose-400" />
@@ -215,7 +245,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
 {hasPet && isOnboardingCompleted ? (
           <>
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-[#0d1b0d] border border-[#1a3a1a] flex items-center justify-center shrink-0 text-3xl">
+              <div className="w-14 h-14 rounded-xl bg-[#E8F5E9] border-2 border-[#111C2D] flex items-center justify-center shrink-0 text-3xl">
                 {getMoodEmoji(petState.mood || 'happy')}
               </div>
               <div className="min-w-0 flex-1 space-y-1">
@@ -250,6 +280,19 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
                 <span className="text-[10px] text-amber-400 w-8 text-right">
                   {petState.xpProgress}/{petState.xpForNextLevel}
                 </span>
+              </div>
+            )}
+            {/* Synergy */}
+            {petState.synergy !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-2)] w-12 shrink-0">Дуо</span>
+                <div className="flex-1 h-2 rounded-full overflow-hidden border border-[var(--divider)] bg-[var(--surface-2)]">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#FB083C] via-[#FFD600] to-[#22C55E] transition-all duration-500"
+                    style={{ width: `${petState.synergy}%` }}
+                  />
+                </div>
+                <span className="text-[10px] text-[var(--text-3)] w-8 text-right">{petState.synergy}%</span>
               </div>
             )}
           </>

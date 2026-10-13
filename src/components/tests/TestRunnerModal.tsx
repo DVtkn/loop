@@ -31,13 +31,9 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
   onPrevQuestion,
   onClose,
 }) => {
-  if (!activeTest) return null;
+  const q: Question | undefined = activeTest?.questions[currentQuestionIndex];
 
-  const q: Question = activeTest.questions[currentQuestionIndex];
-  const selectedVal = userAnswers[q?.id];
-  const meta = getTestMeta(activeTest);
-
-  // Latency & toggle telemetry tracking
+  // Latency & toggle telemetry tracking (хуки — до раннего возврата, чтобы не нарушать порядок)
   const questionStartTimeRef = useRef<number>(Date.now());
   const toggleCountRef = useRef<number>(0);
 
@@ -45,6 +41,11 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
     questionStartTimeRef.current = Date.now();
     toggleCountRef.current = 0;
   }, [currentQuestionIndex, q?.id]);
+
+  if (!activeTest || !q) return null;
+
+  const selectedVal = userAnswers[q.id];
+  const meta = getTestMeta(activeTest);
 
   const handleChoice = (val: any, rawPayload?: any) => {
     const elapsed = Date.now() - questionStartTimeRef.current;

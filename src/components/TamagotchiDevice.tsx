@@ -1,5 +1,5 @@
 import React from "react";
-import { PetActionType } from "../types.ts";
+import { PetActionType, PetSpecies } from "../types.ts";
 
 export interface GameEvent {
   type: "feed" | "sleep" | "score" | "play" | "error";
@@ -16,6 +16,8 @@ interface TamagotchiState {
   level: number;
   experience: number;
   mood: string;
+  synergy?: number;
+  species?: PetSpecies;
 }
 
 const MOOD_EMOJI: Record<string, string> = {
@@ -24,6 +26,7 @@ const MOOD_EMOJI: Record<string, string> = {
   hungry: "😋",
   playful: "🎮",
   loved: "❤️",
+  dirty: "🧼",
 };
 
 const MOOD_LABEL: Record<string, string> = {
@@ -32,6 +35,16 @@ const MOOD_LABEL: Record<string, string> = {
   hungry: "Голодный",
   playful: "Игрив",
   loved: "Ласковый",
+  dirty: "Грязнуля",
+};
+
+const MOOD_BUBBLE: Record<string, string> = {
+  happy: "Тяв! Люблю вас!💖",
+  sleepy: "Клюю носом...💤",
+  hungry: "Кушать!💖",
+  playful: "Поиграем?🎾",
+  loved: "Муррр~ +5❤️",
+  dirty: "Буль-буль! Чистота!🧼",
 };
 
 function getMoodEmoji(mood: string): string {
@@ -42,11 +55,15 @@ function getMoodLabel(mood: string): string {
   return MOOD_LABEL[mood] || mood;
 }
 
-function getBarColor(value: number): string {
-  if (value >= 60) return "bg-emerald-400";
-  if (value >= 30) return "bg-amber-400";
-  return "bg-rose-400";
+function getMoodBubble(mood: string): string {
+  return MOOD_BUBBLE[mood] || "Привет!🐾";
 }
+
+const BAR_COLORS: Record<string, string> = {
+  hunger: "bg-[#BA0029]",
+  energy: "bg-[#00BCD4]",
+  joy: "bg-[#EAB308]",
+};
 
 interface TamagotchiDeviceProps {
   isOpen: boolean;
@@ -66,9 +83,9 @@ export const TamagotchiDevice: React.FC<TamagotchiDeviceProps> = ({
   if (!isOpen) return null;
 
   const bars = [
-    { label: "Сытость", value: petState.hunger, key: "hunger" as const },
-    { label: "Энергия", value: petState.energy, key: "energy" as const },
-    { label: "Радость", value: petState.joy, key: "joy" as const },
+    { label: "Сыт", value: petState.hunger, key: "hunger" as const },
+    { label: "Рад", value: petState.joy, key: "joy" as const },
+    { label: "Энрг", value: petState.energy, key: "energy" as const },
   ];
 
   const handleAction = async (action: PetActionType) => {
@@ -86,126 +103,123 @@ export const TamagotchiDevice: React.FC<TamagotchiDeviceProps> = ({
         className="relative z-10 w-full max-w-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Y2K device shell */}
-        <div className="rounded-[2.5rem] p-1 bg-gradient-to-br from-[#ff6b9d] via-[#c44dff] to-[#6b8aff] shadow-2xl">
-          <div className="rounded-[2rem] bg-[#1a0a2e] p-5 space-y-4">
-            {/* Screen bezel */}
-            <div className="rounded-xl bg-[#0d1b0d] border-2 border-[#1a3a1a] p-3 shadow-inner">
-              {/* CRT screen */}
-              <div className="rounded-lg bg-[#0a1a0a] border border-[#1a4a1a] overflow-hidden relative">
-                {/* Scanline overlay */}
-                <div className="absolute inset-0 pointer-events-none z-10"
-                  style={{
-                    background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)",
-                  }}
-                />
-                {/* Screen content */}
-                <div className="p-4 space-y-3 relative z-0">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-[#33ff33] opacity-60">LOOP-PET v1.0</span>
-                    <span className="text-[10px] font-mono text-[#33ff33] opacity-60">{petState.level}.{String(petState.experience).padStart(2, "0")}</span>
-                  </div>
+        {/* Pink console shell */}
+        <div
+          className="rounded-[40px] p-3.5 bg-[#FFCAD4] border-[3px] border-[#111C2D]"
+          style={{ boxShadow: "0 12px 0 #111C2D" }}
+        >
+          {/* Link LED pill */}
+          <div className="flex justify-center mb-2">
+            <div className="flex items-center gap-1.5 bg-[#111C2D] rounded-full px-3 py-1">
+              <span className="w-2 h-2 rounded-full bg-[#22C55E] animate-pulse" />
+              <span className="font-pixel text-[8px] text-white tracking-wider">LINK OK•DUO</span>
+            </div>
+          </div>
 
-                  {/* Pet avatar */}
-                  <div className="flex flex-col items-center py-2">
-                    <div className="text-6xl mb-1 animate-bounce">{getMoodEmoji(petState.mood)}</div>
-                    <div className="text-[#33ff33] font-mono text-sm font-bold">{petState.name}</div>
-                    <div className="text-[#33ff33] opacity-60 font-mono text-[10px]">{getMoodLabel(petState.mood)}</div>
-                  </div>
+          {/* LCD screen */}
+          <div className="rounded-[24px] bg-[#E8F5E9] border-[3px] border-[#111C2D] p-3 shadow-inner relative overflow-hidden">
+            {/* Dot-matrix texture */}
+            <div
+              className="absolute inset-0 pointer-events-none opacity-10"
+              style={{ backgroundImage: "radial-gradient(#111C2D 1px, transparent 1px)", backgroundSize: "6px 6px" }}
+            />
+            <div className="relative space-y-2.5">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <span className="font-pixel text-[8px] text-[#111C2D]">LOOP.EXE</span>
+                <span className="font-vt text-sm text-[#111C2D]/70">Lv.{petState.level} · {petState.experience}XP</span>
+              </div>
 
-                  {/* Status bars */}
-                  <div className="space-y-1.5">
-                    {bars.map((bar) => (
-                      <div key={bar.key} className="flex items-center gap-2">
-                        <span className="text-[9px] font-mono text-[#33ff33] w-12 shrink-0">{bar.label}</span>
-                        <div className="flex-1 h-2 bg-[#0a2a0a] rounded-full overflow-hidden border border-[#1a3a1a]">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${getBarColor(bar.value)}`}
-                            style={{ width: `${bar.value}%` }}
-                          />
-                        </div>
-                        <span className="text-[9px] font-mono text-[#33ff33] w-6 text-right">{bar.value}%</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* XP bar */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-[#33ff33] w-12 shrink-0">XP</span>
-                    <div className="flex-1 h-1.5 bg-[#0a2a0a] rounded-full overflow-hidden border border-[#1a3a1a]">
-                      <div
-                        className="h-full bg-[#c44dff] rounded-full transition-all duration-500"
-                        style={{ width: `${petState.experience}%` }}
-                      />
-                    </div>
-                    <span className="text-[9px] font-mono text-[#c44dff] w-6 text-right">{petState.experience}</span>
-                  </div>
+              {/* Mood bubble */}
+              <div className="flex justify-center">
+                <div className="bg-white border-2 border-[#111C2D] rounded-2xl rounded-bl-sm px-3 py-1 shadow-[2px_2px_0_#111C2D]">
+                  <span className="text-xs font-bold text-[#111C2D]">{getMoodBubble(petState.mood)}</span>
                 </div>
               </div>
-            </div>
 
-            {/* Physical buttons */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <ActionButton
-                label="🍖 Покормить"
-                onClick={() => handleAction("feed")}
-                loading={isLoading}
-                color="bg-amber-500/20 hover:bg-amber-500/30"
-                textColor="text-amber-400"
-              />
-              <ActionButton
-                label="🎮 Поиграть"
-                onClick={() => handleAction("play")}
-                loading={isLoading}
-                color="bg-sky-500/20 hover:bg-sky-500/30"
-                textColor="text-sky-400"
-              />
-              <ActionButton
-                label="💤 Спать"
-                onClick={() => handleAction("sleep")}
-                loading={isLoading}
-                color="bg-indigo-500/20 hover:bg-indigo-500/30"
-                textColor="text-indigo-400"
-              />
-              <ActionButton
-                label="🤗 Ласка"
-                onClick={() => handleAction("hug")}
-                loading={isLoading}
-                color="bg-rose-500/20 hover:bg-rose-500/30"
-                textColor="text-rose-400"
-              />
-            </div>
+              {/* Pet avatar */}
+              <div className="flex flex-col items-center">
+                <div className="text-6xl animate-bounce">{getMoodEmoji(petState.mood)}</div>
+                <div className="font-pixel text-[11px] text-[#111C2D] mt-1">{petState.name}</div>
+                <div className="font-vt text-sm text-[#111C2D]/70">{getMoodLabel(petState.mood)}</div>
+              </div>
 
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="w-full py-2 rounded-xl text-xs font-mono text-[#33ff33]/60 hover:text-[#33ff33] transition-colors"
-            >
-              [ Закрыть ]
-            </button>
+              {/* Status bars */}
+              <div className="grid grid-cols-3 gap-1.5">
+                {bars.map((bar) => (
+                  <div key={bar.key} className="bg-white/90 border-[1.5px] border-[#111C2D] rounded-lg p-1">
+                    <div className="font-pixel text-[7px] text-[#111C2D] text-center">{bar.label}</div>
+                    <div className="h-2 rounded-full bg-[#111C2D]/10 overflow-hidden mt-0.5">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${BAR_COLORS[bar.key]}`}
+                        style={{ width: `${Math.max(0, Math.min(100, bar.value))}%` }}
+                      />
+                    </div>
+                    <div className="font-vt text-xs text-center text-[#111C2D] leading-none">{Math.round(bar.value)}%</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Synergy */}
+              {petState.synergy !== undefined && (
+                <div className="bg-white/90 border-[1.5px] border-[#111C2D] rounded-lg p-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-pixel text-[7px] text-[#111C2D]">СИНЕРГИЯ ДУО</span>
+                    <span className="font-vt text-xs text-[#111C2D]">{petState.synergy}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-[#111C2D]/10 overflow-hidden mt-1">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#FB083C] via-[#FFD600] to-[#22C55E] transition-all duration-500"
+                      style={{ width: `${petState.synergy}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Physical buttons 2x2 */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <ConsoleActionButton label="🍖 КОРМ" xp="+15 XP" onClick={() => handleAction("feed")} loading={isLoading} bg="bg-[#FFE600]" />
+            <ConsoleActionButton label="🎾 ИГРА" xp="+20 XP" onClick={() => handleAction("play")} loading={isLoading} bg="bg-[#06B6D4]" />
+            <ConsoleActionButton label="💤 СПАТЬ" xp="+25 XP" onClick={() => handleAction("sleep")} loading={isLoading} bg="bg-[#A855F7]" light />
+            <ConsoleActionButton label="🤗 ЛАСКА" xp="+10 XP" onClick={() => handleAction("hug")} loading={isLoading} bg="bg-[#FB083C]" light />
+          </div>
+
+          {/* Close */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full mt-2.5 py-2 rounded-full bg-[#111C2D] text-white font-pixel text-[9px] tracking-wider active:translate-y-0.5 transition-transform"
+          >
+            [ B ] НАЗАД
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-interface ActionButtonProps {
+interface ConsoleActionButtonProps {
   label: string;
+  xp: string;
   onClick: () => void;
   loading?: boolean;
-  color: string;
-  textColor: string;
+  bg: string;
+  light?: boolean;
 }
 
-const ActionButton: React.FC<ActionButtonProps> = ({ label, onClick, loading, color, textColor }) => (
+const ConsoleActionButton: React.FC<ConsoleActionButtonProps> = ({ label, xp, onClick, loading, bg, light }) => (
   <button
     type="button"
     onClick={onClick}
     disabled={loading}
-    className={`py-3 rounded-xl border border-white/10 ${color} ${textColor} font-mono text-xs font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
+    className={`relative py-2.5 rounded-2xl border-2 border-[#111C2D] ${bg} ${light ? "text-white" : "text-[#111C2D]"} font-pixel text-[9px] transition-all active:translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed`}
+    style={{ boxShadow: "0 3px 0 #111C2D" }}
   >
     {loading ? "..." : label}
+    <span className={`absolute -top-2 -right-1 px-1.5 py-0.5 rounded-full border border-[#111C2D] bg-white font-vt text-[10px] leading-none ${light ? "text-[#111C2D]" : "text-[#111C2D]"}`}>
+      {xp}
+    </span>
   </button>
 );

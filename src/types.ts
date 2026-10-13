@@ -583,6 +583,8 @@ export interface CouplePetState {
   // Computed
   xpForNextLevel?: number;
   xpProgress?: number;
+  /** Синергия дуо 50–100: забота обоих партнёров сегодня (считается на чтении, в БД не хранится) */
+  synergy?: number;
 }
 
 export interface PetActionResult {

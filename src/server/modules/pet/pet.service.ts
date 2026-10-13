@@ -1,6 +1,6 @@
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { couplePets, coupleEvents, users, couples } from "../../db/schema.ts";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, gte } from "drizzle-orm";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
 import { getPairKey } from "../../shared/middleware/requirePairOwnership.ts";
@@ -32,6 +32,34 @@ const DEFAULT_PET_STATE: CouplePetState = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
+
+/**
+ * Бонус вида: пёс бодрее (прирост энергии ×1.15), кошка ласковее (прирост радости ×1.15).
+ * Чистая функция — покрыта unit-тестами.
+ */
+export function applySpeciesBonus(
+  species: PetSpecies,
+  gains: { hunger?: number; joy?: number; energy?: number; cleanliness?: number }
+): { hunger: number; joy: number; energy: number; cleanliness: number } {
+  const base = {
+    hunger: gains.hunger ?? 0,
+    joy: gains.joy ?? 0,
+    energy: gains.energy ?? 0,
+    cleanliness: gains.cleanliness ?? 0,
+  };
+  if (species === "dog" && base.energy > 0) base.energy = Math.round(base.energy * 1.15);
+  if (species === "cat" && base.joy > 0) base.joy = Math.round(base.joy * 1.15);
+  return base;
+}
+
+/**
+ * Синергия дуо: 50 (питомец ваш) + 25 за твою заботу сегодня + 25 за заботу партнёра.
+ * Чистая функция — покрыта unit-тестами.
+ */
+export function calcDuoSynergy(todayActors: string[]): number {
+  const uniq = new Set(todayActors.map((a) => String(a).toLowerCase()));
+  return Math.min(100, 50 + 25 * Math.min(2, uniq.size));
+}
 
 /**
  * Decay Engine: Calculate stat decay based on time elapsed since last interaction.
@@ -137,6 +165,28 @@ function normalizePetRow(row: Record<string, unknown>): CouplePetState {
   return pet;
 }
 
+async function calcTodaySynergy(coupleId: string): Promise<number> {
+  if (!isSqlConfigured() || !db) return 50;
+  try {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const rows = await db
+      .select({ senderLogin: coupleEvents.senderLogin })
+      .from(coupleEvents)
+      .where(
+        and(
+          eq(coupleEvents.coupleId, coupleId),
+          eq(coupleEvents.eventType, "pet_action"),
+          gte(coupleEvents.createdAt, dayStart.toISOString())
+        )
+      );
+    return calcDuoSynergy(rows.map((r) => r.senderLogin));
+  } catch {
+    // Синергия — украшение, никогда не ломает чтение состояния
+    return 50;
+  }
+}
+
 export async function getPetState(userLogin: string): Promise<CouplePetState> {
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) {
@@ -151,12 +201,13 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
     const row = await db.select().from(couplePets).where(eq(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
     
     if (row.length === 0) {
-      return { 
-        ...DEFAULT_PET_STATE, 
+      return {
+        ...DEFAULT_PET_STATE,
         id: crypto.randomUUID(),
         coupleId: coupleInfo.coupleId,
         pairKey: coupleInfo.pairKey,
-        isOnboardingCompleted: false
+        isOnboardingCompleted: false,
+        synergy: await calcTodaySynergy(coupleInfo.coupleId),
       };
     }
     
@@ -180,8 +231,8 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
         })
         .where(eq(couplePets.pairKey, coupleInfo.pairKey));
     }
-    
-    return decayed;
+
+    return { ...decayed, synergy: await calcTodaySynergy(coupleInfo.coupleId) };
   } catch (e) {
     logger.warn("getPetState SQL failed", undefined, e as any);
     throw { status: 503, message: "База данных недоступна" };
@@ -290,44 +341,51 @@ export async function performPetAction(
       let actionName = "";
       let emoji = "";
 
+      let gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 0 };
+
       switch (action) {
         case "feed":
-          state.hunger = clamp(state.hunger + 25, 0, 100);
-          state.joy = clamp(state.joy + 5, 0, 100);
+          gains = { hunger: 25, joy: 5, energy: 0, cleanliness: 0 };
           expGained = 15;
           state.lastFedAt = new Date().toISOString();
           actionName = "покормил";
           emoji = "🍓";
           break;
         case "play":
-          state.joy = clamp(state.joy + 20, 0, 100);
-          state.energy = clamp(state.energy - 10, 0, 100);
+          gains = { hunger: 0, joy: 20, energy: -10, cleanliness: 0 };
           expGained = 20;
           state.lastPlayedAt = new Date().toISOString();
           actionName = "поиграл с";
           emoji = "🎾";
           break;
         case "wash":
-          state.cleanliness = clamp(state.cleanliness + 25, 0, 100);
+          gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 25 };
           expGained = 15;
           state.lastWashedAt = new Date().toISOString();
           actionName = "помыл";
           emoji = "🛁";
           break;
         case "sleep":
-          state.energy = clamp(state.energy + 35, 0, 100);
+          gains = { hunger: 0, joy: 0, energy: 35, cleanliness: 0 };
           expGained = 25;
           state.lastRestedAt = new Date().toISOString();
           actionName = "уложил спать";
           emoji = "💤";
           break;
         case "hug":
-          state.joy = clamp(state.joy + 10, 0, 100);
+          gains = { hunger: 0, joy: 10, energy: 0, cleanliness: 0 };
           expGained = 10;
           actionName = "обнял";
           emoji = "🤗";
           break;
       }
+
+      // Бонус вида применяется только к положительному приросту (траты не растут)
+      const boosted = applySpeciesBonus(state.species, gains);
+      state.hunger = clamp(state.hunger + boosted.hunger, 0, 100);
+      state.joy = clamp(state.joy + boosted.joy, 0, 100);
+      state.energy = clamp(state.energy + boosted.energy, 0, 100);
+      state.cleanliness = clamp(state.cleanliness + boosted.cleanliness, 0, 100);
 
       state.experience += expGained;
       state.lastInteractionAt = new Date().toISOString();
@@ -342,7 +400,7 @@ export async function performPetAction(
         .set(state as any)
         .where(eq(couplePets.pairKey, coupleInfo.pairKey));
 
-      const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
       await tx.insert(coupleEvents).values({
         id: eventId,
         coupleId: coupleInfo.coupleId,
@@ -486,7 +544,7 @@ async function logPetEvent(coupleId: string, userLogin: string, eventType: strin
   if (!isSqlConfigured() || !db) return;
   
   try {
-    const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
     await db.insert(coupleEvents).values({
       id: eventId,
       coupleId,

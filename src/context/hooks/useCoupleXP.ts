@@ -5,6 +5,17 @@ import { initialAchievements } from '../../data/questionBank.ts';
 import { getCoupleLevelInfo } from '../../utils/rankingEngine.ts';
 import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
 
+// Криптостойкий hex-суффикс для id; randomUUID требует secure context,
+// поэтому на plain-HTTP откатываемся на getRandomValues (тоже крипто).
+function cryptoHex(chars: number): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID().replace(/-/g, '').slice(0, chars);
+  }
+  const bytes = new Uint8Array(Math.ceil(chars / 2));
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').slice(0, chars);
+}
+
 export interface UseCoupleXPReturn {
   coupleXP: number;
   setCoupleXP: React.Dispatch<React.SetStateAction<number>>;
@@ -54,7 +65,7 @@ export function useCoupleXP(currentPartnerId: PartnerId): UseCoupleXPReturn {
         return next;
       });
       const entry: XPEntry = {
-        id: `xp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        id: `xp-${Date.now()}-${cryptoHex(4)}`,
         points,
         reason,
         category,

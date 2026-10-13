@@ -1529,7 +1529,7 @@ async function getAIMessages(login) {
 // src/server/shared/middleware/errorHandler.ts
 init_errors();
 function errorHandler(err, req, res, next) {
-  logger.error("\u041D\u0435\u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 API", { path: req.path, method: req.method }, err);
+  logger.error("\u041D\u0435\u043E\u0431\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430 API", err, { path: req.path, method: req.method });
   if (isDatabaseError(err) || process.env.NODE_ENV === "production" && isDatabaseError(err)) {
     return res.status(503).json({
       error: "\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D, \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043C\u0438\u043D\u0443\u0442\u0443",
@@ -1538,9 +1538,10 @@ function errorHandler(err, req, res, next) {
   }
   const statusCode = err.statusCode || err.status || 500;
   const message = err.message || "\u0412\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F \u043E\u0448\u0438\u0431\u043A\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0430";
+  const fallbackCode = statusCode === 400 ? "BAD_REQUEST" : statusCode === 401 ? "UNAUTHORIZED" : statusCode === 403 ? "FORBIDDEN" : statusCode === 404 ? "NOT_FOUND" : statusCode === 409 ? "CONFLICT" : statusCode === 422 ? "UNPROCESSABLE_ENTITY" : "INTERNAL_ERROR";
   return res.status(statusCode).json({
     error: message,
-    code: err.code || "INTERNAL_ERROR"
+    code: err.code || fallbackCode
   });
 }
 
@@ -1732,7 +1733,7 @@ async function touchUserLastActive(login) {
   }
 }
 async function recordCoupleEvent(params) {
-  const eventId = params.id || `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const eventId = params.id || `evt-${Date.now()}-${crypto.randomUUID().replace(/-/g, "").slice(0, 5)}`;
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   if (isSqlConfigured() && db) {
     try {
@@ -1769,7 +1770,7 @@ async function sendQuickTouch(params) {
     };
   }
   const newTouch = {
-    id: `touch-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    id: `touch-${now}-${crypto.randomUUID().replace(/-/g, "").slice(0, 5)}`,
     senderLogin: sLogin,
     senderName: params.senderName || sLogin,
     targetLogin: tLogin,
@@ -3182,7 +3183,7 @@ var petSwitchSchema = z4.object({
 // src/server/modules/pet/pet.service.ts
 init_client();
 init_schema();
-import { eq as eq8, and as and5, or as or5 } from "drizzle-orm";
+import { eq as eq8, and as and5, or as or5, gte as gte2 } from "drizzle-orm";
 var DEFAULT_PET_STATE = {
   id: "",
   coupleId: "",
@@ -3209,6 +3210,21 @@ var DEFAULT_PET_STATE = {
   createdAt: (/* @__PURE__ */ new Date()).toISOString(),
   updatedAt: (/* @__PURE__ */ new Date()).toISOString()
 };
+function applySpeciesBonus(species, gains) {
+  const base = {
+    hunger: gains.hunger ?? 0,
+    joy: gains.joy ?? 0,
+    energy: gains.energy ?? 0,
+    cleanliness: gains.cleanliness ?? 0
+  };
+  if (species === "dog" && base.energy > 0) base.energy = Math.round(base.energy * 1.15);
+  if (species === "cat" && base.joy > 0) base.joy = Math.round(base.joy * 1.15);
+  return base;
+}
+function calcDuoSynergy(todayActors) {
+  const uniq = new Set(todayActors.map((a) => String(a).toLowerCase()));
+  return Math.min(100, 50 + 25 * Math.min(2, uniq.size));
+}
 function applyDecay(state) {
   const now = /* @__PURE__ */ new Date();
   const lastInteraction = new Date(state.lastInteractionAt);
@@ -3286,6 +3302,23 @@ function normalizePetRow(row) {
   }
   return pet;
 }
+async function calcTodaySynergy(coupleId) {
+  if (!isSqlConfigured() || !db) return 50;
+  try {
+    const dayStart = /* @__PURE__ */ new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const rows = await db.select({ senderLogin: coupleEvents.senderLogin }).from(coupleEvents).where(
+      and5(
+        eq8(coupleEvents.coupleId, coupleId),
+        eq8(coupleEvents.eventType, "pet_action"),
+        gte2(coupleEvents.createdAt, dayStart.toISOString())
+      )
+    );
+    return calcDuoSynergy(rows.map((r) => r.senderLogin));
+  } catch {
+    return 50;
+  }
+}
 async function getPetState(userLogin) {
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) {
@@ -3302,7 +3335,8 @@ async function getPetState(userLogin) {
         id: crypto.randomUUID(),
         coupleId: coupleInfo.coupleId,
         pairKey: coupleInfo.pairKey,
-        isOnboardingCompleted: false
+        isOnboardingCompleted: false,
+        synergy: await calcTodaySynergy(coupleInfo.coupleId)
       };
     }
     const pet = normalizePetRow(row[0]);
@@ -3318,7 +3352,7 @@ async function getPetState(userLogin) {
         updatedAt: new Date(decayed.updatedAt).toISOString()
       }).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
     }
-    return decayed;
+    return { ...decayed, synergy: await calcTodaySynergy(coupleInfo.coupleId) };
   } catch (e) {
     logger.warn("getPetState SQL failed", void 0, e);
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
@@ -3401,44 +3435,48 @@ async function performPetAction(userLogin, action) {
       let expGained = 0;
       let actionName = "";
       let emoji = "";
+      let gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 0 };
       switch (action) {
         case "feed":
-          state.hunger = clamp(state.hunger + 25, 0, 100);
-          state.joy = clamp(state.joy + 5, 0, 100);
+          gains = { hunger: 25, joy: 5, energy: 0, cleanliness: 0 };
           expGained = 15;
           state.lastFedAt = (/* @__PURE__ */ new Date()).toISOString();
           actionName = "\u043F\u043E\u043A\u043E\u0440\u043C\u0438\u043B";
           emoji = "\u{1F353}";
           break;
         case "play":
-          state.joy = clamp(state.joy + 20, 0, 100);
-          state.energy = clamp(state.energy - 10, 0, 100);
+          gains = { hunger: 0, joy: 20, energy: -10, cleanliness: 0 };
           expGained = 20;
           state.lastPlayedAt = (/* @__PURE__ */ new Date()).toISOString();
           actionName = "\u043F\u043E\u0438\u0433\u0440\u0430\u043B \u0441";
           emoji = "\u{1F3BE}";
           break;
         case "wash":
-          state.cleanliness = clamp(state.cleanliness + 25, 0, 100);
+          gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 25 };
           expGained = 15;
           state.lastWashedAt = (/* @__PURE__ */ new Date()).toISOString();
           actionName = "\u043F\u043E\u043C\u044B\u043B";
           emoji = "\u{1F6C1}";
           break;
         case "sleep":
-          state.energy = clamp(state.energy + 35, 0, 100);
+          gains = { hunger: 0, joy: 0, energy: 35, cleanliness: 0 };
           expGained = 25;
           state.lastRestedAt = (/* @__PURE__ */ new Date()).toISOString();
           actionName = "\u0443\u043B\u043E\u0436\u0438\u043B \u0441\u043F\u0430\u0442\u044C";
           emoji = "\u{1F4A4}";
           break;
         case "hug":
-          state.joy = clamp(state.joy + 10, 0, 100);
+          gains = { hunger: 0, joy: 10, energy: 0, cleanliness: 0 };
           expGained = 10;
           actionName = "\u043E\u0431\u043D\u044F\u043B";
           emoji = "\u{1F917}";
           break;
       }
+      const boosted = applySpeciesBonus(state.species, gains);
+      state.hunger = clamp(state.hunger + boosted.hunger, 0, 100);
+      state.joy = clamp(state.joy + boosted.joy, 0, 100);
+      state.energy = clamp(state.energy + boosted.energy, 0, 100);
+      state.cleanliness = clamp(state.cleanliness + boosted.cleanliness, 0, 100);
       state.experience += expGained;
       state.lastInteractionAt = (/* @__PURE__ */ new Date()).toISOString();
       state.lastActionBy = coupleInfo.userId;
@@ -3447,7 +3485,7 @@ async function performPetAction(userLogin, action) {
       const { state: leveledState, levelUp } = checkLevelUp(state);
       state = leveledState;
       await tx.update(couplePets).set(state).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
-      const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
       await tx.insert(coupleEvents).values({
         id: eventId,
         coupleId: coupleInfo.coupleId,
@@ -3553,7 +3591,7 @@ async function awardCoupleXP(coupleId, xp, _reason) {
 async function logPetEvent(coupleId, userLogin, eventType, payload) {
   if (!isSqlConfigured() || !db) return;
   try {
-    const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
     await db.insert(coupleEvents).values({
       id: eventId,
       coupleId,

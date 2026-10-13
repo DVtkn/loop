@@ -3182,7 +3182,7 @@ var petSwitchSchema = z4.object({
 // src/server/modules/pet/pet.service.ts
 init_client();
 init_schema();
-import { eq as eq8, and as and5 } from "drizzle-orm";
+import { eq as eq8, and as and5, or as or5 } from "drizzle-orm";
 var DEFAULT_PET_STATE = {
   id: "",
   coupleId: "",
@@ -3258,13 +3258,33 @@ async function getCoupleInfo(userLogin) {
   const partnerUser = await db.select().from(users).where(eq8(users.login, partnerLogin)).limit(1);
   if (!partnerUser.length) return null;
   const coupleRow = await db.select().from(couples).where(
-    and5(
-      eq8(couples.user1Id, userRow[0].id),
-      eq8(couples.user2Id, partnerUser[0].id)
+    or5(
+      and5(
+        eq8(couples.user1Id, userRow[0].id),
+        eq8(couples.user2Id, partnerUser[0].id)
+      ),
+      and5(
+        eq8(couples.user1Id, partnerUser[0].id),
+        eq8(couples.user2Id, userRow[0].id)
+      )
     )
   ).limit(1);
   const coupleId = coupleRow.length ? coupleRow[0].id : pairKey;
   return { coupleId, pairKey, userId: userRow[0].id };
+}
+function toIsoString(v) {
+  try {
+    return v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString();
+  } catch {
+    return (/* @__PURE__ */ new Date()).toISOString();
+  }
+}
+function normalizePetRow(row) {
+  const pet = { ...row };
+  for (const k of ["lastFedAt", "lastPlayedAt", "lastRestedAt", "lastWashedAt", "lastInteractionAt", "createdAt", "updatedAt"]) {
+    pet[k] = toIsoString(row[k]);
+  }
+  return pet;
 }
 async function getPetState(userLogin) {
   const coupleInfo = await getCoupleInfo(userLogin);
@@ -3275,7 +3295,7 @@ async function getPetState(userLogin) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
   }
   try {
-    const row = await db.select().from(couplePets).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).limit(1);
+    const row = await db.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
     if (row.length === 0) {
       return {
         ...DEFAULT_PET_STATE,
@@ -3285,7 +3305,7 @@ async function getPetState(userLogin) {
         isOnboardingCompleted: false
       };
     }
-    const pet = row[0];
+    const pet = normalizePetRow(row[0]);
     const decayed = applyDecay(pet);
     if (decayed.hunger !== pet.hunger || decayed.joy !== pet.joy || decayed.energy !== pet.energy || decayed.cleanliness !== pet.cleanliness || decayed.mood !== pet.mood) {
       await db.update(couplePets).set({
@@ -3296,7 +3316,7 @@ async function getPetState(userLogin) {
         mood: decayed.mood,
         lastInteractionAt: new Date(decayed.lastInteractionAt).toISOString(),
         updatedAt: new Date(decayed.updatedAt).toISOString()
-      }).where(eq8(couplePets.coupleId, coupleInfo.coupleId));
+      }).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
     }
     return decayed;
   } catch (e) {
@@ -3373,11 +3393,11 @@ async function performPetAction(userLogin, action) {
   }
   try {
     const result = await db.transaction(async (tx) => {
-      const row = await tx.select().from(couplePets).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).limit(1);
+      const row = await tx.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
       if (row.length === 0) {
         throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0435 \u043E\u043D\u0431\u043E\u0440\u0434\u0438\u043D\u0433." };
       }
-      let state = applyDecay(row[0]);
+      let state = applyDecay(normalizePetRow(row[0]));
       let expGained = 0;
       let actionName = "";
       let emoji = "";
@@ -3426,7 +3446,7 @@ async function performPetAction(userLogin, action) {
       state.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
       const { state: leveledState, levelUp } = checkLevelUp(state);
       state = leveledState;
-      await tx.update(couplePets).set(state).where(eq8(couplePets.coupleId, coupleInfo.coupleId));
+      await tx.update(couplePets).set(state).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
       const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await tx.insert(coupleEvents).values({
         id: eventId,
@@ -3470,8 +3490,8 @@ async function proposePetName(userLogin, name) {
       nameStatus: "pending_partner",
       nameProposedBy: coupleInfo.userId,
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
-    const state = result.length ? result[0] : void 0;
+    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     await notifyPartner(coupleInfo, userLogin, "pet_name_proposed", {
       proposedName: trimmedName,
@@ -3492,8 +3512,8 @@ async function confirmPetName(userLogin, confirm) {
     const result = await db.update(couplePets).set({
       nameStatus: confirm ? "confirmed" : "pending_partner",
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
-    const state = result.length ? result[0] : void 0;
+    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     return { success: true, state };
   } catch (e) {
@@ -3510,8 +3530,8 @@ async function switchPetSpecies(userLogin, species) {
     const result = await db.update(couplePets).set({
       species,
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.coupleId, coupleInfo.coupleId)).returning();
-    const state = result.length ? result[0] : void 0;
+    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     return { success: true, state };
   } catch (e) {

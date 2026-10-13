@@ -1,6 +1,6 @@
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { couplePets, coupleEvents, users, couples } from "../../db/schema.ts";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
 import { getPairKey } from "../../shared/middleware/requirePairOwnership.ts";
@@ -103,15 +103,38 @@ async function getCoupleInfo(userLogin: string): Promise<{ coupleId: string; pai
   if (!partnerUser.length) return null;
   
   const coupleRow = await db.select().from(couples).where(
-    and(
-      eq(couples.user1Id, userRow[0].id),
-      eq(couples.user2Id, partnerUser[0].id)
+    or(
+      and(
+        eq(couples.user1Id, userRow[0].id),
+        eq(couples.user2Id, partnerUser[0].id)
+      ),
+      and(
+        eq(couples.user1Id, partnerUser[0].id),
+        eq(couples.user2Id, userRow[0].id)
+      )
     )
   ).limit(1);
   
   const coupleId = coupleRow.length ? coupleRow[0].id : pairKey;
   
   return { coupleId, pairKey, userId: userRow[0].id };
+}
+
+
+function toIsoString(v: unknown): string {
+  try {
+    return v instanceof Date ? v.toISOString() : new Date(String(v)).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+function normalizePetRow(row: Record<string, unknown>): CouplePetState {
+  const pet = { ...row } as unknown as CouplePetState;
+  for (const k of ["lastFedAt","lastPlayedAt","lastRestedAt","lastWashedAt","lastInteractionAt","createdAt","updatedAt"] as const) {
+    (pet as unknown as Record<string, unknown>)[k] = toIsoString((row as Record<string, unknown>)[k]);
+  }
+  return pet;
 }
 
 export async function getPetState(userLogin: string): Promise<CouplePetState> {
@@ -125,7 +148,7 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
   }
 
   try {
-    const row = await db.select().from(couplePets).where(eq(couplePets.coupleId, coupleInfo.coupleId)).limit(1);
+    const row = await db.select().from(couplePets).where(eq(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
     
     if (row.length === 0) {
       return { 
@@ -137,7 +160,7 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
       };
     }
     
-    const pet = row[0] as unknown as CouplePetState;
+    const pet = normalizePetRow(row[0] as Record<string, unknown>);
     // Apply decay engine
     const decayed = applyDecay(pet);
     
@@ -155,7 +178,7 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
           lastInteractionAt: new Date(decayed.lastInteractionAt).toISOString(),
           updatedAt: new Date(decayed.updatedAt).toISOString()
         })
-        .where(eq(couplePets.coupleId, coupleInfo.coupleId));
+        .where(eq(couplePets.pairKey, coupleInfo.pairKey));
     }
     
     return decayed;
@@ -256,13 +279,13 @@ export async function performPetAction(
 
   try {
     const result = await db.transaction(async (tx) => {
-      const row = await tx.select().from(couplePets).where(eq(couplePets.coupleId, coupleInfo.coupleId)).limit(1);
+      const row = await tx.select().from(couplePets).where(eq(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
       
       if (row.length === 0) {
         throw { status: 404, message: "Питомец не найден. Сначала завершите онбординг." };
       }
       
-      let state = applyDecay(row[0] as unknown as CouplePetState);
+      let state = applyDecay(normalizePetRow(row[0] as Record<string, unknown>));
       let expGained = 0;
       let actionName = "";
       let emoji = "";
@@ -317,7 +340,7 @@ export async function performPetAction(
 
       await tx.update(couplePets)
         .set(state as any)
-        .where(eq(couplePets.coupleId, coupleInfo.coupleId));
+        .where(eq(couplePets.pairKey, coupleInfo.pairKey));
 
       const eventId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       await tx.insert(coupleEvents).values({
@@ -372,10 +395,10 @@ const now = new Date();
           nameProposedBy: coupleInfo.userId,
           updatedAt: now.toISOString()
         })
-        .where(eq(couplePets.coupleId, coupleInfo.coupleId))
+        .where(eq(couplePets.pairKey, coupleInfo.pairKey))
         .returning();
 
-    const state = result.length ? (result[0] as unknown as CouplePetState) : undefined;
+    const state = result.length ? normalizePetRow(result[0] as Record<string, unknown>) : undefined;
     if (!state) throw { status: 404, message: "Питомец не найден" };
 
     await notifyPartner(coupleInfo, userLogin, "pet_name_proposed", { 
@@ -404,10 +427,10 @@ export async function confirmPetName(userLogin: string, confirm: boolean): Promi
         nameStatus: confirm ? "confirmed" : "pending_partner",
         updatedAt: now.toISOString()
       })
-      .where(eq(couplePets.coupleId, coupleInfo.coupleId))
+      .where(eq(couplePets.pairKey, coupleInfo.pairKey))
       .returning();
 
-    const state = result.length ? (result[0] as unknown as CouplePetState) : undefined;
+    const state = result.length ? normalizePetRow(result[0] as Record<string, unknown>) : undefined;
     if (!state) throw { status: 404, message: "Питомец не найден" };
 
     return { success: true, state };
@@ -431,10 +454,10 @@ export async function switchPetSpecies(userLogin: string, species: "dog" | "cat"
         species: species as PetSpecies,
         updatedAt: now.toISOString()
       })
-      .where(eq(couplePets.coupleId, coupleInfo.coupleId))
+      .where(eq(couplePets.pairKey, coupleInfo.pairKey))
       .returning();
 
-    const state = result.length ? (result[0] as unknown as CouplePetState) : undefined;
+    const state = result.length ? normalizePetRow(result[0] as Record<string, unknown>) : undefined;
     if (!state) throw { status: 404, message: "Питомец не найден" };
 
     return { success: true, state };

@@ -40,24 +40,25 @@ async function waitForPetOnboarding(page: any): Promise<void> {
   const hasOnboarding = await page.locator('text=Оживите питомца').isVisible().catch(() => false);
   if (hasOnboarding) {
     await page.click('button:has-text("Запустить консоль")');
-    await page.waitForSelector('text=LOOP-DOS', { timeout: 10000 });
-    
-    await page.click('button:has-text("НАЖМИТЕ A"), button:has-text("Начать")').catch(async () => {
-      await page.keyboard.press('Enter');
-    });
+    await page.waitForSelector('text=LOOP.EXE', { timeout: 10000 });
+
+    await page.keyboard.press('Enter');
     await page.waitForTimeout(1000);
-    
-    await page.click('button:has-text("Чихуахуа"), button:has-text("Собака"), text=🐕').catch(async () => {
+
+    await page.click('button:has-text("Чихуахуа"), button:has-text("Кошечка")').catch(async () => {
       await page.keyboard.press('ArrowRight');
       await page.keyboard.press('Enter');
     });
     await page.waitForTimeout(1000);
-    
-    await page.fill('input[placeholder*="имя" i], input[placeholder*="name" i]', 'Бусинка');
-    await page.click('button:has-text("Подтвердить"), button:has-text("A")');
+
+    await page.click('button:has-text("ЯЙЦА")');
     await page.waitForTimeout(1000);
-    
-    await page.locator('button:has-text("Покормить")').first().click();
+
+    await page.fill('input[placeholder="Бусинка"]', 'Бусинка');
+    await page.click('button:has-text("ПАСПОРТ")');
+    await page.waitForTimeout(1000);
+
+    await page.locator('button:has-text("КОРМ")').first().click();
     await page.waitForTimeout(1000);
   }
 }
@@ -187,7 +188,9 @@ test.describe('Couple Full Lifecycle E2E', () => {
     expect(feed.ok()).toBeTruthy();
     const feedData = await feed.json();
     expect(feedData.success).toBe(true);
-    expect(feedData.state.hunger).toBeGreaterThan(before.hunger);
+    // Стат может упереться в кап 100 при повторных прогонах — проверяем нестрогим сравнением + начисление XP
+    expect(feedData.state.hunger).toBeGreaterThanOrEqual(before.hunger);
+    expect(feedData.expGained).toBe(15);
     
     // Anna plays with the pet
     const play = await request.post(`${BASE_URL}/api/pet/action`, {
@@ -197,7 +200,8 @@ test.describe('Couple Full Lifecycle E2E', () => {
     expect(play.ok()).toBeTruthy();
     const playData = await play.json();
     expect(playData.success).toBe(true);
-    expect(playData.state.joy).toBeGreaterThan(feedData.state.joy);
+    expect(playData.state.joy).toBeGreaterThanOrEqual(feedData.state.joy);
+    expect(playData.expGained).toBe(20);
     
     // Anna hugs the pet
     const hug = await request.post(`${BASE_URL}/api/pet/action`, {
@@ -235,20 +239,18 @@ test.describe('Couple Full Lifecycle E2E', () => {
     
     // Open Tamagotchi console
     await page.click('button:has-text("Запустить консоль")');
-    await page.waitForSelector('text=Сытость', { timeout: 15000 });
-    
+    await page.waitForSelector('text=СИНЕРГИЯ ДУО', { timeout: 15000 });
+
     // Verify console elements
     await expect(page.locator('text=Бусинка').first()).toBeVisible();
-    await expect(page.locator('text=Сытость').first()).toBeVisible();
-    await expect(page.locator('text=Энергия').first()).toBeVisible();
-    await expect(page.locator('text=Радость').first()).toBeVisible();
-    await expect(page.locator('text=Покормить').first()).toBeVisible();
-    await expect(page.locator('text=Поиграть').first()).toBeVisible();
-    await expect(page.locator('text=Спать').first()).toBeVisible();
-    await expect(page.locator('text=Ласка').first()).toBeVisible();
-    
+    await expect(page.locator('text=СИНЕРГИЯ ДУО').first()).toBeVisible();
+    await expect(page.locator('text=КОРМ').first()).toBeVisible();
+    await expect(page.locator('text=ИГРА').first()).toBeVisible();
+    await expect(page.locator('text=СПАТЬ').first()).toBeVisible();
+    await expect(page.locator('text=ЛАСКА').first()).toBeVisible();
+
     // Test action button
-    await page.locator('button:has-text("Покормить")').first().click();
+    await page.locator('button:has-text("КОРМ")').first().click();
     await page.waitForTimeout(1000);
     
     await page.close();

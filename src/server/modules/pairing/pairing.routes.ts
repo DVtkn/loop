@@ -2,7 +2,6 @@ import { Router } from "express";
 import { pairLimiter } from "../../shared/middleware/rateLimiter.ts";
 import { validateBody } from "../../shared/middleware/validation.ts";
 import { requireAuth, AuthenticatedRequest } from "../../shared/middleware/auth.middleware.ts";
-import { requirePairOwnership } from "../../shared/middleware/requirePairOwnership.ts";
 import {
   pairRequestSchema,
   pairAcceptSchema,
@@ -96,9 +95,13 @@ pairingRouter.post("/disconnect", requireAuth, validateBody(pairDisconnectSchema
   }
 });
 
-pairingRouter.get("/status/:login", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res, next) => {
+pairingRouter.get("/status/:login", requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const login = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+    const userLogin = req.user?.login;
+    if (login !== userLogin) {
+      return res.status(403).json({ error: "Нет доступа к чужому статусу пары", code: "FORBIDDEN" });
+    }
     const status = await getPairStatus(login);
     return res.json(status);
   } catch (err) {

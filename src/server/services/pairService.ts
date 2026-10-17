@@ -198,9 +198,26 @@ export async function acceptPair(cleanMe: string, cleanPartner: string) {
 
   const updatedMe = await findUserByLogin(cleanMe);
   const updatedPartner = await findUserByLogin(cleanPartner);
-
   if (updatedMe && updatedPartner) {
     const key = [cleanMe, cleanPartner].sort().join('_');
+
+    // Строка союза в couples — от неё зависят FK (питомец и др.). Создаём идемпотентно.
+    if (updatedMe.id && updatedPartner.id && isSqlConfigured() && db) {
+      try {
+        await db
+          .insert(couples)
+          .values({
+            id: key,
+            user1Id: updatedMe.id,
+            user2Id: updatedPartner.id,
+            startDate: now.split('T')[0],
+          })
+          .onConflictDoNothing();
+      } catch (e) {
+        logger.warn('Не удалось создать строку couples (не блокер)', { key }, e as unknown);
+      }
+    }
+
     const existingData = await getCoupleData(key);
     if (!existingData || !existingData.coupleProfile) {
       const initData = {

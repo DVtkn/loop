@@ -378,4 +378,5 @@ app.use("/", apiRouter);
 // Global Error Handler
 app.use(errorHandler);
 
+export { app };
 export default app;

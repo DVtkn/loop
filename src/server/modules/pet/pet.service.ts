@@ -142,8 +142,22 @@ async function getCoupleInfo(userLogin: string): Promise<{ coupleId: string; pai
       )
     )
   ).limit(1);
-  
-  const coupleId = coupleRow.length ? coupleRow[0].id : pairKey;
+  let coupleId: string;
+  if (coupleRow.length) {
+    coupleId = coupleRow[0].id;
+  } else {
+    coupleId = pairKey;
+    try {
+      await db.insert(couples).values({
+        id: pairKey,
+        user1Id: userRow[0].id,
+        user2Id: partnerUser[0].id,
+        startDate: new Date().toISOString().split('T')[0],
+      }).onConflictDoNothing();
+    } catch (err) {
+      logger.warn('getCoupleInfo: failed to ensure couples row', { pairKey, err });
+    }
+  }
   
   return { coupleId, pairKey, userId: userRow[0].id };
 }

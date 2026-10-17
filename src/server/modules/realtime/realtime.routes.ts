@@ -50,8 +50,8 @@ realtimeRouter.get("/events-poll", requireAuth, async (req: AuthenticatedRequest
   }
 });
 
-// Endpoint for sending a quick touch action to partner
-realtimeRouter.post("/touch", requireAuth, validateBody(touchEventSchema), async (req: AuthenticatedRequest, res, next) => {
+// Endpoint for sending a quick touch action to partner (supports both /touch and /touches)
+realtimeRouter.post(["/touch", "/touches"], requireAuth, validateBody(touchEventSchema), async (req: AuthenticatedRequest, res, next) => {
   try {
     const result = await sendQuickTouch(req.body);
     return res.json(result);

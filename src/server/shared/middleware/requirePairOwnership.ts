@@ -141,7 +141,7 @@ export async function requirePairOwnership(
       });
       return res.status(403).json({ error: "Нет доступа", code: "FORBIDDEN" });
     }
-    coupleId = getPairKey(userLogin, paramLogin);
+    // :login относится к самому пользователю, проверка владения пройдена. Не создаем фиктивный coupleId.
   }
 
   // Финальная строгая проверка: ключ пары должен совпадать с фактическим союзом пользователя

@@ -308,9 +308,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
         />
 
         {/* 2. Блок: Тамагочи союза */}
-        {isPaired && (
-          <PetCard isPaired={isPaired} />
-        )}
+        <PetCard isPaired={isPaired} />
 
         {/* 3. Блок: Превью совместимости и стрик */}
         <CompatibilityAndStreak

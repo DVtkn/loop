@@ -15,12 +15,14 @@
   --font-manrope: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-pixel: 'Press Start 2P', 'VT323', ui-monospace, monospace;
   --font-vt: 'VT323', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-jakarta: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-main: var(--font-inter);
 }
 
 /* LOOP.exe console typography */
 .font-pixel { font-family: var(--font-pixel); }
 .font-vt { font-family: var(--font-vt); }
+.font-jakarta { font-family: var(--font-jakarta); }
 
 :root[data-font="inter"], html[data-font="inter"], body[data-font="inter"] {
   --font-main: var(--font-inter);

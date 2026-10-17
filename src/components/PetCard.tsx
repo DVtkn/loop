@@ -93,18 +93,6 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   };
 
   const handleOpenConsole = () => {
-    // Pass pet state only if pet exists and onboarding is completed
-    const initialPetState = petState && petState.isOnboardingCompleted
-      ? {
-          name: petState.name,
-          hunger: petState.hunger,
-          energy: petState.energy,
-          joy: petState.joy,
-          level: petState.level,
-          experience: petState.experience,
-          mood: petState.mood,
-        }
-      : undefined;
     setShowConsole(true);
   };
 
@@ -138,36 +126,57 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     });
   }, [petState]);
 
-  // Show auth required state
+  // Show playable card even if not paired or needs auth (opens in solo / preview mode)
   if (!isPaired || needsAuth || !token) {
     return (
-      <section className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-dashed border-[var(--divider)] shadow-xs flex flex-col gap-3 transition-all hover:border-[var(--accent)]/40 cursor-pointer">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-            <span className="text-2xl">🐾</span>
-          </div>
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Тамагочи союза</div>
-            <div className="text-xs sm:text-sm text-[var(--text-2)] font-medium">
-              {needsAuth ? "Сессия истекла — войдите заново" : "Создайте пару, чтобы завести питомца"}
+      <>
+        <section
+          onClick={handleOpenConsole}
+          className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex flex-col gap-3 transition-all hover:border-amber-400/40 hover:shadow-sm cursor-pointer group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 text-2xl shadow-sm group-hover:scale-105 transition-transform">
+              👾
+            </div>
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">
+                  Тамагочи LOOP.exe
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  Ретро-игра
+                </span>
+              </div>
+              <div className="text-xs sm:text-sm text-[var(--text-2)] font-medium">
+                Виртуальный питомец союза: кормите, играйте, купайте и копите XP
+              </div>
             </div>
           </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => { window.location.href = "/"; }}
-          className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[var(--accent)]/10 text-[var(--accent)] text-sm font-medium hover:bg-[var(--accent)]/20 transition-colors"
-        >
-          <LogIn className="w-4 h-4" />
-          <span>{needsAuth ? "Войти снова" : "Войти"}</span>
-        </button>
-        {error && (
-          <div className="flex items-center gap-2 text-xs text-rose-500 bg-rose-500/10 p-2 rounded-lg">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{error}</span>
-          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenConsole();
+            }}
+            className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 text-rose-600 dark:text-rose-400 text-sm font-bold hover:brightness-105 active:scale-98 transition-all shadow-xs"
+          >
+            <Gamepad2 className="w-4 h-4" />
+            <span>Запустить консоль LOOP.exe</span>
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </section>
+
+        {showConsole && (
+          <LoopConsole
+            isOpen={showConsole}
+            onClose={() => setShowConsole(false)}
+            initialPetState={petState && petState.isOnboardingCompleted ? petState : undefined}
+            onPetCreated={(newPet) => setPetState(newPet)}
+            onPetUpdated={(updatedPet) => setPetState(updatedPet)}
+          />
         )}
-      </section>
+      </>
     );
   }
 
@@ -298,14 +307,13 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
           </>
         ) : (
           // Empty state (no pet or not onboarded)
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-xl bg-[#0d1b0d] border border-[#1a3a1a] flex items-center justify-center shrink-0 text-3xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 text-3xl shadow-sm">
               🥚
             </div>
-            <div className="min-w-0 flex-1 space-y-3">
-              <div className="text-4xl mb-2">🥚</div>
-              <h3 className="font-bold text-lg text-[var(--text)] mb-1">Оживи питомца пары</h3>
-              <p className="text-sm text-[var(--text-2)] mb-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-base text-[var(--text)] mb-0.5">Оживи питомца пары</h3>
+              <p className="text-xs text-[var(--text-2)] leading-relaxed">
                 Заботьтесь вместе, повышайте уровень и получайте +50 XP союза
               </p>
             </div>
@@ -326,20 +334,13 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
 
       {/* Loop Console Modal */}
       {showConsole && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setShowConsole(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <LoopConsole
-            isOpen={showConsole}
-            onClose={() => setShowConsole(false)}
-initialPetState={petState && petState.isOnboardingCompleted ? petState : undefined}
-          />
-        </motion.div>
+        <LoopConsole
+          isOpen={showConsole}
+          onClose={() => setShowConsole(false)}
+          initialPetState={petState && petState.isOnboardingCompleted ? petState : undefined}
+          onPetCreated={(newPet) => setPetState(newPet)}
+          onPetUpdated={(updatedPet) => setPetState(updatedPet)}
+        />
       )}
     </>
   );

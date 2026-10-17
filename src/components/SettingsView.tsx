@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, Award, Star, Moon, Sun, Bell, BellRing, Lock, Download, 
-  RotateCcw, LogOut, Edit2, Heart, UserPlus, Copy, CheckCircle2, ChevronRight
+  RotateCcw, LogOut, Edit2, Heart, UserPlus, Copy, CheckCircle2, ChevronRight, ShieldCheck
 } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext';
 import { getPushStatus, requestPushPermission, triggerLocalTestPush } from '../utils/pushManager';
@@ -35,6 +35,7 @@ export const SettingsView: React.FC = () => {
 
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [showResetTestsModal, setShowResetTestsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showIOSHelper, setShowIOSHelper] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   
@@ -110,6 +111,7 @@ export const SettingsView: React.FC = () => {
     { id: 'password', icon: <Lock className="w-5 h-5" />, title: 'Пароль', onClick: () => setShowPasswordModal(true), color: 'dialogue' },
     { id: 'export', icon: <Download className="w-5 h-5" />, title: 'Экспорт', onClick: handleExportData, color: 'care' },
     { id: 'reset', icon: <RotateCcw className="w-5 h-5" />, title: 'Сброс тестов', onClick: () => setShowResetTestsModal(true), color: 'mood' },
+    { id: 'privacy', icon: <ShieldCheck className="w-5 h-5" />, title: 'Приватность', onClick: () => setShowPrivacyModal(true), color: 'dialogue' },
     { id: 'demo', icon: <Sparkles className="w-5 h-5" />, title: 'Демо-режим', onClick: loadDemoCouple, color: 'gamification' },
     { id: 'logout', icon: <LogOut className="w-5 h-5" />, title: 'Выйти', onClick: authLogout, color: 'warmth' }
   ];
@@ -295,6 +297,52 @@ export const SettingsView: React.FC = () => {
               <button onClick={() => setShowResetTestsModal(false)} className="flex-1 py-3 rounded-xl bg-[var(--surface-2)] font-bold text-sm text-[var(--text)]">Отмена</button>
               <button onClick={handleResetTests} className="flex-1 py-3 rounded-xl bg-amber-500 font-bold text-sm text-white">Сбросить</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy & Security Modal */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-3xl bg-[var(--surface)] border border-[var(--divider)] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)] shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-[var(--text)]">Приватность и безопасность</h3>
+                <p className="text-[11px] text-[var(--text-2)]">Защита личного пространства вашей пары</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-[var(--text-2)] leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1">
+                <p className="font-bold text-[var(--text)]">1. Изоляция данных пары</p>
+                <p>Все ваши ответы на тесты, заметки, фото и переписка изолированы и доступны строго двум авторизованным партнёрам союза. Доступ посторонних лиц исключён (IDOR-валидация).</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1">
+                <p className="font-bold text-[var(--text)]">2. Криптографическая защита</p>
+                <p>Пароли хэшируются с солью односторонним алгоритмом bcrypt. Данные передаются исключительно по защищённому протоколу TLS/HTTPS.</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1">
+                <p className="font-bold text-[var(--text)]">3. ИИ-психолог Сова</p>
+                <p>Запросы к ИИ обезличены. Ваши приватные диалоги не используются для дообучения публичных нейросетей.</p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1">
+                <p className="font-bold text-[var(--text)]">4. Право на удаление и экспорт</p>
+                <p>Вы в любой момент можете скачать полную копию данных в JSON через кнопку «Экспорт» или разорвать союз и удалить историю.</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowPrivacyModal(false)}
+              className="w-full py-3.5 rounded-xl bg-[var(--accent)] font-bold text-xs text-white shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              Понятно и безопасно
+            </button>
           </div>
         </div>
       )}

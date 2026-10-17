@@ -331,9 +331,37 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
       }
     };
 
+    let intervalId: any;
+
+    const schedulePoll = () => {
+      clearInterval(intervalId);
+      // Foreground: poll every 6s. Background / hidden tab: poll every 60s to prevent serverless invocation storm.
+      const isHidden = typeof document !== 'undefined' && document.hidden;
+      const delay = isHidden ? 60000 : 6000;
+      intervalId = setInterval(syncWithServer, delay);
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        // User just opened / focused the app: trigger immediate fresh sync
+        syncWithServer();
+      }
+      schedulePoll();
+    };
+
     syncWithServer();
-    const interval = setInterval(syncWithServer, 5000);
-    return () => clearInterval(interval);
+    schedulePoll();
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, [
     currentUser?.login,
     currentUser?.partnerLogin,

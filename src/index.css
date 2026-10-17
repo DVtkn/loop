@@ -518,8 +518,59 @@ body.in-chat-view .bottom-nav {
   70% { transform: scale(1); }
 }
 
+@keyframes pet-wiggle {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-3deg) scale(1.04) translateY(-3px);
+  }
+  50% {
+    transform: rotate(0deg) scale(1);
+  }
+  75% {
+    transform: rotate(3deg) scale(1.04) translateY(-3px);
+  }
+}
+
+@keyframes pet-bounce-happy {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-10px) scale(1.08, 0.92);
+  }
+  50% {
+    transform: translateY(0) scale(0.94, 1.06);
+  }
+  70% {
+    transform: translateY(-5px) scale(1.03);
+  }
+}
+
+@keyframes egg-float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg);
+  }
+}
+
 .animate-heartbeat {
   animation: heartbeat 2.4s ease-in-out infinite;
+}
+
+.animate-pet-wiggle {
+  animation: pet-wiggle 2.2s ease-in-out infinite;
+}
+
+.animate-pet-bounce {
+  animation: pet-bounce-happy 0.75s ease-in-out;
+}
+
+.animate-egg-float {
+  animation: egg-float 3s ease-in-out infinite;
 }
 
 .ambient-noise {

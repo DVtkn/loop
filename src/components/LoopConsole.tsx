@@ -159,6 +159,31 @@ const MOOD_BUBBLES: Record<string, string> = {
   dirty: "Буль-буль! Чистота! 🧼",
 };
 
+const FUNNY_PET_QUOTES: Record<PetSpecies, string[]> = {
+  dog: [
+    "Тяв! Где вкусняшка? Я видел колбаску! 🥩",
+    "Ты лучший человек во вселенной! (после холодильника) 💖",
+    "Почеши пузико! Срочно! 🐾",
+    "Я не толстый, это кость пушистая! 🧁",
+    "Тыгыдык в 3 часа ночи? Я всегда готов! ⚡",
+    "Хвост виляет быстрее скорости света! 🐕✨",
+    "Гав! Дай пять лапкой! 🐾",
+    "Мячик — смысл всей моей собачьей жизни! 🎾",
+    "Я здесь главный охранник ваших сердечек! 🛡️❤️",
+  ],
+  cat: [
+    "Мур-мяу! Уровень милоты: 1000% 🌸",
+    "Человек, ты опоздал с кормом на 0.5 секунды! 🐟",
+    "Кусь! Это я так выражаю безумную любовь! ❤️",
+    "Я здесь божество, а ты мой слуга с паштетом 👑",
+    "Муррр~ лапками делаю массаж 🐾",
+    "Тыгыдык-тыгыдык по всей квартире! ⚡",
+    "Картонная коробка в 10 раз лучше лежанки! 📦",
+    "Почеши за ушком и я включу мурчащий моторчик 🐱",
+    "Смотрю в пустую стену с очень умным видом 👁️",
+  ],
+};
+
 interface FloatingHeart {
   id: number;
   emoji: string;
@@ -199,6 +224,8 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
   const [showPurrBadge, setShowPurrBadge] = useState(false);
+  const [currentFunnyQuote, setCurrentFunnyQuote] = useState<string | null>(null);
+  const [isBouncing, setIsBouncing] = useState(false);
 
   // BIOS Terminal Animation Line Count
   const [biosPhase, setBiosPhase] = useState<number>(0);
@@ -260,13 +287,24 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   }, [initialPetState]);
 
-  // Heart burst animation on pet tap
+  // Heart burst & funny quote animation on pet tap
   const triggerHeartBurst = (e?: React.MouseEvent) => {
-    playChime('purr');
+    playChime(pet?.species === 'cat' ? 'purr' : 'play');
     setShowPurrBadge(true);
-    setTimeout(() => setShowPurrBadge(false), 1400);
+    setIsBouncing(true);
+    setTimeout(() => {
+      setShowPurrBadge(false);
+      setIsBouncing(false);
+    }, 850);
 
-    const heartEmojis = ['💖', '💕', '✨', '⭐', '❤️', '🍓'];
+    // Randomize a funny quote
+    if (pet) {
+      const pool = FUNNY_PET_QUOTES[pet.species] || FUNNY_PET_QUOTES.dog;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      setCurrentFunnyQuote(pick);
+    }
+
+    const heartEmojis = ['💖', '💕', '✨', '⭐', '❤️', '🍓', '🐾', '🎀', '🐟'];
     const originX = 140;
     const originY = 140;
 
@@ -684,12 +722,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                   )}
                   {/* Floating Egg with Pup Preview */}
                   <div className="w-16 h-20 bg-gradient-to-b from-[#FFE394] via-[#FFAEBD] to-[#FF8FA3] rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce" style={{ animationDuration: '2.5s' }}>
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-[#16192E] bg-white flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
                       <img
                         src={PET_SPECIES_DETAILS.dog.image}
                         onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS.dog.imageFallback; }}
                         alt="Чихуахуа"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain filter drop-shadow-xs"
                       />
                     </div>
                   </div>
@@ -718,12 +756,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                   )}
                   {/* Floating Egg with Cat Preview */}
                   <div className="w-16 h-20 bg-gradient-to-b from-[#C4B5FD] via-[#A7F3D0] to-[#6EE7B7] rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce" style={{ animationDuration: '3s' }}>
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-[#16192E] bg-white flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
                       <img
                         src={PET_SPECIES_DETAILS.cat.image}
                         onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS.cat.imageFallback; }}
                         alt="Кошечка"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain filter drop-shadow-xs"
                       />
                     </div>
                   </div>
@@ -776,19 +814,20 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
               {/* Cracked Egg Avatar Stage */}
               <div className="relative flex flex-col items-center justify-center my-auto py-1">
-                <div className="relative w-28 h-28 flex items-center justify-center">
-                  <div className="w-22 h-22 rounded-full overflow-hidden border-2 border-[#FFD600] bg-white shadow-md flex items-center justify-center">
+                <div className="relative w-32 h-32 flex items-center justify-center">
+                  <div className="absolute w-28 h-28 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse"></div>
+                  <div className="w-26 h-26 rounded-3xl overflow-hidden border-3 border-[#16192E] bg-white shadow-[0_4px_0_#16192E] flex items-center justify-center p-1 relative z-10">
                     <img
                       src={PET_SPECIES_DETAILS[selectedSpecies].image}
                       onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[selectedSpecies].imageFallback; }}
                       alt={selectedSpecies}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain filter drop-shadow animate-pet-wiggle"
                     />
                   </div>
                   {/* Floating sparkles */}
-                  <span className="absolute -top-1 left-2 text-sm animate-bounce">✦</span>
-                  <span className="absolute top-0 right-2 text-sm animate-pulse">✨</span>
-                  <span className="absolute bottom-1 right-1 text-sm animate-ping">💖</span>
+                  <span className="absolute -top-1 left-2 text-base animate-bounce z-20">✦</span>
+                  <span className="absolute top-0 right-2 text-base animate-pulse z-20">✨</span>
+                  <span className="absolute bottom-1 right-1 text-base animate-ping z-20">💖</span>
                 </div>
                 <div className="mt-1 flex items-center gap-1 bg-[#16192E] text-[#FFD700] px-3 py-0.5 rounded-full font-pixel text-[8px]">
                   <span>★</span>
@@ -1039,16 +1078,17 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
                     {/* Cloud Pillow + Sleeping Pet Sprite */}
                     <div className="relative w-36 h-36 flex items-center justify-center">
-                      <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-cyan-400/60 shadow-[0_0_16px_rgba(6,182,212,0.4)] bg-[#1A264F] flex items-center justify-center">
+                      <div className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-cyan-400/70 shadow-[0_0_24px_rgba(6,182,212,0.5)] bg-[#131F42] flex items-center justify-center p-1">
                         <img
                           src={SLEEP_IMAGE}
                           onError={(e) => { (e.target as HTMLImageElement).src = SLEEP_IMAGE_FALLBACK; }}
                           alt="Спящий питомец"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain filter drop-shadow-md animate-pulse"
+                          style={{ animationDuration: '3.5s' }}
                         />
                       </div>
-                      <div className="absolute -bottom-1 bg-[#A855F7] text-white font-pixel text-[7.5px] px-2 py-0.5 rounded-full border border-white/20 shadow-sm">
-                        💤 СПИТ
+                      <div className="absolute -bottom-1.5 bg-[#A855F7] text-white font-pixel text-[8px] px-3 py-0.5 rounded-full border border-white/30 shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                        💤 СЛАДКО СПИТ
                       </div>
                     </div>
                   </div>
@@ -1143,38 +1183,54 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* 3. Central Pet Display & Interactive Stage */}
+                  {/* 3. Central Pet Display & Interactive Stage (Large, Cute & Funny) */}
                   <div
                     onClick={triggerHeartBurst}
-                    className="relative flex flex-col items-center justify-center my-0.5 cursor-pointer active:scale-95 transition-transform"
+                    className="relative flex-1 flex flex-col items-center justify-center my-0.5 cursor-pointer select-none"
+                    title="Тапните по питомцу, чтобы погладить!"
                   >
-                    {/* Floating Thought Bubble Above Pet */}
-                    <div className="mb-1 flex items-center justify-center">
-                      <div className="bg-white border-[1.5px] border-[#111C2D] rounded-full px-2.5 py-0.5 text-[9.5px] font-bold shadow-sm inline-flex items-center gap-1 animate-bounce">
-                        <span>🍓</span>
-                        <span className="text-[#111C2D] font-black">
-                          {MOOD_BUBBLES[pet.mood] || "Тяв! Люблю вас! 💖"}
+                    {/* Floating Thought Bubble Above Pet (Funny & Dynamic) */}
+                    <div className="mb-1 flex items-center justify-center max-w-[280px]">
+                      <div className="bg-white border-[1.5px] border-[#16192E] rounded-full px-3 py-1 text-[9.5px] font-bold shadow-[2px_2px_0px_#16192E] inline-flex items-center gap-1.5 animate-bounce text-center">
+                        <span className="text-xs">{pet.species === 'cat' ? '🐱' : '🐶'}</span>
+                        <span className="text-[#16192E] font-black tracking-tight leading-tight">
+                          {currentFunnyQuote || (MOOD_BUBBLES[pet.mood] || "Тяв! Люблю вас! 💖")}
                         </span>
+                        <span className="text-xs">✨</span>
                       </div>
                     </div>
 
-                    {/* Glowing Circular Frame around Pet */}
+                    {/* Prominent Pet Avatar Stage */}
                     <div className="relative flex items-center justify-center">
-                      {/* Rotating aura ring */}
-                      <div className="w-24 h-24 rounded-full border-2 border-dashed border-[#FFD600] animate-spin absolute" style={{ animationDuration: '20s' }}></div>
-                      <div className="w-20 h-20 rounded-full overflow-hidden bg-white border-2 border-[#111C2D] shadow-sm flex items-center justify-center relative z-10">
+                      {/* Soft pulsating warm halo */}
+                      <div className="absolute w-32 h-32 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse pointer-events-none" />
+
+                      {/* Rotating retro aura ring */}
+                      <div
+                        className="w-36 h-36 rounded-full border-2 border-dashed border-[#FFD600] animate-spin absolute pointer-events-none opacity-80"
+                        style={{ animationDuration: '24s' }}
+                      />
+
+                      {/* Freestanding Cute Pet Avatar */}
+                      <div
+                        className={`relative z-10 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden bg-white/95 border-3 border-[#16192E] shadow-[0_6px_0_#16192E] flex items-center justify-center p-1.5 transition-transform duration-200 ${
+                          isBouncing ? 'scale-110 -rotate-3' : 'active:scale-95'
+                        }`}
+                      >
                         <img
                           src={PET_SPECIES_DETAILS[pet.species].image}
-                          onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[pet.species].imageFallback; }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[pet.species].imageFallback;
+                          }}
                           alt={pet.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-contain filter drop-shadow-[0_4px_6px_rgba(22,25,46,0.25)] select-none animate-pet-wiggle"
                         />
                       </div>
 
-                      {/* Purr Badge on Tap Trigger */}
+                      {/* Purr / Waggle Badge on Tap */}
                       {showPurrBadge && (
-                        <div className="absolute -right-3 top-1 bg-[#FFE600] text-[#111C2D] border border-[#111C2D] px-2 py-0.5 rounded-full font-pixel text-[8px] font-black shadow-sm z-30 animate-pulse">
-                          МУРРР~ +5❤️
+                        <div className="absolute -right-3 top-0 bg-[#FFE600] text-[#16192E] border-2 border-[#16192E] px-2 py-0.5 rounded-full font-pixel text-[8px] font-black shadow-[2px_2px_0px_#16192E] z-30 animate-pulse">
+                          {pet.species === 'cat' ? "МУРРР~ +5❤️" : "ГАВ-ГАВ! +5❤️"}
                         </div>
                       )}
 
@@ -1182,11 +1238,11 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       {floatingHearts.map((h) => (
                         <span
                           key={h.id}
-                          className="absolute pointer-events-none text-base z-30 transition-all duration-700 ease-out select-none"
+                          className="absolute pointer-events-none text-lg z-30 transition-all duration-700 ease-out select-none"
                           style={{
                             left: `${h.x}px`,
                             top: `${h.y}px`,
-                            transform: `translate(${h.targetX}px, ${h.targetY}px) scale(1.2)`,
+                            transform: `translate(${h.targetX}px, ${h.targetY}px) scale(1.3)`,
                             opacity: 0,
                           }}
                         >
@@ -1195,14 +1251,22 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       ))}
                     </div>
 
+                    {/* Cute Ground Shadow */}
+                    <div className="w-24 h-2 bg-[#16192E]/15 rounded-full mx-auto mt-1 blur-2xs" />
+
                     {/* Pet Status Badge Below */}
-                    <div className="mt-1 flex items-center gap-1 bg-white/95 border-[1.5px] border-[#111C2D] rounded-full px-2.5 py-0.5 shadow-xs">
-                      <span className="text-[9px] font-black text-[#111C2D]">
+                    <div className="mt-1 flex items-center gap-1 bg-white/95 border-[1.5px] border-[#16192E] rounded-full px-2.5 py-0.5 shadow-xs">
+                      <span className="text-[9.5px] font-black text-[#111C2D]">
                         {pet.species === 'cat' ? "Кошечка" : "Чихуахуа"} {pet.name} • Lv.{pet.level} 🐾
                       </span>
                       <span className="bg-[#FFE600] text-[#111C2D] text-[7.5px] font-black px-1.5 py-0.2 rounded-full border border-[#111C2D]">
                         x2 БОНУС
                       </span>
+                    </div>
+
+                    <div className="text-[8px] text-[#16192E]/60 font-bold mt-0.5 flex items-center gap-1">
+                      <span>👆</span>
+                      <span>Тапни по {pet.name}, чтобы погладить и развеселить!</span>
                     </div>
                   </div>
 

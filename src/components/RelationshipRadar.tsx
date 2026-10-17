@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Heart, ArrowRight, Layers, ChevronDown, CheckCircle2, AlertTriangle, Sparkles, BellRing, Check } from 'lucide-react';
+import { Heart, ArrowRight, Sparkles, BellRing, Check } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
-import { calculateRadarMetrics, MetricDetail, PSYCH_24_SCALES_CONFIG, getStatusLabel } from './radar/radarUtils.ts';
+import { calculateRadarMetrics, MetricDetail, getStatusLabel } from './radar/radarUtils.ts';
 import { RadarChartCanvas } from './radar/RadarChartCanvas.tsx';
 import { RadarMetricCard } from './radar/RadarMetricCard.tsx';
+import { ArchetypeSynergySection } from './radar/ArchetypeSynergySection.tsx';
+import { RadarScalesDrawer } from './radar/RadarScalesDrawer.tsx';
 
 export type { MetricDetail };
 
@@ -44,7 +46,6 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
   const [viewMode, setViewMode] = useState<'both' | 'partner1' | 'partner2'>(getResolvedMode());
 
   const [selectedMetricKey, setSelectedMetricKey] = useState<string | null>(null);
-  const [show24Scales, setShow24Scales] = useState<boolean>(false);
   const [reminded, setReminded] = useState(false);
 
   const handleRemindPartner = () => {
@@ -151,18 +152,6 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
       fullMark: 100,
     }));
   }, [metricsData]);
-
-  // Group 24 scales by vector for individual breakdown
-  const scalesByVector = useMemo(() => {
-    const map = new Map<string, { vectorKey: string; vectorName: string; scales: typeof PSYCH_24_SCALES_CONFIG }>();
-    PSYCH_24_SCALES_CONFIG.forEach((scale) => {
-      if (!map.has(scale.vectorKey)) {
-        map.set(scale.vectorKey, { vectorKey: scale.vectorKey, vectorName: scale.vectorName, scales: [] });
-      }
-      map.get(scale.vectorKey)!.scales.push(scale);
-    });
-    return Array.from(map.values());
-  }, []);
 
   return (
     <div className={`space-y-5 ${className}`}>
@@ -373,63 +362,13 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
       {/* 2. TAB CONTENT: TOGETHER TAB (ONLY WHEN BOTH COMPLETED) */}
       {viewMode === 'both' && isBothCompleted && (
         <div className="space-y-5 animate-fadeIn">
-          {/* Couple Archetype */}
-          {coupleArchetype && (
-            <div className="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-2xs space-y-4">
-              <div className="space-y-1">
-                <span className="text-[11px] font-bold text-[var(--accent)]">Психологический архетип союза</span>
-                <h4 className="text-base font-bold text-[var(--text)]">{coupleArchetype.title}</h4>
-                <p className="text-xs text-[var(--text-2)] leading-relaxed">{coupleArchetype.subtitle}</p>
-              </div>
+          <ArchetypeSynergySection
+            coupleArchetype={coupleArchetype}
+            synergyPoints={synergyPoints}
+            growthZones={growthZones}
+          />
 
-              {/* Synergy Badges */}
-              {synergyPoints.length > 0 && (
-                <div className="pt-2 border-t border-[var(--divider)] space-y-2">
-                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Точки взаимной синергии (Резонанс ≥ 75%)</span>
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {synergyPoints.map((s) => (
-                      <div
-                        key={s.key}
-                        className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs flex items-center justify-between"
-                      >
-                        <span className="font-semibold text-[var(--text)]">{s.name}</span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{s.avgScore}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Growth Zones */}
-              {growthZones.length > 0 && (
-                <div className="pt-2 border-t border-[var(--divider)] space-y-2">
-                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>Зоны совместного развития и внимания</span>
-                  </span>
-                  <div className="space-y-2">
-                    {growthZones.map((g) => (
-                      <div
-                        key={g.key}
-                        className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1 text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-[var(--text)]">{g.name}</span>
-                          <span className="font-bold text-[var(--accent)]">{g.avgScore}%</span>
-                        </div>
-                        <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{g.gottmanTip}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Detailed 6 Spheres Breakdown (EXCLUSIVELY in Together tab when ready) */}
+          {/* Detailed 6 Spheres Breakdown */}
           <div className="space-y-3">
             <div className="px-1 text-xs font-bold text-[var(--text-2)]">Подробный разбор 6 сфер союза</div>
 
@@ -448,114 +387,14 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
         </div>
       )}
 
-      {/* 3. TAB CONTENT: INDIVIDUAL PARTNER 1 (DMITRY) */}
+      {/* 3. TAB CONTENT: INDIVIDUAL PARTNER 1 */}
       {viewMode === 'partner1' && p1HasData && (
-        <div className="space-y-3 animate-fadeIn">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setShow24Scales(!show24Scales);
-            }}
-            className="w-full py-2.5 px-4 rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-2)] text-[var(--text)] border border-[var(--divider)] text-xs font-bold transition-all flex items-center justify-between cursor-pointer shadow-2xs"
-          >
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[var(--accent)]" />
-              <span>24 первичные шкалы личности (6 векторов)</span>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-[var(--text-3)] transition-transform duration-200 ${show24Scales ? 'rotate-180 text-[var(--accent)]' : ''}`} />
-          </button>
-
-          {show24Scales && (
-            <div className="space-y-4 animate-fadeIn">
-              {scalesByVector.map((vec, idx) => {
-                const vectorMetric = metricsData.find((m) => m.key === vec.vectorKey);
-                const p1Score = vectorMetric?.p1Score || 0;
-
-                return (
-                  <div key={idx} className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] space-y-3 shadow-2xs">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-[var(--accent)]">{vec.vectorName}</h4>
-                      {p1Score > 0 && (
-                        <span className="text-[11px] font-bold text-[var(--text-2)]">{p1Score}%</span>
-                      )}
-                    </div>
-                    <div className="space-y-2.5">
-                      {vec.scales.map((scale) => {
-                        return (
-                          <div key={scale.id} className="p-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1 text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-[var(--text)]">{scale.name}</span>
-                              <span className="text-[10px] font-bold text-[var(--accent)]">
-                                {p1Score > 0 ? `${p1Score}% • ${getStatusLabel(p1Score)}` : 'Не пройден'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-[var(--text-3)] leading-relaxed">{scale.description}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <RadarScalesDrawer scoreMap={metricsData} targetPartnerScoreKey="p1Score" />
       )}
 
-      {/* 4. TAB CONTENT: INDIVIDUAL PARTNER 2 (ANNA) - WHEN COMPLETED */}
+      {/* 4. TAB CONTENT: INDIVIDUAL PARTNER 2 */}
       {viewMode === 'partner2' && p2HasData && (
-        <div className="space-y-3 animate-fadeIn">
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setShow24Scales(!show24Scales);
-            }}
-            className="w-full py-2.5 px-4 rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-2)] text-[var(--text)] border border-[var(--divider)] text-xs font-bold transition-all flex items-center justify-between cursor-pointer shadow-2xs"
-          >
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[var(--accent)]" />
-              <span>24 первичные шкалы личности (6 векторов)</span>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-[var(--text-3)] transition-transform duration-200 ${show24Scales ? 'rotate-180 text-[var(--accent)]' : ''}`} />
-          </button>
-
-          {show24Scales && (
-            <div className="space-y-4 animate-fadeIn">
-              {scalesByVector.map((vec, idx) => {
-                const vectorMetric = metricsData.find((m) => m.key === vec.vectorKey);
-                const p2Score = vectorMetric?.p2Score || 0;
-
-                return (
-                  <div key={idx} className="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] space-y-3 shadow-2xs">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-[var(--accent)]">{vec.vectorName}</h4>
-                      {p2Score > 0 && (
-                        <span className="text-[11px] font-bold text-[var(--text-2)]">{p2Score}%</span>
-                      )}
-                    </div>
-                    <div className="space-y-2.5">
-                      {vec.scales.map((scale) => {
-                        return (
-                          <div key={scale.id} className="p-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-1 text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-[var(--text)]">{scale.name}</span>
-                              <span className="text-[10px] font-bold text-[var(--accent)]">
-                                {p2Score > 0 ? `${p2Score}% • ${getStatusLabel(p2Score)}` : 'Не пройден'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-[var(--text-3)] leading-relaxed">{scale.description}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <RadarScalesDrawer scoreMap={metricsData} targetPartnerScoreKey="p2Score" />
       )}
     </div>
   );

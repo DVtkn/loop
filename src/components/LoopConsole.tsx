@@ -3,22 +3,27 @@ import {
   CouplePetState,
   PetActionType,
   PetSpecies,
-} from "../types.ts";
+} from '../types.ts';
 import {
   birthPetApi,
   performPetActionApi,
-} from "../api/pet.api.ts";
-import { triggerHaptic } from "../utils/haptics.ts";
-import { safeGetStorage, safeSetStorage } from "../utils/safeStorage.ts";
-import { play8BitAudio, SoundEffectType } from "../utils/audio8Bit.ts";
+} from '../api/pet.api.ts';
+import { triggerHaptic } from '../utils/haptics.ts';
+import { safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
+import { play8BitAudio, SoundEffectType } from '../utils/audio8Bit.ts';
 import {
   RANDOM_PET_NAMES,
-  PET_SPECIES_DETAILS,
-  SLEEP_IMAGE,
-  SLEEP_IMAGE_FALLBACK,
-  MOOD_BUBBLES,
   FUNNY_PET_QUOTES,
-} from "../data/petData.ts";
+} from '../data/petData.ts';
+
+// Console modular components
+import { ConsoleBezel } from './console/ConsoleBezel.tsx';
+import { ConsoleControls } from './console/ConsoleControls.tsx';
+import { BiosScreen } from './console/screens/BiosScreen.tsx';
+import { EggScreen } from './console/screens/EggScreen.tsx';
+import { NameScreen } from './console/screens/NameScreen.tsx';
+import { PauseMenuModal } from './console/screens/PauseMenuModal.tsx';
+import { GameplayScreen } from './console/screens/GameplayScreen.tsx';
 
 interface LoopConsoleProps {
   isOpen: boolean;
@@ -81,7 +86,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   const [showPurrBadge, setShowPurrBadge] = useState(false);
   const [currentFunnyQuote, setCurrentFunnyQuote] = useState<string | null>(null);
   const [isBouncing, setIsBouncing] = useState(false);
-  const [biosPhase, setBiosPhase] = useState<number>(0);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,7 +105,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     triggerHaptic('light');
   }, [soundEnabled]);
 
-  // Handle Initial Boot & BIOS
   useEffect(() => {
     if (!isOpen) return;
 
@@ -115,32 +118,17 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
         setStep('game');
       } else {
         setStep('bios');
-        setBiosPhase(0);
         playChime('boot');
-
-        const t1 = setTimeout(() => setBiosPhase(1), 300);
-        const t2 = setTimeout(() => setBiosPhase(2), 700);
-        const t3 = setTimeout(() => setBiosPhase(3), 1100);
-        const t4 = setTimeout(() => setBiosPhase(4), 1500);
-
-        return () => {
-          clearTimeout(t1);
-          clearTimeout(t2);
-          clearTimeout(t3);
-          clearTimeout(t4);
-        };
       }
     }
   }, [isOpen, initialPetState, playChime]);
 
-  // Sync pet state updates from outside
   useEffect(() => {
     if (initialPetState) {
       setPet(initialPetState);
     }
   }, [initialPetState]);
 
-  // Heart burst & funny quote animation on pet tap
   const triggerHeartBurst = () => {
     playChime(pet?.species === 'cat' ? 'purr' : 'play');
     setShowPurrBadge(true);
@@ -181,7 +169,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   };
 
-  // Perform Pet Action
   const handleAction = async (action: PetActionType) => {
     if (!pet || isLoading) return;
     const token = getToken();
@@ -234,21 +221,20 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
         if (nextLevel > (pet.level || 1)) playChime('fanfare');
       }
 
-      setActionFeedback(feedbackMap[action] || "УСПЕХ!");
+      setActionFeedback(feedbackMap[action] || 'УСПЕХ!');
       setTimeout(() => setActionFeedback(null), 2000);
     } catch {
       setPet(updatedLocalPet);
       safeSetStorage('loop_local_pet', updatedLocalPet);
       if (onPetUpdated) onPetUpdated(updatedLocalPet);
       if (nextLevel > (pet.level || 1)) playChime('fanfare');
-      setActionFeedback(feedbackMap[action] || "УСПЕХ!");
+      setActionFeedback(feedbackMap[action] || 'УСПЕХ!');
       setTimeout(() => setActionFeedback(null), 2000);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Birth Pet
   const handleBirth = async () => {
     if (isLoading) return;
     const token = getToken();
@@ -259,20 +245,20 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
     const now = new Date().toISOString();
     const localPet: CouplePetState = {
-      id: "pet-" + Date.now(),
-      coupleId: "local-couple",
-      pairKey: "local_pair",
+      id: 'pet-' + Date.now(),
+      coupleId: 'local-couple',
+      pairKey: 'local_pair',
       name: trimmed,
-      nameStatus: "confirmed",
+      nameStatus: 'confirmed',
       species: selectedSpecies,
       hunger: 90,
       joy: 95,
       energy: 85,
       cleanliness: 90,
-      mood: "happy",
+      mood: 'happy',
       level: 1,
       experience: 25,
-      weightKg: "1.2",
+      weightKg: '1.2',
       synergy: 100,
       isOnboardingCompleted: true,
       lastFedAt: now,
@@ -306,7 +292,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   };
 
-  // Physical Button A Click
   const handleButtonA = () => {
     playChime('click');
     if (step === 'bios') {
@@ -328,7 +313,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   };
 
-  // Physical Button B Click
   const handleButtonB = () => {
     playChime('click');
     if (step === 'bios') {
@@ -338,11 +322,10 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     } else if (step === 'name') {
       setStep('egg');
     } else if (step === 'game') {
-      setIsPauseMenuOpen(prev => !prev);
+      setIsPauseMenuOpen((prev) => !prev);
     }
   };
 
-  // Keyboard Gamepad listener
   useEffect(() => {
     if (!isOpen) return;
 
@@ -390,7 +373,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
   const toggleSound = () => {
     playChime('click');
-    setSoundEnabled(prev => {
+    setSoundEnabled((prev) => {
       const next = !prev;
       safeSetStorage('loop_pet_sound_enabled', next);
       return next;
@@ -399,9 +382,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
   if (!isOpen) return null;
 
-  const isNightOrSleepy = Boolean(
-    pet && (pet.mood === 'sleepy' || pet.energy < 20)
-  );
+  const isNightOrSleepy = Boolean(pet && (pet.mood === 'sleepy' || pet.energy < 20));
 
   return (
     <div
@@ -410,39 +391,11 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Handheld Device Chassis */}
       <div className="w-full max-w-[395px] h-[calc(100dvh-16px)] max-h-[810px] bg-[#FFBAC8] border-[3.5px] border-[#16192E] rounded-[40px] flex flex-col justify-between p-3 box-border overflow-hidden relative shadow-[0_12px_0_#16192E,0_20px_25px_-5px_rgba(0,0,0,0.3)]">
-        {/* ===================== TOP BEZEL ===================== */}
-        <div className="w-full flex items-center justify-between px-2 pt-0.5 pb-2 shrink-0">
-          <div className="flex gap-1.5 opacity-85">
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
-          </div>
+        {/* Top Bezel with Speakers and LED */}
+        <ConsoleBezel isNightOrSleepy={isNightOrSleepy} onClose={onClose} />
 
-          <div className="bg-[#16192E] px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm border border-[#16192E]">
-            <span className="w-2 h-2 rounded-full bg-[#32FF98] shadow-[0_0_8px_#32FF98] animate-pulse" />
-            <span className="font-pixel text-[8.5px] tracking-wider text-[#32FF98] uppercase">
-              {isNightOrSleepy ? "LINK OK (SLEEP)" : "LINK OK • DUO"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="flex gap-1.5 opacity-85">
-              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
-              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
-            </div>
-            <button
-              onClick={onClose}
-              title="Закрыть консоль"
-              className="w-5 h-5 rounded-full bg-[#16192E] text-white/80 hover:text-white flex items-center justify-center text-[10px] font-bold border border-[#374151] active:scale-90 transition-transform ml-1"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* ===================== MAIN RECESSED LCD SCREEN ===================== */}
+        {/* Recessed LCD Screen */}
         <div
           className={`w-full flex-1 rounded-[24px] border-[3px] border-[#16192E] p-2.5 flex flex-col justify-between overflow-hidden shadow-[inset_0_4px_14px_rgba(0,0,0,0.85)] relative box-border mb-2.5 transition-colors duration-500 ${
             step === 'bios'
@@ -452,746 +405,113 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
               : 'bg-[#EEF8E8] text-[#111C2D]'
           }`}
         >
-          {/* Scanlines / Retro Dot-Matrix Texture */}
           <div
             className="absolute inset-0 pointer-events-none opacity-10"
             style={{
-              backgroundImage: "radial-gradient(#111C2D 1px, transparent 1px)",
-              backgroundSize: "6px 6px",
+              backgroundImage: 'radial-gradient(#111C2D 1px, transparent 1px)',
+              backgroundSize: '6px 6px',
             }}
           />
 
-          {/* ----------------- SCREEN 1: BIOS BOOT-UP ----------------- */}
-          {step === 'bios' && (
-            <div className="relative z-10 flex flex-col justify-between h-full text-[#34D399] font-mono">
-              <div className="flex justify-between items-center text-[10px] border-b border-[#34D399]/20 pb-1">
-                <span className="tracking-wider">SYS.BOOT // 2025</span>
-                <span>BATTERY: 100% [||||]</span>
-              </div>
+          {step === 'bios' && <BiosScreen pet={pet} onButtonA={handleButtonA} />}
 
-              <div className="my-auto space-y-2.5 p-1">
-                <div className="flex items-center gap-2 text-[#6EE7B7]">
-                  <span className="text-lg animate-pulse">👾</span>
-                  <h1 className="font-pixel text-[12px] tracking-wider font-bold">LOOP-DOS v1.0</h1>
-                </div>
-
-                <div className="bg-[#050D0A]/90 p-3 rounded-xl border border-[#34D399]/30 text-[10px] space-y-1.5 shadow-inner">
-                  <div className="flex justify-between">
-                    <span>&gt; ROM CHECK:</span>
-                    <span className="text-[#34D399] font-bold bg-[#064E3B]/60 px-1 rounded">OK [PASS]</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>&gt; CO-OP CHANNEL:</span>
-                    <span className="text-[#34D399] font-bold bg-[#064E3B]/60 px-1 rounded">SECURE 256-BIT</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>&gt; PARTNER SYNC:</span>
-                    <span className="text-[#34D399] font-bold bg-[#064E3B]/60 px-1 rounded">READY (ОНЛАЙН)</span>
-                  </div>
-                  <div className="flex justify-between text-[#6EE7B7]/70 text-[9px] pt-1 border-t border-[#34D399]/20">
-                    <span>&gt; MEMORY BUFFER:</span>
-                    <span>{pet ? "1 PET ACTIVE" : "0 PETS DETECTED"}</span>
-                  </div>
-                </div>
-
-                <div className="text-center pt-2">
-                  <button
-                    onClick={handleButtonA}
-                    className="inline-block px-4 py-2 rounded-lg bg-[#064E3B]/80 border border-[#34D399]/70 shadow-[0_0_15px_rgba(16,185,129,0.3)] animate-pulse hover:bg-[#064E3B] cursor-pointer"
-                  >
-                    <span className="font-pixel text-[10.5px] text-[#A7F3D0] tracking-wider font-bold">
-                      [ НАЖМИТЕ КНОПКУ (A) ]
-                    </span>
-                  </button>
-                  <p className="text-[8.5px] text-[#6EE7B7]/60 mt-2 font-pixel">✨ 8-BIT BOOT CHIME &amp; HAPTIC ENGAGED</p>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center text-[9px] text-[#34D399]/70 border-t border-[#34D399]/20 pt-1">
-                <span>STATUS: READY</span>
-                <span className="animate-pulse">CO-OP SYSTEM &gt;&gt;</span>
-              </div>
-            </div>
-          )}
-
-          {/* ----------------- SCREEN 2: INCUBATOR (PET SELECTION) ----------------- */}
           {step === 'egg' && (
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-center text-[10px] font-vt tracking-wider border-b border-[#111C2D]/15 pb-1">
-                <span className="text-emerald-800 font-bold">SYS.INCUBATOR // V1.0</span>
-                <span className="text-[#BA0029] font-black text-[9px]">CO-OP SYNC: OK</span>
-                <span className="text-emerald-800 font-bold">BATTERY: 100%</span>
-              </div>
-
-              <div className="text-center my-0.5">
-                <div className="inline-block bg-[#16192E] border border-[#111C2D] px-2 py-0.5 rounded shadow-sm">
-                  <h2 className="font-pixel text-[9px] text-[#32FF98] tracking-wide uppercase">
-                    🥚 ИНКУБАТОР: ВЫБЕРИТЕ ХРАНИТЕЛЯ
-                  </h2>
-                </div>
-                <p className="text-[10px] font-bold text-[#111C2D]/70 mt-0.5">
-                  Выбор общего питомца пары на весь игровой цикл
-                </p>
-              </div>
-
-              {/* Side-by-Side Pet Eggs */}
-              <div className="grid grid-cols-2 gap-2 my-auto">
-                {(['dog', 'cat'] as PetSpecies[]).map((sp) => {
-                  const details = PET_SPECIES_DETAILS[sp];
-                  const isSelected = selectedSpecies === sp;
-                  return (
-                    <div
-                      key={sp}
-                      onClick={() => { playChime('click'); setSelectedSpecies(sp); }}
-                      className={`relative rounded-xl p-2 flex flex-col items-center justify-between transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-white border-2 border-[#BA0029] shadow-[0_0_12px_rgba(186,0,41,0.25)] ring-1 ring-[#BA0029]'
-                          : 'bg-white/60 border border-[#111C2D]/30 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute -top-2.5 bg-[#BA0029] text-white font-pixel text-[7px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                          ► ВЫБРАНО
-                        </div>
-                      )}
-                      <div className={`w-16 h-20 bg-gradient-to-b ${details.eggGradient} rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce`} style={{ animationDuration: sp === 'dog' ? '2.5s' : '3s' }}>
-                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
-                          <img
-                            src={details.image}
-                            onError={(e) => { (e.target as HTMLImageElement).src = details.imageFallback; }}
-                            alt={details.title}
-                            className="w-full h-full object-contain filter drop-shadow-xs"
-                          />
-                        </div>
-                      </div>
-                      <div className="text-center w-full mt-1">
-                        <div className={`font-pixel text-[9px] font-bold ${sp === 'dog' ? 'text-[#BA0029]' : 'text-emerald-800'}`}>
-                          {details.title}
-                        </div>
-                        <div className="bg-[#FFE3E8] border border-[#BA0029]/30 rounded px-1 py-0.5 mt-1 text-[8.5px] font-extrabold text-[#BA0029]">
-                          {details.bonus}
-                        </div>
-                        <div className="font-pixel text-[6.5px] text-[#111C2D]/70 mt-1 uppercase">{details.badge}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="mt-1">
-                <button
-                  type="button"
-                  onClick={() => { playChime('click'); setStep('name'); }}
-                  className="w-full bg-[#16192E] text-[#FFD700] border-2 border-[#16192E] rounded-xl py-2 px-2 shadow-[0_3px_0_#0D111F] flex items-center justify-center gap-1.5 active:translate-y-0.5 transition-transform"
-                >
-                  <span className="font-pixel text-[8.5px] uppercase tracking-wide">
-                    [ НАЖМИТЕ (A) ЧТОБЫ СОГЛАСОВАТЬ ]
-                  </span>
-                </button>
-              </div>
-            </div>
+            <EggScreen
+              selectedSpecies={selectedSpecies}
+              onSelectSpecies={(sp) => {
+                playChime('click');
+                setSelectedSpecies(sp);
+              }}
+              onConfirm={() => {
+                playChime('click');
+                setStep('name');
+              }}
+            />
           )}
 
-          {/* ----------------- SCREEN 3: BIRTH CERTIFICATE & PASSPORT ----------------- */}
           {step === 'name' && (
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-center text-[10px] font-vt border-b border-[#111C2D]/15 pb-1">
-                <span className="text-emerald-800 font-bold">SYS.HATCH // V1.0</span>
-                <span className="text-[#BA0029] font-black text-[9px]">CO-OP SYNC: OK</span>
-                <span className="text-emerald-800 font-bold">PWR: 100%</span>
-              </div>
-
-              <div className="text-center my-0.5">
-                <div className="inline-block bg-[#16192E] px-2.5 py-0.5 rounded shadow-sm">
-                  <h2 className="font-pixel text-[9px] text-[#32FF98] uppercase">
-                    ✨ РОЖДЕНИЕ: НОВЫЙ ДРУГ ВЫЛУПИЛСЯ!
-                  </h2>
-                </div>
-                <p className="text-[10px] font-bold text-[#111C2D]/70 mt-0.5">
-                  Свидетельство о рождении питомца пары
-                </p>
-              </div>
-
-              <div className="relative flex flex-col items-center justify-center my-auto py-1">
-                <div className="relative w-32 h-32 flex items-center justify-center">
-                  <div className="absolute w-28 h-28 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse" />
-                  <div className="w-26 h-26 rounded-3xl overflow-hidden border-3 border-[#16192E] bg-white shadow-[0_4px_0_#16192E] flex items-center justify-center p-1 relative z-10">
-                    <img
-                      src={PET_SPECIES_DETAILS[selectedSpecies].image}
-                      onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[selectedSpecies].imageFallback; }}
-                      alt={selectedSpecies}
-                      className="w-full h-full object-contain filter drop-shadow animate-pet-wiggle"
-                    />
-                  </div>
-                  <span className="absolute -top-1 left-2 text-base animate-bounce z-20">✦</span>
-                  <span className="absolute top-0 right-2 text-base animate-pulse z-20">✨</span>
-                  <span className="absolute bottom-1 right-1 text-base animate-ping z-20">💖</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1 bg-[#16192E] text-[#FFD700] px-3 py-0.5 rounded-full font-pixel text-[8px]">
-                  <span>★</span>
-                  <span>НОВЫЙ ХРАНИТЕЛЬ АКТИВИРОВАН</span>
-                  <span>★</span>
-                </div>
-              </div>
-
-              <div className="bg-white/95 border border-[#111C2D]/30 rounded-xl p-2.5 shadow-sm space-y-1.5">
-                <div className="flex items-center justify-between border-b border-[#111C2D]/15 pb-1">
-                  <span className="font-pixel text-[8px] font-bold text-[#BA0029] flex items-center gap-1">
-                    📜 СВИДЕТЕЛЬСТВО О РОЖДЕНИИ #001
-                  </span>
-                  <span className="font-pixel text-[7px] bg-[#16192E] text-white px-1.5 py-0.5 rounded">
-                    ПАРА: СОЮЗ
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <div className="flex-1 bg-[#EEF8E8] border border-[#111C2D] rounded-lg px-2 py-1 flex items-center justify-between shadow-inner">
-                    <span className="font-pixel text-[8.5px] text-[#111C2D]/70 mr-1">ИМЯ: [</span>
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      value={petName}
-                      onChange={(e) => setPetName(e.target.value.slice(0, 20))}
-                      maxLength={20}
-                      className="bg-transparent font-pixel text-[10px] text-[#BA0029] tracking-wider uppercase focus:outline-none w-full font-black text-center"
-                      placeholder="Бусинка"
-                    />
-                    <span className="font-pixel text-[8.5px] text-[#111C2D]/70">]</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleRandomName}
-                    title="Случайное имя"
-                    className="bg-[#FFE600] active:translate-y-0.5 text-[#111C2D] border border-[#111C2D] rounded-lg px-2.5 py-1 flex items-center gap-1 shadow-[0_2px_0_#111C2D] cursor-pointer shrink-0 font-pixel text-[8px] font-bold"
-                  >
-                    <span>🎲</span>
-                    <span>РАНДОМ</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between pt-0.5 text-[8.5px] text-[#111C2D]/80 border-t border-[#111C2D]/10">
-                  <span className="truncate">● Синхронизация: подтвердит имя в приложении</span>
-                  <span className="font-pixel text-[7px] bg-[#BA0029] text-white px-1 rounded shrink-0">
-                    {PET_SPECIES_DETAILS[selectedSpecies].badge}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-1.5">
-                <button
-                  type="button"
-                  onClick={handleBirth}
-                  disabled={isLoading || !petName.trim()}
-                  className="w-full bg-[#16192E] text-[#FFD700] border-2 border-[#16192E] rounded-xl py-2 px-2 shadow-[0_3px_0_#0D111F] flex items-center justify-center gap-1.5 active:translate-y-0.5 transition-transform disabled:opacity-50 cursor-pointer"
-                >
-                  <span className="text-sm">✨</span>
-                  <span className="font-pixel text-[8.5px] uppercase tracking-tight">
-                    {isLoading ? "ОФОРМЛЯЕМ..." : "ВЫДАТЬ ПАСПОРТ & В КОМНАТУ (ЖМИ А)"}
-                  </span>
-                  <span className="bg-[#FFD700] text-[#16192E] font-pixel text-[7px] px-1 py-0.5 rounded font-black">
-                    [+50 XP]
-                  </span>
-                </button>
-              </div>
-
-              {error && (
-                <div className="text-center font-bold text-xs text-[#BA0029] bg-rose-50 p-1 rounded mt-1">
-                  {error}
-                </div>
-              )}
-            </div>
+            <NameScreen
+              selectedSpecies={selectedSpecies}
+              petName={petName}
+              setPetName={setPetName}
+              nameInputRef={nameInputRef}
+              onRandomName={handleRandomName}
+              onSubmitBirth={handleBirth}
+              isLoading={isLoading}
+              error={error}
+            />
           )}
 
-          {/* ----------------- SCREEN 4 & 5 & 6: GAMEPLAY / PAUSE / SLEEP ----------------- */}
           {step === 'game' && pet && (
             <div className="relative z-10 flex flex-col justify-between h-full">
-              {/* PAUSE / SETTINGS MODAL OVERLAY */}
               {isPauseMenuOpen ? (
-                <div className="flex flex-col justify-between h-full space-y-2">
-                  <div className="w-full flex items-center justify-between bg-[#111C2D] text-white px-2.5 py-1.5 rounded-lg shadow-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-[#FFD600] animate-spin" style={{ animationDuration: '3s' }}>⚙️</span>
-                      <span className="font-pixel text-[9px] tracking-wider text-[#FFD600]">
-                        [ PAUSE // МЕНЮ СОЮЗА (B) ]
-                      </span>
-                    </div>
-                    <span className="font-pixel text-[7.5px] bg-[#BA0029] px-1.5 py-0.5 rounded text-white">
-                      АКТИВНО
-                    </span>
-                  </div>
-
-                  <div className="my-auto space-y-2">
-                    <div
-                      onClick={toggleSound}
-                      className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{soundEnabled ? "🔊" : "🔇"}</span>
-                        <div>
-                          <div className="font-bold text-[11px] text-[#111C2D]">ЗВУК &amp; ВИБРО</div>
-                          <div className="text-[9px] text-[#111C2D]/60 font-medium">8-бит щелчки и виброотклик</div>
-                        </div>
-                      </div>
-                      <div className={`font-pixel text-[8px] px-2 py-0.5 rounded font-black ${
-                        soundEnabled ? "bg-[#22C55E] text-[#111C2D]" : "bg-zinc-200 text-zinc-600"
-                      }`}>
-                        {soundEnabled ? "ВКЛ" : "ВЫКЛ"}
-                      </div>
-                    </div>
-
-                    <div className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">🔄</span>
-                        <div>
-                          <div className="font-bold text-[11px] text-[#111C2D]">СИНХРОНИЗАЦИЯ ПАРЫ</div>
-                          <div className="text-[9px] text-[#111C2D]/60 font-medium">98% связь • Онлайн союза OK</div>
-                        </div>
-                      </div>
-                      <span className="font-pixel text-[7.5px] bg-[#E8F5E9] text-emerald-800 border border-emerald-600/30 px-1.5 py-0.5 rounded font-bold">
-                        ТАЙМИНГ OK
-                      </span>
-                    </div>
-
-                    <div className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">🏷️</span>
-                        <div>
-                          <div className="font-bold text-[11px] text-[#111C2D]">ИМЯ ПИТОМЦА</div>
-                          <div className="text-[9px] text-[#111C2D]/60 font-medium">Статус: Подтверждено парой</div>
-                        </div>
-                      </div>
-                      <span className="font-pixel text-[8px] bg-[#FFE600] text-[#111C2D] border border-[#111C2D] px-2 py-0.5 rounded font-black">
-                        {pet.name}
-                      </span>
-                    </div>
-
-                    <div
-                      onClick={onClose}
-                      className="bg-[#FFF0F2] rounded-xl p-2.5 border border-[#BA0029] shadow-sm flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">🚪</span>
-                        <div>
-                          <div className="font-bold text-[11px] text-[#BA0029]">ВЫХОД В ЛОББИ</div>
-                          <div className="text-[9px] text-[#111C2D]/60 font-medium">Вернуться в главный дашборд</div>
-                        </div>
-                      </div>
-                      <span className="font-pixel text-[8px] text-[#BA0029]">ВЫХОД ▶</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => { playChime('click'); setIsPauseMenuOpen(false); }}
-                    className="w-full bg-[#111C2D] text-[#38E5FF] border-2 border-[#111C2D] rounded-xl py-2 px-3 shadow-[0_3px_0_#0D111F] flex items-center justify-center gap-2 active:translate-y-0.5 transition-transform"
-                  >
-                    <span className="font-pixel text-[9px] uppercase tracking-wide">
-                      [ B ] ВЕРНУТЬСЯ В ИГРУ С ПИТОМЦЕМ
-                    </span>
-                  </button>
-                </div>
-              ) : isNightOrSleepy ? (
-                /* ----------------- SCREEN 6: NIGHT / SLEEP MODE ----------------- */
-                <div className="flex flex-col justify-between h-full space-y-1">
-                  <div className="flex items-center justify-between text-[10px] font-bold text-cyan-300 border-b border-cyan-500/20 pb-1">
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-300">🌙</span>
-                      <span>НОЧНОЙ РЕЖИМ • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[9px]">
-                      <span className="text-emerald-400">CO-OP СПЯТ</span>
-                      <span className="bg-[#111C2D] text-cyan-300 px-1 rounded text-[8px]">
-                        ЭНРГ: {pet.energy}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 4 Need Gauges (Sleep Mode) */}
-                  <div className="grid grid-cols-4 gap-1.5 my-0.5">
-                    {[
-                      { label: 'СЫТ', val: pet.hunger, col: 'bg-yellow-400', txt: 'text-yellow-300' },
-                      { label: 'РАД', val: pet.joy, col: 'bg-cyan-400', txt: 'text-cyan-300' },
-                      { label: 'СОН', val: pet.energy, col: 'bg-sky-400 animate-pulse', txt: 'text-sky-300 animate-pulse' },
-                      { label: 'ЧИСТ', val: pet.cleanliness, col: 'bg-emerald-400', txt: 'text-emerald-300' },
-                    ].map((st) => (
-                      <div key={st.label} className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
-                        <div className={`text-[7.5px] font-bold ${st.txt} flex justify-between`}>
-                          <span>{st.label}</span><span>{st.val}%</span>
-                        </div>
-                        <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
-                          <div className={`h-full ${st.col} rounded-full`} style={{ width: `${st.val}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="self-center px-2 py-0.5 rounded-full bg-[#1A264F] border border-cyan-400/40 text-[9px] font-bold text-cyan-200 flex items-center gap-1 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
-                    <span>⚠️ {pet.name.toUpperCase()} КЛЮЁТ НОСОМ • УЛОЖИТЕ МАЛЫША</span>
-                  </div>
-
-                  {/* Sleeping Pet Stage */}
-                  <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 my-0.5">
-                    <div className="absolute top-1 left-3 text-yellow-300 text-xl animate-bounce">🌙</div>
-                    <div className="absolute top-2 right-6 text-yellow-200 text-xs animate-ping">✦</div>
-                    <div className="absolute bottom-2 left-5 text-cyan-300 text-xs">✨</div>
-
-                    <div className="absolute top-1 right-8 flex flex-col items-end text-cyan-300 font-pixel text-xs animate-pulse">
-                      <span className="text-[8px] opacity-40">z</span>
-                      <span className="text-[10px] opacity-70">Z</span>
-                      <span className="text-[12px] opacity-90 drop-shadow-[0_0_6px_#06B6D4]">Z</span>
-                    </div>
-
-                    <div className="relative w-36 h-36 flex items-center justify-center">
-                      <div className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-cyan-400/70 shadow-[0_0_24px_rgba(6,182,212,0.5)] bg-[#131F42] flex items-center justify-center p-1">
-                        <img
-                          src={SLEEP_IMAGE}
-                          onError={(e) => { (e.target as HTMLImageElement).src = SLEEP_IMAGE_FALLBACK; }}
-                          alt="Спящий питомец"
-                          className="w-full h-full object-contain filter drop-shadow-md animate-pulse"
-                          style={{ animationDuration: '3.5s' }}
-                        />
-                      </div>
-                      <div className="absolute -bottom-1.5 bg-[#A855F7] text-white font-pixel text-[8px] px-3 py-0.5 rounded-full border border-white/30 shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
-                        💤 СЛАДКО СПИТ
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-[#131F42] border border-cyan-500/40 p-2 text-center">
-                    <div className="text-[9.5px] font-bold text-yellow-300">
-                      🌙 ТИХИЙ ЧАС И ВОССТАНОВЛЕНИЕ ЭНЕРГИИ
-                    </div>
-                    <div className="text-[8px] text-cyan-200 mt-0.5">
-                      Сон восполняет силы и дарит спокойствие союзу
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleAction('sleep')}
-                    disabled={isLoading}
-                    className="w-full bg-[#A855F7] hover:bg-[#9333EA] text-white border-2 border-[#16192E] rounded-xl py-2 px-3 shadow-[0_3px_0_#111C2D] flex items-center justify-between active:translate-y-0.5 transition-transform cursor-pointer"
-                  >
-                    <span className="font-pixel text-[8.5px] uppercase">
-                      🌙 УЛОЖИТЬ СПАТЬ (ЖМИ А)
-                    </span>
-                    <span className="bg-[#FFE600] text-[#111C2D] font-pixel text-[7.5px] px-1.5 py-0.5 rounded font-black">
-                      +25 XP 💤
-                    </span>
-                  </button>
-                </div>
+                <PauseMenuModal
+                  pet={pet}
+                  soundEnabled={soundEnabled}
+                  onToggleSound={toggleSound}
+                  onCloseConsole={onClose}
+                  onResumeGame={() => {
+                    playChime('click');
+                    setIsPauseMenuOpen(false);
+                  }}
+                />
               ) : (
-                /* ----------------- SCREEN 4: DAY ACTIVE GAMEPLAY ----------------- */
-                <div className="flex flex-col justify-between h-full space-y-1">
-                  <div className="flex items-center justify-between pb-1 border-b border-[#111C2D]/15 text-[9px] font-bold text-[#111C2D]">
-                    <div className="flex items-center gap-1">
-                      <span>🔥 СТРИК 42 ДНЯ</span>
-                      <span className="text-[#111C2D]/40">•</span>
-                      <span>1.2 КГ</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 font-bold">
-                      <span className="text-emerald-800">CO-OP: OK</span>
-                      <span className="bg-[#111C2D] text-[#32FF98] px-1.5 py-0.2 rounded font-pixel text-[7.5px]">
-                        PWR: 99%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 4 Vital Stat Bars */}
-                  <div className="grid grid-cols-4 gap-1.5 my-0.5">
-                    {[
-                      { label: '🍓 СЫТ', val: pet.hunger, col: 'bg-[#BA0029]', valCol: 'text-[#BA0029]' },
-                      { label: '⚡ РАД', val: pet.joy, col: 'bg-[#FFD600]', valCol: 'text-amber-500' },
-                      { label: '💤 ЭНРГ', val: pet.energy, col: 'bg-[#00BCD4]', valCol: 'text-cyan-600' },
-                      { label: '🧼 ЧИСТ', val: pet.cleanliness, col: 'bg-[#22C55E]', valCol: 'text-emerald-600' },
-                    ].map((st) => (
-                      <div key={st.label} className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
-                        <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
-                          <span>{st.label}</span>
-                          <span className={st.valCol}>{st.val}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
-                          <div className={`h-full ${st.col} rounded-full transition-all duration-500`} style={{ width: `${st.val}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Central Pet Interactive Stage */}
-                  <div
-                    onClick={triggerHeartBurst}
-                    className="relative flex-1 flex flex-col items-center justify-center my-0.5 cursor-pointer select-none"
-                    title="Тапните по питомцу, чтобы погладить!"
-                  >
-                    <div className="mb-1 flex items-center justify-center max-w-[280px]">
-                      <div className="bg-white border-[1.5px] border-[#16192E] rounded-full px-3 py-1 text-[9.5px] font-bold shadow-[2px_2px_0px_#16192E] inline-flex items-center gap-1.5 animate-bounce text-center">
-                        <span className="text-xs">{pet.species === 'cat' ? '🐱' : '🐶'}</span>
-                        <span className="text-[#16192E] font-black tracking-tight leading-tight">
-                          {currentFunnyQuote || (MOOD_BUBBLES[pet.mood] || "Тяв! Люблю вас! 💖")}
-                        </span>
-                        <span className="text-xs">✨</span>
-                      </div>
-                    </div>
-
-                    <div className="relative flex items-center justify-center">
-                      <div className="absolute w-32 h-32 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse pointer-events-none" />
-                      <div
-                        className="w-36 h-36 rounded-full border-2 border-dashed border-[#FFD600] animate-spin absolute pointer-events-none opacity-80"
-                        style={{ animationDuration: '24s' }}
-                      />
-
-                      <div
-                        className={`relative z-10 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden bg-white/95 border-3 border-[#16192E] shadow-[0_6px_0_#16192E] flex items-center justify-center p-1.5 transition-transform duration-200 ${
-                          isBouncing ? 'scale-110 -rotate-3' : 'active:scale-95'
-                        }`}
-                      >
-                        <img
-                          src={PET_SPECIES_DETAILS[pet.species].image}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[pet.species].imageFallback;
-                          }}
-                          alt={pet.name}
-                          className="w-full h-full object-contain filter drop-shadow-[0_4px_6px_rgba(22,25,46,0.25)] select-none animate-pet-wiggle"
-                        />
-                      </div>
-
-                      {showPurrBadge && (
-                        <div className="absolute -right-3 top-0 bg-[#FFE600] text-[#16192E] border-2 border-[#16192E] px-2 py-0.5 rounded-full font-pixel text-[8px] font-black shadow-[2px_2px_0px_#16192E] z-30 animate-pulse">
-                          {pet.species === 'cat' ? "МУРРР~ +5❤️" : "ГАВ-ГАВ! +5❤️"}
-                        </div>
-                      )}
-
-                      {floatingHearts.map((h) => (
-                        <span
-                          key={h.id}
-                          className="absolute pointer-events-none text-lg z-30 transition-all duration-700 ease-out select-none"
-                          style={{
-                            left: `${h.x}px`,
-                            top: `${h.y}px`,
-                            transform: `translate(${h.targetX}px, ${h.targetY}px) scale(1.3)`,
-                            opacity: 0,
-                          }}
-                        >
-                          {h.emoji}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="w-24 h-2 bg-[#16192E]/15 rounded-full mx-auto mt-1 blur-2xs" />
-
-                    <div className="mt-1 flex items-center gap-1 bg-white/95 border-[1.5px] border-[#16192E] rounded-full px-2.5 py-0.5 shadow-xs">
-                      <span className="text-[9.5px] font-black text-[#111C2D]">
-                        {pet.species === 'cat' ? "Кошечка" : "Чихуахуа"} {pet.name} • Lv.{pet.level} 🐾
-                      </span>
-                      <span className="bg-[#FFE600] text-[#111C2D] text-[7.5px] font-black px-1.5 py-0.2 rounded-full border border-[#111C2D]">
-                        x2 БОНУС
-                      </span>
-                    </div>
-
-                    <div className="text-[8px] text-[#16192E]/60 font-bold mt-0.5 flex items-center gap-1">
-                      <span>👆</span>
-                      <span>Тапни по {pet.name}, чтобы погладить и развеселить!</span>
-                    </div>
-                  </div>
-
-                  {/* Duo Synergy Progress */}
-                  <div className="bg-white/95 border-[1.5px] border-[#111C2D] rounded-xl p-1.5 shadow-xs">
-                    <div className="flex items-center justify-between text-[8.5px] font-black text-[#111C2D] mb-0.5">
-                      <span className="text-[#BA0029] flex items-center gap-1">♡ СИНЕРГИЯ ДУО</span>
-                      <span className="text-[#725C00]">РОСТ 2X БЫСТРЕЕ ⚡</span>
-                    </div>
-                    <div className="w-full h-2 bg-[#111C2D]/15 rounded-full overflow-hidden border border-[#111C2D]/20 relative">
-                      <div
-                        className="h-full bg-gradient-to-r from-[#BA0029] via-[#FFD600] to-[#22C55E] rounded-full transition-all duration-500"
-                        style={{ width: `${pet.synergy ?? 95}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[7.5px] text-[#111C2D]/80 font-bold mt-0.5 px-0.5">
-                      <span>Аура пары: Радужное сияние</span>
-                      <span className="font-black text-[#111C2D]">{pet.synergy ?? 95}% Резонанс</span>
-                    </div>
-                  </div>
-
-                  {/* Quick Actions Care Menu (2x2 Grid) */}
-                  <div className="bg-white/95 rounded-xl p-1.5 border-[1.5px] border-[#111C2D] shadow-xs flex flex-col gap-1">
-                    <div className="flex items-center justify-between border-b border-[#111C2D]/15 pb-0.5">
-                      <span className="font-pixel text-[8px] font-bold text-[#111C2D]">🎮 БЫСТРЫЕ ДЕЙСТВИЯ</span>
-                      <button
-                        type="button"
-                        onClick={() => { playChime('click'); setIsPauseMenuOpen(true); }}
-                        className="bg-[#00BCD4] text-[#111C2D] text-[7px] font-black px-1.5 py-0.2 rounded border border-[#111C2D] cursor-pointer"
-                      >
-                        МЕНЮ (B)
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {QUICK_ACTIONS.map((act) => {
-                        const isSelected = selectedQuickAction === act.type;
-                        return (
-                          <div
-                            key={act.type}
-                            onClick={() => { playChime('click'); setSelectedQuickAction(act.type); }}
-                            className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
-                              isSelected
-                                ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
-                                : 'bg-white/90 border border-[#111C2D] shadow-xs'
-                            }`}
-                          >
-                            <span className="text-sm">{act.emoji}</span>
-                            <div className="flex flex-col min-w-0">
-                              <div className="flex items-center gap-1">
-                                <span className="text-[8.5px] font-black text-[#111C2D] leading-none">{act.label}</span>
-                                {isSelected && (
-                                  <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
-                                )}
-                              </div>
-                              <span className={`text-[6.5px] ${act.color} font-black mt-0.5`}>{act.xp}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Primary Action Banner Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleAction(selectedQuickAction)}
-                    disabled={isLoading}
-                    className="w-full bg-[#BA0029] hover:bg-[#E90036] active:scale-[0.98] border-[2.5px] border-[#111C2D] rounded-xl py-2 px-3 flex items-center justify-between shadow-[0_3px_0_#111C2D] text-white transition-all cursor-pointer"
-                  >
-                    <span className="flex items-center gap-1.5 text-xs font-black tracking-wide">
-                      <span>🍽</span>
-                      <span className="truncate">
-                        {actionFeedback || `ПОКОРМИТЬ ${pet.name.toUpperCase()} (ЖМИ А)`}
-                      </span>
-                    </span>
-                    <span className="bg-[#FFD600] text-[#111C2D] font-black text-[9px] px-2 py-0.5 rounded-full border border-[#111C2D] shadow-xs shrink-0">
-                      +15 XP
-                    </span>
-                  </button>
-                </div>
+                <GameplayScreen
+                  pet={pet}
+                  isNightOrSleepy={isNightOrSleepy}
+                  selectedQuickAction={selectedQuickAction}
+                  onSelectQuickAction={(act) => {
+                    playChime('click');
+                    setSelectedQuickAction(act);
+                  }}
+                  onPerformAction={handleAction}
+                  onTapPet={triggerHeartBurst}
+                  onOpenPauseMenu={() => {
+                    playChime('click');
+                    setIsPauseMenuOpen(true);
+                  }}
+                  actionFeedback={actionFeedback}
+                  currentFunnyQuote={currentFunnyQuote}
+                  isBouncing={isBouncing}
+                  showPurrBadge={showPurrBadge}
+                  floatingHearts={floatingHearts}
+                  isLoading={isLoading}
+                  quickActions={QUICK_ACTIONS}
+                />
               )}
             </div>
           )}
         </div>
 
-        {/* ===================== LOWER MECHANICAL CONTROLS ===================== */}
-        <div className="w-full flex flex-col justify-end shrink-0 pt-1">
-          <div className="flex items-center justify-between px-1">
-            {/* Left: Classic D-Pad Cross */}
-            <div className="flex flex-col items-center">
-              <div className="w-20 h-20 relative flex items-center justify-center">
-                <div className="absolute w-7 h-20 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]" />
-                <div className="absolute w-20 h-7 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]" />
-
-                <button
-                  type="button"
-                  aria-label="Up"
-                  onClick={() => { playChime('click'); setSelectedQuickAction('feed'); }}
-                  className="absolute top-0 w-7 h-7 bg-[#2E354B] active:bg-[#1A1F2C] rounded-t-sm flex items-center justify-center text-white active:translate-y-0.5 cursor-pointer"
-                >
-                  <span className="text-[12px] font-bold">▲</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Down"
-                  onClick={() => { playChime('click'); setSelectedQuickAction('sleep'); }}
-                  className="absolute bottom-0 w-7 h-7 bg-[#2E354B] active:bg-[#1A1F2C] rounded-b-sm flex items-center justify-center text-white active:-translate-y-0.5 cursor-pointer"
-                >
-                  <span className="text-[12px] font-bold">▼</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Left"
-                  onClick={() => {
-                    playChime('click');
-                    if (step === 'egg') setSelectedSpecies('dog');
-                    else setSelectedQuickAction('wash');
-                  }}
-                  className="absolute left-0 w-7 h-7 bg-[#2E354B] active:bg-[#1A1F2C] rounded-l-sm flex items-center justify-center text-white active:translate-x-0.5 cursor-pointer"
-                >
-                  <span className="text-[12px] font-bold">◀</span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Right"
-                  onClick={() => {
-                    playChime('click');
-                    if (step === 'egg') setSelectedSpecies('cat');
-                    else setSelectedQuickAction('play');
-                  }}
-                  className="absolute right-0 w-7 h-7 bg-[#2E354B] active:bg-[#1A1F2C] rounded-r-sm flex items-center justify-center text-white active:-translate-x-0.5 cursor-pointer"
-                >
-                  <span className="text-[12px] font-bold">▶</span>
-                </button>
-                <div className="w-5 h-5 bg-[#181D29] rounded-full z-10 pointer-events-none" />
-              </div>
-              <span className="text-[7.5px] font-pixel text-[#16192E]/80 mt-1 uppercase tracking-tight">D-PAD</span>
-            </div>
-
-            {/* Center: Slanted Rubber Oval Buttons */}
-            <div className="flex flex-col items-center justify-center gap-1">
-              <div className="flex items-center gap-3">
-                <div className="flex flex-col items-center">
-                  <button
-                    type="button"
-                    onClick={() => { playChime('click'); toggleSound(); }}
-                    className="w-8 h-3.5 bg-[#16192E] rounded-full transform -rotate-12 border border-[#16192E]/40 active:translate-y-0.5 shadow-sm cursor-pointer"
-                  />
-                  <span className="text-[7px] font-pixel text-[#16192E] uppercase mt-1">ЗВУК</span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <button
-                    type="button"
-                    onClick={() => { playChime('click'); setIsPauseMenuOpen(p => !p); }}
-                    className="w-8 h-3.5 bg-[#16192E] rounded-full transform -rotate-12 border border-[#16192E]/40 active:translate-y-0.5 shadow-sm cursor-pointer"
-                  />
-                  <span className="text-[7px] font-pixel text-[#16192E] uppercase mt-1">START</span>
-                </div>
-              </div>
-              <div className="text-center mt-0.5">
-                <span className="font-pixel text-[7.5px] text-[#16192E] tracking-wide block">★ RETRO CO-OP ★</span>
-                <span className="text-[7px] font-bold text-[#16192E]/70 block">A: ДЕЙСТВИЕ • B: МЕНЮ</span>
-              </div>
-            </div>
-
-            {/* Right: Round Arcade Action Buttons (B & A) */}
-            <div className="flex items-center gap-2.5">
-              <div className="flex flex-col items-center">
-                <button
-                  type="button"
-                  id="btnB"
-                  onClick={handleButtonB}
-                  className="w-12 h-12 rounded-full bg-[#00BCD4] border-[3px] border-[#16192E] font-black text-lg text-white shadow-[0_3px_0_#16192E] flex items-center justify-center active:translate-y-0.5 active:shadow-none transition-transform cursor-pointer"
-                >
-                  B
-                </button>
-                <span className="text-[7.5px] font-pixel text-[#16192E] mt-1 uppercase">МЕНЮ</span>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <button
-                  type="button"
-                  id="btnA"
-                  onClick={handleButtonA}
-                  className="w-12 h-12 rounded-full bg-[#FFD600] border-[3px] border-[#16192E] font-black text-lg text-[#16192E] shadow-[0_3px_0_#16192E] flex items-center justify-center active:translate-y-0.5 active:shadow-none transition-transform cursor-pointer"
-                >
-                  A
-                </button>
-                <span className="text-[7.5px] font-pixel text-[#BA0029] mt-1 uppercase">ДЕЙСТВИЕ</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-1 flex items-center justify-center gap-1 text-[#BA0029]/70">
-            <span className="text-[8px] font-pixel tracking-widest uppercase">LOOP.EXE CO-OP SYSTEM</span>
-            <span className="text-[8px]">♡</span>
-          </div>
-        </div>
+        {/* Mechanical Arcade Controls */}
+        <ConsoleControls
+          step={step}
+          onButtonA={handleButtonA}
+          onButtonB={handleButtonB}
+          onDpadUp={() => {
+            playChime('click');
+            setSelectedQuickAction('feed');
+          }}
+          onDpadDown={() => {
+            playChime('click');
+            setSelectedQuickAction('sleep');
+          }}
+          onDpadLeft={() => {
+            playChime('click');
+            if (step === 'egg') setSelectedSpecies('dog');
+            else setSelectedQuickAction('wash');
+          }}
+          onDpadRight={() => {
+            playChime('click');
+            if (step === 'egg') setSelectedSpecies('cat');
+            else setSelectedQuickAction('play');
+          }}
+          onToggleSound={toggleSound}
+          onTogglePause={() => {
+            playChime('click');
+            setIsPauseMenuOpen((p) => !p);
+          }}
+        />
       </div>
     </div>
   );

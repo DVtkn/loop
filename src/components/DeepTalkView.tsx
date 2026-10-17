@@ -20,66 +20,6 @@ import { triggerHaptic } from '../utils/haptics';
 import { useCouple } from '../context/CoupleContext';
 import { PageLayout } from './ui/PageLayout';
 
-const EXTENDED_CARDS: DeepTalkCard[] = [
-  ...DEEP_TALK_CARDS,
-  {
-    id: 'card-9',
-    category: 'intimacy',
-    categoryLabel: 'Близость и чувства',
-    categoryColor: 'from-rose-500 to-pink-500',
-    question: 'Что я делаю такого, от чего ты чувствуешь себя в полной безопасности рядом со мной?',
-    tip: 'Подумайте как о физической, так и об эмоциональной безопасности.',
-  },
-  {
-    id: 'card-10',
-    category: 'future',
-    categoryLabel: 'Наше будущее',
-    categoryColor: 'from-indigo-500 to-blue-500',
-    question: 'Какой традицией мы обязательно должны обзавестись в нашей семье через год или два?',
-    tip: 'Это может быть воскресный ритуал, совместный отпуск или уютный вечерний обычай.',
-  },
-  {
-    id: 'card-11',
-    category: 'memories',
-    categoryLabel: 'Воспоминания',
-    categoryColor: 'from-amber-500 to-orange-500',
-    question: 'Вспомни момент, когда мы вместе преодолели трудность и это сделало нас сильнее.',
-    tip: 'Обратите внимание на то, как вы поддержали друг друга тогда.',
-  },
-  {
-    id: 'card-12',
-    category: 'dreams',
-    categoryLabel: 'Мечты и желания',
-    categoryColor: 'from-purple-500 to-indigo-500',
-    question: 'Если бы у нас был целый свободный месяц без работы и забот с неограниченным бюджетом, как бы мы его прожили?',
-    tip: 'Не ограничивайте фантазию: какие страны, отели, вкусы или тишина?',
-  },
-  {
-    id: 'card-13',
-    category: 'fun',
-    categoryLabel: 'Улыбки и юмор',
-    categoryColor: 'from-emerald-500 to-teal-500',
-    question: 'Какая моя забавная привычка умиляет тебя больше всего, даже если ты иногда шутишь по этому поводу?',
-    tip: 'Ответьте с теплом и улыбкой — без сарказма.',
-  },
-  {
-    id: 'card-14',
-    category: 'intimacy',
-    categoryLabel: 'Близость и чувства',
-    categoryColor: 'from-rose-500 to-pink-500',
-    question: 'За что ты больше всего благодарен(на) нашим отношениям прямо сегодня?',
-    tip: 'Назовите хотя бы три конкретные вещи.',
-  },
-  {
-    id: 'card-15',
-    category: 'future',
-    categoryLabel: 'Наше будущее',
-    categoryColor: 'from-indigo-500 to-blue-500',
-    question: 'Каким ты видишь наш идеальный совместный дом мечты через 10 лет?',
-    tip: 'Опишите гостиную, террасу, звуки и вид из окна.',
-  },
-];
-
 const CATEGORIES: { key: string; label: string; icon: string }[] = [
   { key: 'all', label: 'Все темы', icon: '✦' },
   { key: 'intimacy', label: 'Близость', icon: '♡' },
@@ -98,11 +38,11 @@ export const DeepTalkView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const filteredCards = useMemo(() => {
-    if (selectedCategory === 'all') return EXTENDED_CARDS;
-    return EXTENDED_CARDS.filter((c) => c.category === selectedCategory);
+    if (selectedCategory === 'all') return DEEP_TALK_CARDS;
+    return DEEP_TALK_CARDS.filter((c) => c.category === selectedCategory);
   }, [selectedCategory]);
 
-  const currentCard: DeepTalkCard = filteredCards[currentIndex % (filteredCards.length || 1)] || EXTENDED_CARDS[0];
+  const currentCard: DeepTalkCard = filteredCards[currentIndex % (filteredCards.length || 1)] || DEEP_TALK_CARDS[0];
 
   const handleNext = () => {
     triggerHaptic('selection');

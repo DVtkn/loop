@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   CouplePetState,
   PetActionType,
   PetSpecies,
-  PetNameStatus
 } from "../types.ts";
 import {
-  getPetStateApi,
   birthPetApi,
   performPetActionApi,
-  proposePetNameApi,
-  confirmPetNameApi,
 } from "../api/pet.api.ts";
 import { triggerHaptic } from "../utils/haptics.ts";
 import { safeGetStorage, safeSetStorage } from "../utils/safeStorage.ts";
+import { play8BitAudio, SoundEffectType } from "../utils/audio8Bit.ts";
+import {
+  RANDOM_PET_NAMES,
+  PET_SPECIES_DETAILS,
+  SLEEP_IMAGE,
+  SLEEP_IMAGE_FALLBACK,
+  MOOD_BUBBLES,
+  FUNNY_PET_QUOTES,
+} from "../data/petData.ts";
 
 interface LoopConsoleProps {
   isOpen: boolean;
@@ -24,166 +28,6 @@ interface LoopConsoleProps {
   initialPetState?: CouplePetState;
 }
 
-// 8-Bit Web Audio Synthesizer for authentic retro arcade experience
-function play8BitAudio(type: 'boot' | 'click' | 'feed' | 'play' | 'wash' | 'sleep' | 'purr' | 'fanfare') {
-  try {
-    if (typeof window === 'undefined') return;
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-
-    const ctx = new AudioCtx();
-    const now = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    if (type === 'click') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(600, now);
-      osc.frequency.exponentialRampToValueAtTime(300, now + 0.04);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-      osc.start(now);
-      osc.stop(now + 0.04);
-    } else if (type === 'boot') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(261.63, now); // C4
-      osc.frequency.setValueAtTime(329.63, now + 0.08); // E4
-      osc.frequency.setValueAtTime(392.00, now + 0.16); // G4
-      osc.frequency.setValueAtTime(523.25, now + 0.24); // C5
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } else if (type === 'feed') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.setValueAtTime(587.33, now + 0.08);
-      osc.frequency.setValueAtTime(880, now + 0.16);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc.start(now);
-      osc.stop(now + 0.25);
-    } else if (type === 'play') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(523, now);
-      osc.frequency.exponentialRampToValueAtTime(1046, now + 0.15);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-      osc.start(now);
-      osc.stop(now + 0.2);
-    } else if (type === 'wash') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(300, now);
-      osc.frequency.linearRampToValueAtTime(700, now + 0.1);
-      osc.frequency.linearRampToValueAtTime(400, now + 0.2);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-      osc.start(now);
-      osc.stop(now + 0.25);
-    } else if (type === 'sleep') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(659.25, now);
-      osc.frequency.linearRampToValueAtTime(440, now + 0.18);
-      osc.frequency.linearRampToValueAtTime(329.63, now + 0.35);
-      gain.gain.setValueAtTime(0.09, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-      osc.start(now);
-      osc.stop(now + 0.45);
-    } else if (type === 'purr') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(350, now);
-      osc.frequency.setValueAtTime(520, now + 0.07);
-      osc.frequency.setValueAtTime(700, now + 0.14);
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
-    } else if (type === 'fanfare') {
-      osc.type = 'square';
-      [440, 554, 659, 880].forEach((f, i) => {
-        osc.frequency.setValueAtTime(f, now + i * 0.08);
-      });
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      osc.start(now);
-      osc.stop(now + 0.5);
-    }
-  } catch {
-    // Ignore audio context autoplay limitations
-  }
-}
-
-const RANDOM_NAMES = ["Бусинка", "Пиксель", "Моти", "Зефирка", "Пончик", "Чипсик", "Лучик", "Байт", "Тоффи", "Пуговка"];
-
-const PET_SPECIES_DETAILS: Record<PetSpecies, {
-  title: string;
-  badge: string;
-  trait: string;
-  bonus: string;
-  eggGradient: string;
-  image: string;
-  imageFallback: string;
-}> = {
-  dog: {
-    title: "ЧИХУАХУА",
-    badge: "Преданный & Бодрый",
-    trait: "Преданный и жизнерадостный щенок",
-    bonus: "+15% к энергии от совместных свиданий",
-    eggGradient: "from-[#FFE394] via-[#FFAEBD] to-[#FF8FA3]",
-    image: "/assets/tamagotchi/dog-happy.jpg",
-    imageFallback: "https://lh3.googleusercontent.com/aida-public/AB6AXuAHetbq7FldgIT8gIsFWK6AJ0BDWnZvOpSOXdZ2GeFJDc_H5tUpe0CwR9RPrg5j9DoS-_NgbHa-CRGmI4vACoSVqE74QsKVM4b9KLQrqprLG6kpLPhrZrvZ7MAXxsE4L7Vv8uMV3cJjIhZ7T8I60itzbhmeE0Mhdt5i2ZNdmrTY7cnpnb5_-EIy2n9F9NlgOcTvRcatnrQQAS0I76grcjNGUguiH68TM-DKSNnKnTCnatw_yvGPR5oBvg",
-  },
-  cat: {
-    title: "КОШЕЧКА",
-    badge: "Ласковая & Мурчащая",
-    trait: "Мягкая, уютная и ласковая кошка",
-    bonus: "+15% к радости от совместных касаний",
-    eggGradient: "from-[#C4B5FD] via-[#A7F3D0] to-[#6EE7B7]",
-    image: "/assets/tamagotchi/cat-happy.jpg",
-    imageFallback: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9CUkEIg3KYo7vRkIl9aNFKuI_YylFZnPxuGLbMAU-BE59Kn_O4dgg8Rsrz3WChhz-g6hi9_pyt-RMlb_46D_naW5P9IeY8hDmoIyfR_B59a4ZvX4yM8h_23rlS3HtP6nf7rQ2LXNKRrnOKo3iW6A1F47utWuwzlhyX0dMGHjpYzFPvf9A02B6rn-OgXHyJpfokvVeaIES7OIEBDXwlEZjZ_UUdEo6iNF6IODjsAHHGBFLoqgI2yMMVg",
-  },
-};
-
-const SLEEP_IMAGE = "/assets/tamagotchi/dog-sleep.jpg";
-const SLEEP_IMAGE_FALLBACK = "https://lh3.googleusercontent.com/aida-public/AB6AXuAYQBzgEj8bxvPylrR-g0Wxlq_lQprKeW-lB9TW_KxP55ElP5RK4F9TKNj7CFawvCwbkKXRMVCpN4hkTotd4-LpgiBhoufpQpk2ondK1giu_dFAWgKjr73oopIucQGlNQHqRBP3xh4QZCppS0rnRp32N5LznWmwZVezLu2a4HkniAz8E3RIwQ9ZpL6sRvK-UE2IDxDLBGld-m7dEHky0YSw5_GzBVOtgjjwiFe8u8Mts2yNLdptP3OkCQ";
-
-const MOOD_BUBBLES: Record<string, string> = {
-  happy: "Тяв! Люблю вас! 💖",
-  sleepy: "Клюю носом... 💤",
-  hungry: "Кушать! 🍓",
-  playful: "Поиграем? 🎾",
-  loved: "Муррр~ +5❤️",
-  dirty: "Буль-буль! Чистота! 🧼",
-};
-
-const FUNNY_PET_QUOTES: Record<PetSpecies, string[]> = {
-  dog: [
-    "Тяв! Где вкусняшка? Я видел колбаску! 🥩",
-    "Ты лучший человек во вселенной! (после холодильника) 💖",
-    "Почеши пузико! Срочно! 🐾",
-    "Я не толстый, это кость пушистая! 🧁",
-    "Тыгыдык в 3 часа ночи? Я всегда готов! ⚡",
-    "Хвост виляет быстрее скорости света! 🐕✨",
-    "Гав! Дай пять лапкой! 🐾",
-    "Мячик — смысл всей моей собачьей жизни! 🎾",
-    "Я здесь главный охранник ваших сердечек! 🛡️❤️",
-  ],
-  cat: [
-    "Мур-мяу! Уровень милоты: 1000% 🌸",
-    "Человек, ты опоздал с кормом на 0.5 секунды! 🐟",
-    "Кусь! Это я так выражаю безумную любовь! ❤️",
-    "Я здесь божество, а ты мой слуга с паштетом 👑",
-    "Муррр~ лапками делаю массаж 🐾",
-    "Тыгыдык-тыгыдык по всей квартире! ⚡",
-    "Картонная коробка в 10 раз лучше лежанки! 📦",
-    "Почеши за ушком и я включу мурчащий моторчик 🐱",
-    "Смотрю в пустую стену с очень умным видом 👁️",
-  ],
-};
-
 interface FloatingHeart {
   id: number;
   emoji: string;
@@ -192,6 +36,19 @@ interface FloatingHeart {
   targetX: number;
   targetY: number;
 }
+
+const QUICK_ACTIONS: Array<{
+  type: PetActionType;
+  emoji: string;
+  label: string;
+  xp: string;
+  color: string;
+}> = [
+  { type: 'feed', emoji: '🍓', label: 'Покормить', xp: '+15 XP 🐟', color: 'text-[#BA0029]' },
+  { type: 'play', emoji: '🎾', label: 'Поиграть', xp: '+20 XP ⚡', color: 'text-[#22C55E]' },
+  { type: 'wash', emoji: '🧼', label: 'Ванна & Мыло', xp: '+15 XP 🫧', color: 'text-[#00BCD4]' },
+  { type: 'sleep', emoji: '🌙', label: 'Уложить спать', xp: '+25 XP 💤', color: 'text-[#725C00]' },
+];
 
 export const LoopConsole: React.FC<LoopConsoleProps> = ({
   isOpen,
@@ -213,12 +70,10 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sound & Vibration preference
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     return safeGetStorage<boolean>('loop_pet_sound_enabled', true);
   });
 
-  // Gameplay local state
   const [isPauseMenuOpen, setIsPauseMenuOpen] = useState(false);
   const [selectedQuickAction, setSelectedQuickAction] = useState<PetActionType>('feed');
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
@@ -226,8 +81,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   const [showPurrBadge, setShowPurrBadge] = useState(false);
   const [currentFunnyQuote, setCurrentFunnyQuote] = useState<string | null>(null);
   const [isBouncing, setIsBouncing] = useState(false);
-
-  // BIOS Terminal Animation Line Count
   const [biosPhase, setBiosPhase] = useState<number>(0);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -241,7 +94,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   }, []);
 
-  const playChime = useCallback((type: 'boot' | 'click' | 'feed' | 'play' | 'wash' | 'sleep' | 'purr' | 'fanfare') => {
+  const playChime = useCallback((type: SoundEffectType) => {
     if (soundEnabled) {
       play8BitAudio(type);
     }
@@ -288,7 +141,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   }, [initialPetState]);
 
   // Heart burst & funny quote animation on pet tap
-  const triggerHeartBurst = (e?: React.MouseEvent) => {
+  const triggerHeartBurst = () => {
     playChime(pet?.species === 'cat' ? 'purr' : 'play');
     setShowPurrBadge(true);
     setIsBouncing(true);
@@ -297,7 +150,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
       setIsBouncing(false);
     }, 850);
 
-    // Randomize a funny quote
     if (pet) {
       const pool = FUNNY_PET_QUOTES[pet.species] || FUNNY_PET_QUOTES.dog;
       const pick = pool[Math.floor(Math.random() * pool.length)];
@@ -324,14 +176,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     setFloatingHearts(newHearts);
     setTimeout(() => setFloatingHearts([]), 900);
 
-    // Also execute hug action if in game
     if (step === 'game' && pet && !isLoading) {
       handleAction('hug');
     }
   };
 
-  // Perform Pet Action API
-  // Perform Pet Action API with local/offline fallback
+  // Perform Pet Action
   const handleAction = async (action: PetActionType) => {
     if (!pet || isLoading) return;
     const token = getToken();
@@ -339,7 +189,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     setIsLoading(true);
     setError(null);
 
-    // Audio chime by action type
     if (action === 'feed') playChime('feed');
     else if (action === 'play') playChime('play');
     else if (action === 'wash') playChime('wash');
@@ -377,28 +226,21 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
           safeSetStorage('loop_local_pet', res.state);
           if (onPetUpdated) onPetUpdated(res.state);
         }
-        if (res.levelUp) {
-          playChime('fanfare');
-        }
+        if (res.levelUp) playChime('fanfare');
       } else {
         setPet(updatedLocalPet);
         safeSetStorage('loop_local_pet', updatedLocalPet);
         if (onPetUpdated) onPetUpdated(updatedLocalPet);
-        if (nextLevel > (pet.level || 1)) {
-          playChime('fanfare');
-        }
+        if (nextLevel > (pet.level || 1)) playChime('fanfare');
       }
 
       setActionFeedback(feedbackMap[action] || "УСПЕХ!");
       setTimeout(() => setActionFeedback(null), 2000);
     } catch {
-      // Graceful offline fallback
       setPet(updatedLocalPet);
       safeSetStorage('loop_local_pet', updatedLocalPet);
       if (onPetUpdated) onPetUpdated(updatedLocalPet);
-      if (nextLevel > (pet.level || 1)) {
-        playChime('fanfare');
-      }
+      if (nextLevel > (pet.level || 1)) playChime('fanfare');
       setActionFeedback(feedbackMap[action] || "УСПЕХ!");
       setTimeout(() => setActionFeedback(null), 2000);
     } finally {
@@ -410,7 +252,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   const handleBirth = async () => {
     if (isLoading) return;
     const token = getToken();
-
     const trimmed = petName.trim() || 'Бусинка';
     setIsLoading(true);
     setError(null);
@@ -456,7 +297,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
       }
       setStep('game');
     } catch {
-      // Graceful fallback to local pet creation
       setPet(localPet);
       safeSetStorage('loop_local_pet', localPet);
       if (onPetCreated) onPetCreated(localPet);
@@ -465,44 +305,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
       setIsLoading(false);
     }
   };
-
-  // Keyboard Gamepad listener (A = Enter/Space, B = Esc/B, D-Pad = Arrows)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
-
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        playChime('click');
-        setSelectedQuickAction('feed');
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        playChime('click');
-        if (step === 'egg') setSelectedSpecies('cat');
-        else setSelectedQuickAction('play');
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        playChime('click');
-        if (step === 'egg') setSelectedSpecies('dog');
-        else setSelectedQuickAction('wash');
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        playChime('click');
-        setSelectedQuickAction('sleep');
-      } else if (e.key.toLowerCase() === 'a' || e.key === 'Enter') {
-        e.preventDefault();
-        handleButtonA();
-      } else if (e.key.toLowerCase() === 'b' || e.key === 'Escape') {
-        e.preventDefault();
-        handleButtonB();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  });
 
   // Physical Button A Click
   const handleButtonA = () => {
@@ -540,10 +342,48 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     }
   };
 
+  // Keyboard Gamepad listener
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        playChime('click');
+        setSelectedQuickAction('feed');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        playChime('click');
+        if (step === 'egg') setSelectedSpecies('cat');
+        else setSelectedQuickAction('play');
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        playChime('click');
+        if (step === 'egg') setSelectedSpecies('dog');
+        else setSelectedQuickAction('wash');
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        playChime('click');
+        setSelectedQuickAction('sleep');
+      } else if (e.key.toLowerCase() === 'a' || e.key === 'Enter') {
+        e.preventDefault();
+        handleButtonA();
+      } else if (e.key.toLowerCase() === 'b' || e.key === 'Escape') {
+        e.preventDefault();
+        handleButtonB();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   const handleRandomName = () => {
     playChime('click');
-    const pool = RANDOM_NAMES.filter((n) => n !== petName);
-    const pick = pool[Math.floor(Math.random() * pool.length)] ?? RANDOM_NAMES[0];
+    const pool = RANDOM_PET_NAMES.filter((n) => n !== petName);
+    const pick = pool[Math.floor(Math.random() * pool.length)] ?? RANDOM_PET_NAMES[0];
     setPetName(pick);
     if (nameInputRef.current) nameInputRef.current.value = pick;
   };
@@ -559,7 +399,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
   if (!isOpen) return null;
 
-  // Determine current display mode for step === 'game'
   const isNightOrSleepy = Boolean(
     pet && (pet.mood === 'sleepy' || pet.energy < 20)
   );
@@ -568,37 +407,30 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm select-none"
       onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
+        if (e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Handheld Device Chassis (Strict Standard: rounded-40px, border-3.5px, pastel pink shell) */}
-      <div
-        className="w-full max-w-[395px] h-[calc(100dvh-16px)] max-h-[810px] bg-[#FFBAC8] border-[3.5px] border-[#16192E] rounded-[40px] flex flex-col justify-between p-3 box-border overflow-hidden relative shadow-[0_12px_0_#16192E,0_20px_25px_-5px_rgba(0,0,0,0.3)]"
-      >
+      {/* Handheld Device Chassis */}
+      <div className="w-full max-w-[395px] h-[calc(100dvh-16px)] max-h-[810px] bg-[#FFBAC8] border-[3.5px] border-[#16192E] rounded-[40px] flex flex-col justify-between p-3 box-border overflow-hidden relative shadow-[0_12px_0_#16192E,0_20px_25px_-5px_rgba(0,0,0,0.3)]">
         {/* ===================== TOP BEZEL ===================== */}
         <div className="w-full flex items-center justify-between px-2 pt-0.5 pb-2 shrink-0">
-          {/* Left Speaker Dots */}
           <div className="flex gap-1.5 opacity-85">
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block"></span>
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block"></span>
-            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block"></span>
+            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
+            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
+            <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
           </div>
 
-          {/* Center LINK OK LED Pill Indicator */}
           <div className="bg-[#16192E] px-3.5 py-1 rounded-full flex items-center gap-1.5 shadow-sm border border-[#16192E]">
-            <span className="w-2 h-2 rounded-full bg-[#32FF98] shadow-[0_0_8px_#32FF98] animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#32FF98] shadow-[0_0_8px_#32FF98] animate-pulse" />
             <span className="font-pixel text-[8.5px] tracking-wider text-[#32FF98] uppercase">
               {isNightOrSleepy ? "LINK OK (SLEEP)" : "LINK OK • DUO"}
             </span>
           </div>
 
-          {/* Right Speaker Dots + Close X shortcut */}
           <div className="flex items-center gap-2">
             <div className="flex gap-1.5 opacity-85">
-              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block"></span>
-              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block"></span>
+              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
+              <span className="w-2 h-2 rounded-full bg-[#16192E] inline-block" />
             </div>
             <button
               onClick={onClose}
@@ -685,14 +517,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
           {/* ----------------- SCREEN 2: INCUBATOR (PET SELECTION) ----------------- */}
           {step === 'egg' && (
             <div className="relative z-10 flex flex-col justify-between h-full">
-              {/* LCD Top Status */}
               <div className="flex justify-between items-center text-[10px] font-vt tracking-wider border-b border-[#111C2D]/15 pb-1">
                 <span className="text-emerald-800 font-bold">SYS.INCUBATOR // V1.0</span>
                 <span className="text-[#BA0029] font-black text-[9px]">CO-OP SYNC: OK</span>
                 <span className="text-emerald-800 font-bold">BATTERY: 100%</span>
               </div>
 
-              {/* Title Banner */}
               <div className="text-center my-0.5">
                 <div className="inline-block bg-[#16192E] border border-[#111C2D] px-2 py-0.5 rounded shadow-sm">
                   <h2 className="font-pixel text-[9px] text-[#32FF98] tracking-wide uppercase">
@@ -706,76 +536,48 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
               {/* Side-by-Side Pet Eggs */}
               <div className="grid grid-cols-2 gap-2 my-auto">
-                {/* 1. Чихуахуа */}
-                <div
-                  onClick={() => { playChime('click'); setSelectedSpecies('dog'); }}
-                  className={`relative rounded-xl p-2 flex flex-col items-center justify-between transition-all cursor-pointer ${
-                    selectedSpecies === 'dog'
-                      ? 'bg-white border-2 border-[#BA0029] shadow-[0_0_12px_rgba(186,0,41,0.25)] ring-1 ring-[#BA0029]'
-                      : 'bg-white/60 border border-[#111C2D]/30 opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  {selectedSpecies === 'dog' && (
-                    <div className="absolute -top-2.5 bg-[#BA0029] text-white font-pixel text-[7px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                      ► ВЫБРАНО
+                {(['dog', 'cat'] as PetSpecies[]).map((sp) => {
+                  const details = PET_SPECIES_DETAILS[sp];
+                  const isSelected = selectedSpecies === sp;
+                  return (
+                    <div
+                      key={sp}
+                      onClick={() => { playChime('click'); setSelectedSpecies(sp); }}
+                      className={`relative rounded-xl p-2 flex flex-col items-center justify-between transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-white border-2 border-[#BA0029] shadow-[0_0_12px_rgba(186,0,41,0.25)] ring-1 ring-[#BA0029]'
+                          : 'bg-white/60 border border-[#111C2D]/30 opacity-75 hover:opacity-100'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute -top-2.5 bg-[#BA0029] text-white font-pixel text-[7px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                          ► ВЫБРАНО
+                        </div>
+                      )}
+                      <div className={`w-16 h-20 bg-gradient-to-b ${details.eggGradient} rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce`} style={{ animationDuration: sp === 'dog' ? '2.5s' : '3s' }}>
+                        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
+                          <img
+                            src={details.image}
+                            onError={(e) => { (e.target as HTMLImageElement).src = details.imageFallback; }}
+                            alt={details.title}
+                            className="w-full h-full object-contain filter drop-shadow-xs"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-center w-full mt-1">
+                        <div className={`font-pixel text-[9px] font-bold ${sp === 'dog' ? 'text-[#BA0029]' : 'text-emerald-800'}`}>
+                          {details.title}
+                        </div>
+                        <div className="bg-[#FFE3E8] border border-[#BA0029]/30 rounded px-1 py-0.5 mt-1 text-[8.5px] font-extrabold text-[#BA0029]">
+                          {details.bonus}
+                        </div>
+                        <div className="font-pixel text-[6.5px] text-[#111C2D]/70 mt-1 uppercase">{details.badge}</div>
+                      </div>
                     </div>
-                  )}
-                  {/* Floating Egg with Pup Preview */}
-                  <div className="w-16 h-20 bg-gradient-to-b from-[#FFE394] via-[#FFAEBD] to-[#FF8FA3] rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce" style={{ animationDuration: '2.5s' }}>
-                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
-                      <img
-                        src={PET_SPECIES_DETAILS.dog.image}
-                        onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS.dog.imageFallback; }}
-                        alt="Чихуахуа"
-                        className="w-full h-full object-contain filter drop-shadow-xs"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center w-full mt-1">
-                    <div className="font-pixel text-[9px] font-bold text-[#BA0029]">ЧИХУАХУА</div>
-                    <div className="bg-[#FFE3E8] border border-[#BA0029]/30 rounded px-1 py-0.5 mt-1 text-[8.5px] font-extrabold text-[#BA0029]">
-                      ✨ +15% к энергии
-                    </div>
-                    <div className="font-pixel text-[6.5px] text-[#111C2D]/70 mt-1 uppercase">Преданный &amp; Бодрый</div>
-                  </div>
-                </div>
-
-                {/* 2. Кошечка */}
-                <div
-                  onClick={() => { playChime('click'); setSelectedSpecies('cat'); }}
-                  className={`relative rounded-xl p-2 flex flex-col items-center justify-between transition-all cursor-pointer ${
-                    selectedSpecies === 'cat'
-                      ? 'bg-white border-2 border-[#BA0029] shadow-[0_0_12px_rgba(186,0,41,0.25)] ring-1 ring-[#BA0029]'
-                      : 'bg-white/60 border border-[#111C2D]/30 opacity-75 hover:opacity-100'
-                  }`}
-                >
-                  {selectedSpecies === 'cat' && (
-                    <div className="absolute -top-2.5 bg-[#BA0029] text-white font-pixel text-[7px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                      ► ВЫБРАНО
-                    </div>
-                  )}
-                  {/* Floating Egg with Cat Preview */}
-                  <div className="w-16 h-20 bg-gradient-to-b from-[#C4B5FD] via-[#A7F3D0] to-[#6EE7B7] rounded-[50%_50%_46%_46%_/_60%_60%_40%_40%] border-2 border-[#16192E] p-1 flex items-center justify-center relative shadow-sm my-1 animate-bounce" style={{ animationDuration: '3s' }}>
-                    <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#16192E] bg-white flex items-center justify-center p-0.5 shadow-inner">
-                      <img
-                        src={PET_SPECIES_DETAILS.cat.image}
-                        onError={(e) => { (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS.cat.imageFallback; }}
-                        alt="Кошечка"
-                        className="w-full h-full object-contain filter drop-shadow-xs"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-center w-full mt-1">
-                    <div className="font-pixel text-[9px] font-bold text-emerald-800">КОШЕЧКА</div>
-                    <div className="bg-[#E8F5E9] border border-emerald-600/30 rounded px-1 py-0.5 mt-1 text-[8.5px] font-extrabold text-emerald-800">
-                      ✨ +15% к радости
-                    </div>
-                    <div className="font-pixel text-[6.5px] text-[#111C2D]/70 mt-1 uppercase">Ласковая &amp; Мурчащая</div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
 
-              {/* Action Banner */}
               <div className="mt-1">
                 <button
                   type="button"
@@ -793,14 +595,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
           {/* ----------------- SCREEN 3: BIRTH CERTIFICATE & PASSPORT ----------------- */}
           {step === 'name' && (
             <div className="relative z-10 flex flex-col justify-between h-full">
-              {/* Top LCD Status */}
               <div className="flex justify-between items-center text-[10px] font-vt border-b border-[#111C2D]/15 pb-1">
                 <span className="text-emerald-800 font-bold">SYS.HATCH // V1.0</span>
                 <span className="text-[#BA0029] font-black text-[9px]">CO-OP SYNC: OK</span>
                 <span className="text-emerald-800 font-bold">PWR: 100%</span>
               </div>
 
-              {/* Title */}
               <div className="text-center my-0.5">
                 <div className="inline-block bg-[#16192E] px-2.5 py-0.5 rounded shadow-sm">
                   <h2 className="font-pixel text-[9px] text-[#32FF98] uppercase">
@@ -812,10 +612,9 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                 </p>
               </div>
 
-              {/* Cracked Egg Avatar Stage */}
               <div className="relative flex flex-col items-center justify-center my-auto py-1">
                 <div className="relative w-32 h-32 flex items-center justify-center">
-                  <div className="absolute w-28 h-28 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse"></div>
+                  <div className="absolute w-28 h-28 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse" />
                   <div className="w-26 h-26 rounded-3xl overflow-hidden border-3 border-[#16192E] bg-white shadow-[0_4px_0_#16192E] flex items-center justify-center p-1 relative z-10">
                     <img
                       src={PET_SPECIES_DETAILS[selectedSpecies].image}
@@ -824,7 +623,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       className="w-full h-full object-contain filter drop-shadow animate-pet-wiggle"
                     />
                   </div>
-                  {/* Floating sparkles */}
                   <span className="absolute -top-1 left-2 text-base animate-bounce z-20">✦</span>
                   <span className="absolute top-0 right-2 text-base animate-pulse z-20">✨</span>
                   <span className="absolute bottom-1 right-1 text-base animate-ping z-20">💖</span>
@@ -836,7 +634,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                 </div>
               </div>
 
-              {/* Birth Certificate Form Card */}
               <div className="bg-white/95 border border-[#111C2D]/30 rounded-xl p-2.5 shadow-sm space-y-1.5">
                 <div className="flex items-center justify-between border-b border-[#111C2D]/15 pb-1">
                   <span className="font-pixel text-[8px] font-bold text-[#BA0029] flex items-center gap-1">
@@ -847,7 +644,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                   </span>
                 </div>
 
-                {/* Name Input Row + Dice Randomizer */}
                 <div className="flex items-center gap-1.5 pt-0.5">
                   <div className="flex-1 bg-[#EEF8E8] border border-[#111C2D] rounded-lg px-2 py-1 flex items-center justify-between shadow-inner">
                     <span className="font-pixel text-[8.5px] text-[#111C2D]/70 mr-1">ИМЯ: [</span>
@@ -882,7 +678,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                 </div>
               </div>
 
-              {/* Confirmation Action Button */}
               <div className="mt-1.5">
                 <button
                   type="button"
@@ -911,10 +706,9 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
           {/* ----------------- SCREEN 4 & 5 & 6: GAMEPLAY / PAUSE / SLEEP ----------------- */}
           {step === 'game' && pet && (
             <div className="relative z-10 flex flex-col justify-between h-full">
-              {/* PAUSE / SETTINGS MODAL OVERLAY (SCREEN 5) */}
+              {/* PAUSE / SETTINGS MODAL OVERLAY */}
               {isPauseMenuOpen ? (
                 <div className="flex flex-col justify-between h-full space-y-2">
-                  {/* Pause Header */}
                   <div className="w-full flex items-center justify-between bg-[#111C2D] text-white px-2.5 py-1.5 rounded-lg shadow-sm">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm text-[#FFD600] animate-spin" style={{ animationDuration: '3s' }}>⚙️</span>
@@ -927,9 +721,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </span>
                   </div>
 
-                  {/* Menu Items Grid */}
                   <div className="my-auto space-y-2">
-                    {/* Item 1: Sound & Haptics Toggle */}
                     <div
                       onClick={toggleSound}
                       className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
@@ -948,7 +740,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       </div>
                     </div>
 
-                    {/* Item 2: Co-op Partner Sync Status */}
                     <div className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🔄</span>
@@ -962,7 +753,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       </span>
                     </div>
 
-                    {/* Item 3: Pet Name */}
                     <div className="bg-white/95 rounded-xl p-2.5 border border-[#111C2D] shadow-sm flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🏷️</span>
@@ -976,7 +766,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       </span>
                     </div>
 
-                    {/* Item 4: Exit to Lobby Dashboard */}
                     <div
                       onClick={onClose}
                       className="bg-[#FFF0F2] rounded-xl p-2.5 border border-[#BA0029] shadow-sm flex items-center justify-between cursor-pointer active:scale-98 transition-transform"
@@ -992,7 +781,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* Return to Game Banner Button */}
                   <button
                     type="button"
                     onClick={() => { playChime('click'); setIsPauseMenuOpen(false); }}
@@ -1006,7 +794,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
               ) : isNightOrSleepy ? (
                 /* ----------------- SCREEN 6: NIGHT / SLEEP MODE ----------------- */
                 <div className="flex flex-col justify-between h-full space-y-1">
-                  {/* Night Top Ticker */}
                   <div className="flex items-center justify-between text-[10px] font-bold text-cyan-300 border-b border-cyan-500/20 pb-1">
                     <div className="flex items-center gap-1">
                       <span className="text-yellow-300">🌙</span>
@@ -1022,61 +809,40 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
                   {/* 4 Need Gauges (Sleep Mode) */}
                   <div className="grid grid-cols-4 gap-1.5 my-0.5">
-                    <div className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
-                      <div className="text-[7.5px] font-bold text-yellow-300 flex justify-between">
-                        <span>СЫТ</span><span>{pet.hunger}%</span>
+                    {[
+                      { label: 'СЫТ', val: pet.hunger, col: 'bg-yellow-400', txt: 'text-yellow-300' },
+                      { label: 'РАД', val: pet.joy, col: 'bg-cyan-400', txt: 'text-cyan-300' },
+                      { label: 'СОН', val: pet.energy, col: 'bg-sky-400 animate-pulse', txt: 'text-sky-300 animate-pulse' },
+                      { label: 'ЧИСТ', val: pet.cleanliness, col: 'bg-emerald-400', txt: 'text-emerald-300' },
+                    ].map((st) => (
+                      <div key={st.label} className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
+                        <div className={`text-[7.5px] font-bold ${st.txt} flex justify-between`}>
+                          <span>{st.label}</span><span>{st.val}%</span>
+                        </div>
+                        <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
+                          <div className={`h-full ${st.col} rounded-full`} style={{ width: `${st.val}%` }} />
+                        </div>
                       </div>
-                      <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
-                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${pet.hunger}%` }}></div>
-                      </div>
-                    </div>
-                    <div className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
-                      <div className="text-[7.5px] font-bold text-cyan-300 flex justify-between">
-                        <span>РАД</span><span>{pet.joy}%</span>
-                      </div>
-                      <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
-                        <div className="h-full bg-cyan-400 rounded-full" style={{ width: `${pet.joy}%` }}></div>
-                      </div>
-                    </div>
-                    <div className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
-                      <div className="text-[7.5px] font-bold text-sky-300 flex justify-between animate-pulse">
-                        <span>СОН</span><span>{pet.energy}%</span>
-                      </div>
-                      <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
-                        <div className="h-full bg-sky-400 rounded-full animate-pulse" style={{ width: `${pet.energy}%` }}></div>
-                      </div>
-                    </div>
-                    <div className="bg-[#131F42] border border-cyan-500/30 rounded p-1 text-center">
-                      <div className="text-[7.5px] font-bold text-emerald-300 flex justify-between">
-                        <span>ЧИСТ</span><span>{pet.cleanliness}%</span>
-                      </div>
-                      <div className="w-full h-1 bg-[#1E293B] rounded-full overflow-hidden mt-0.5">
-                        <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${pet.cleanliness}%` }}></div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
 
-                  {/* Sleep Warning Tag */}
                   <div className="self-center px-2 py-0.5 rounded-full bg-[#1A264F] border border-cyan-400/40 text-[9px] font-bold text-cyan-200 flex items-center gap-1 shadow-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
                     <span>⚠️ {pet.name.toUpperCase()} КЛЮЁТ НОСОМ • УЛОЖИТЕ МАЛЫША</span>
                   </div>
 
-                  {/* Sleeping Pet Stage with Cloud Pillow & Floating Zzz */}
+                  {/* Sleeping Pet Stage */}
                   <div className="relative flex-1 flex flex-col items-center justify-center min-h-0 my-0.5">
-                    {/* Sky Decors */}
                     <div className="absolute top-1 left-3 text-yellow-300 text-xl animate-bounce">🌙</div>
                     <div className="absolute top-2 right-6 text-yellow-200 text-xs animate-ping">✦</div>
                     <div className="absolute bottom-2 left-5 text-cyan-300 text-xs">✨</div>
 
-                    {/* Floating Zzz */}
                     <div className="absolute top-1 right-8 flex flex-col items-end text-cyan-300 font-pixel text-xs animate-pulse">
                       <span className="text-[8px] opacity-40">z</span>
                       <span className="text-[10px] opacity-70">Z</span>
                       <span className="text-[12px] opacity-90 drop-shadow-[0_0_6px_#06B6D4]">Z</span>
                     </div>
 
-                    {/* Cloud Pillow + Sleeping Pet Sprite */}
                     <div className="relative w-36 h-36 flex items-center justify-center">
                       <div className="w-32 h-32 rounded-3xl overflow-hidden border-2 border-cyan-400/70 shadow-[0_0_24px_rgba(6,182,212,0.5)] bg-[#131F42] flex items-center justify-center p-1">
                         <img
@@ -1093,7 +859,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* Sleep Prompt Card */}
                   <div className="rounded-xl bg-[#131F42] border border-cyan-500/40 p-2 text-center">
                     <div className="text-[9.5px] font-bold text-yellow-300">
                       🌙 ТИХИЙ ЧАС И ВОССТАНОВЛЕНИЕ ЭНЕРГИИ
@@ -1103,7 +868,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* Sleep / Wake Action Button */}
                   <button
                     type="button"
                     onClick={() => handleAction('sleep')}
@@ -1121,7 +885,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
               ) : (
                 /* ----------------- SCREEN 4: DAY ACTIVE GAMEPLAY ----------------- */
                 <div className="flex flex-col justify-between h-full space-y-1">
-                  {/* 1. Top LCD Status Row */}
                   <div className="flex items-center justify-between pb-1 border-b border-[#111C2D]/15 text-[9px] font-bold text-[#111C2D]">
                     <div className="flex items-center gap-1">
                       <span>🔥 СТРИК 42 ДНЯ</span>
@@ -1136,60 +899,32 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* 2. Four Vital Stat Bars */}
+                  {/* 4 Vital Stat Bars */}
                   <div className="grid grid-cols-4 gap-1.5 my-0.5">
-                    {/* СЫТОСТЬ */}
-                    <div className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
-                      <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
-                        <span>🍓 СЫТ</span>
-                        <span className="text-[#BA0029]">{pet.hunger}%</span>
+                    {[
+                      { label: '🍓 СЫТ', val: pet.hunger, col: 'bg-[#BA0029]', valCol: 'text-[#BA0029]' },
+                      { label: '⚡ РАД', val: pet.joy, col: 'bg-[#FFD600]', valCol: 'text-amber-500' },
+                      { label: '💤 ЭНРГ', val: pet.energy, col: 'bg-[#00BCD4]', valCol: 'text-cyan-600' },
+                      { label: '🧼 ЧИСТ', val: pet.cleanliness, col: 'bg-[#22C55E]', valCol: 'text-emerald-600' },
+                    ].map((st) => (
+                      <div key={st.label} className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
+                        <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
+                          <span>{st.label}</span>
+                          <span className={st.valCol}>{st.val}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
+                          <div className={`h-full ${st.col} rounded-full transition-all duration-500`} style={{ width: `${st.val}%` }} />
+                        </div>
                       </div>
-                      <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#BA0029] rounded-full transition-all duration-500" style={{ width: `${pet.hunger}%` }}></div>
-                      </div>
-                    </div>
-
-                    {/* РАДОСТЬ */}
-                    <div className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
-                      <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
-                        <span>⚡ РАД</span>
-                        <span className="text-amber-500">{pet.joy}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#FFD600] rounded-full transition-all duration-500" style={{ width: `${pet.joy}%` }}></div>
-                      </div>
-                    </div>
-
-                    {/* ЭНЕРГИЯ */}
-                    <div className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
-                      <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
-                        <span>💤 ЭНРГ</span>
-                        <span className="text-cyan-600">{pet.energy}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#00BCD4] rounded-full transition-all duration-500" style={{ width: `${pet.energy}%` }}></div>
-                      </div>
-                    </div>
-
-                    {/* ЧИСТОТА */}
-                    <div className="bg-white/95 border border-[#111C2D] rounded-lg p-1 text-center shadow-xs">
-                      <div className="flex items-center justify-between text-[7.5px] font-black text-[#111C2D] mb-0.5">
-                        <span>🧼 ЧИСТ</span>
-                        <span className="text-emerald-600">{pet.cleanliness}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-[#111C2D]/15 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#22C55E] rounded-full transition-all duration-500" style={{ width: `${pet.cleanliness}%` }}></div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
 
-                  {/* 3. Central Pet Display & Interactive Stage (Large, Cute & Funny) */}
+                  {/* Central Pet Interactive Stage */}
                   <div
                     onClick={triggerHeartBurst}
                     className="relative flex-1 flex flex-col items-center justify-center my-0.5 cursor-pointer select-none"
                     title="Тапните по питомцу, чтобы погладить!"
                   >
-                    {/* Floating Thought Bubble Above Pet (Funny & Dynamic) */}
                     <div className="mb-1 flex items-center justify-center max-w-[280px]">
                       <div className="bg-white border-[1.5px] border-[#16192E] rounded-full px-3 py-1 text-[9.5px] font-bold shadow-[2px_2px_0px_#16192E] inline-flex items-center gap-1.5 animate-bounce text-center">
                         <span className="text-xs">{pet.species === 'cat' ? '🐱' : '🐶'}</span>
@@ -1200,18 +935,13 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       </div>
                     </div>
 
-                    {/* Prominent Pet Avatar Stage */}
                     <div className="relative flex items-center justify-center">
-                      {/* Soft pulsating warm halo */}
                       <div className="absolute w-32 h-32 rounded-full bg-[#FFD600]/30 filter blur-md animate-pulse pointer-events-none" />
-
-                      {/* Rotating retro aura ring */}
                       <div
                         className="w-36 h-36 rounded-full border-2 border-dashed border-[#FFD600] animate-spin absolute pointer-events-none opacity-80"
                         style={{ animationDuration: '24s' }}
                       />
 
-                      {/* Freestanding Cute Pet Avatar */}
                       <div
                         className={`relative z-10 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden bg-white/95 border-3 border-[#16192E] shadow-[0_6px_0_#16192E] flex items-center justify-center p-1.5 transition-transform duration-200 ${
                           isBouncing ? 'scale-110 -rotate-3' : 'active:scale-95'
@@ -1227,14 +957,12 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                         />
                       </div>
 
-                      {/* Purr / Waggle Badge on Tap */}
                       {showPurrBadge && (
                         <div className="absolute -right-3 top-0 bg-[#FFE600] text-[#16192E] border-2 border-[#16192E] px-2 py-0.5 rounded-full font-pixel text-[8px] font-black shadow-[2px_2px_0px_#16192E] z-30 animate-pulse">
                           {pet.species === 'cat' ? "МУРРР~ +5❤️" : "ГАВ-ГАВ! +5❤️"}
                         </div>
                       )}
 
-                      {/* Floating Hearts Eruption */}
                       {floatingHearts.map((h) => (
                         <span
                           key={h.id}
@@ -1251,10 +979,8 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       ))}
                     </div>
 
-                    {/* Cute Ground Shadow */}
                     <div className="w-24 h-2 bg-[#16192E]/15 rounded-full mx-auto mt-1 blur-2xs" />
 
-                    {/* Pet Status Badge Below */}
                     <div className="mt-1 flex items-center gap-1 bg-white/95 border-[1.5px] border-[#16192E] rounded-full px-2.5 py-0.5 shadow-xs">
                       <span className="text-[9.5px] font-black text-[#111C2D]">
                         {pet.species === 'cat' ? "Кошечка" : "Чихуахуа"} {pet.name} • Lv.{pet.level} 🐾
@@ -1270,7 +996,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* 4. Duo Synergy Progress */}
+                  {/* Duo Synergy Progress */}
                   <div className="bg-white/95 border-[1.5px] border-[#111C2D] rounded-xl p-1.5 shadow-xs">
                     <div className="flex items-center justify-between text-[8.5px] font-black text-[#111C2D] mb-0.5">
                       <span className="text-[#BA0029] flex items-center gap-1">♡ СИНЕРГИЯ ДУО</span>
@@ -1280,7 +1006,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                       <div
                         className="h-full bg-gradient-to-r from-[#BA0029] via-[#FFD600] to-[#22C55E] rounded-full transition-all duration-500"
                         style={{ width: `${pet.synergy ?? 95}%` }}
-                      ></div>
+                      />
                     </div>
                     <div className="flex justify-between items-center text-[7.5px] text-[#111C2D]/80 font-bold mt-0.5 px-0.5">
                       <span>Аура пары: Радужное сияние</span>
@@ -1288,7 +1014,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
                   </div>
 
-                  {/* 5. Quick Actions Care Menu (2x2 Grid) */}
+                  {/* Quick Actions Care Menu (2x2 Grid) */}
                   <div className="bg-white/95 rounded-xl p-1.5 border-[1.5px] border-[#111C2D] shadow-xs flex flex-col gap-1">
                     <div className="flex items-center justify-between border-b border-[#111C2D]/15 pb-0.5">
                       <span className="font-pixel text-[8px] font-bold text-[#111C2D]">🎮 БЫСТРЫЕ ДЕЙСТВИЯ</span>
@@ -1302,93 +1028,35 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     </div>
 
                     <div className="grid grid-cols-2 gap-1.5">
-                      {/* Card 1: Покормить */}
-                      <div
-                        onClick={() => { playChime('click'); setSelectedQuickAction('feed'); }}
-                        className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedQuickAction === 'feed'
-                            ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
-                            : 'bg-white/90 border border-[#111C2D] shadow-xs'
-                        }`}
-                      >
-                        <span className="text-sm">🍓</span>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[8.5px] font-black text-[#111C2D] leading-none">Покормить</span>
-                            {selectedQuickAction === 'feed' && (
-                              <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
-                            )}
+                      {QUICK_ACTIONS.map((act) => {
+                        const isSelected = selectedQuickAction === act.type;
+                        return (
+                          <div
+                            key={act.type}
+                            onClick={() => { playChime('click'); setSelectedQuickAction(act.type); }}
+                            className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
+                                : 'bg-white/90 border border-[#111C2D] shadow-xs'
+                            }`}
+                          >
+                            <span className="text-sm">{act.emoji}</span>
+                            <div className="flex flex-col min-w-0">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[8.5px] font-black text-[#111C2D] leading-none">{act.label}</span>
+                                {isSelected && (
+                                  <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
+                                )}
+                              </div>
+                              <span className={`text-[6.5px] ${act.color} font-black mt-0.5`}>{act.xp}</span>
+                            </div>
                           </div>
-                          <span className="text-[6.5px] text-[#BA0029] font-black mt-0.5">+15 XP 🐟</span>
-                        </div>
-                      </div>
-
-                      {/* Card 2: Поиграть */}
-                      <div
-                        onClick={() => { playChime('click'); setSelectedQuickAction('play'); }}
-                        className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedQuickAction === 'play'
-                            ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
-                            : 'bg-white/90 border border-[#111C2D] shadow-xs'
-                        }`}
-                      >
-                        <span className="text-sm">🎾</span>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[8.5px] font-black text-[#111C2D] leading-none">Поиграть</span>
-                            {selectedQuickAction === 'play' && (
-                              <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
-                            )}
-                          </div>
-                          <span className="text-[6.5px] text-[#22C55E] font-black mt-0.5">+20 XP ⚡</span>
-                        </div>
-                      </div>
-
-                      {/* Card 3: Ванна & Мыло */}
-                      <div
-                        onClick={() => { playChime('click'); setSelectedQuickAction('wash'); }}
-                        className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedQuickAction === 'wash'
-                            ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
-                            : 'bg-white/90 border border-[#111C2D] shadow-xs'
-                        }`}
-                      >
-                        <span className="text-sm">🧼</span>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[8.5px] font-black text-[#111C2D] leading-none">Ванна &amp; Мыло</span>
-                            {selectedQuickAction === 'wash' && (
-                              <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
-                            )}
-                          </div>
-                          <span className="text-[6.5px] text-[#00BCD4] font-black mt-0.5">+15 XP 🫧</span>
-                        </div>
-                      </div>
-
-                      {/* Card 4: Уложить спать */}
-                      <div
-                        onClick={() => { playChime('click'); setSelectedQuickAction('sleep'); }}
-                        className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
-                          selectedQuickAction === 'sleep'
-                            ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
-                            : 'bg-white/90 border border-[#111C2D] shadow-xs'
-                        }`}
-                      >
-                        <span className="text-sm">🌙</span>
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[8.5px] font-black text-[#111C2D] leading-none">Уложить спать</span>
-                            {selectedQuickAction === 'sleep' && (
-                              <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
-                            )}
-                          </div>
-                          <span className="text-[6.5px] text-[#725C00] font-black mt-0.5">+25 XP 💤</span>
-                        </div>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* 6. Primary Action Banner Button */}
+                  {/* Primary Action Banner Button */}
                   <button
                     type="button"
                     onClick={() => handleAction(selectedQuickAction)}
@@ -1417,11 +1085,9 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
             {/* Left: Classic D-Pad Cross */}
             <div className="flex flex-col items-center">
               <div className="w-20 h-20 relative flex items-center justify-center">
-                {/* Mold Base */}
-                <div className="absolute w-7 h-20 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]"></div>
-                <div className="absolute w-20 h-7 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]"></div>
+                <div className="absolute w-7 h-20 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]" />
+                <div className="absolute w-20 h-7 bg-[#16192E] rounded-md shadow-[1px_2px_0_rgba(0,0,0,0.3)]" />
 
-                {/* D-Pad Buttons */}
                 <button
                   type="button"
                   aria-label="Up"
@@ -1462,8 +1128,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                 >
                   <span className="text-[12px] font-bold">▶</span>
                 </button>
-                {/* Center Pivot */}
-                <div className="w-5 h-5 bg-[#181D29] rounded-full z-10 pointer-events-none"></div>
+                <div className="w-5 h-5 bg-[#181D29] rounded-full z-10 pointer-events-none" />
               </div>
               <span className="text-[7.5px] font-pixel text-[#16192E]/80 mt-1 uppercase tracking-tight">D-PAD</span>
             </div>
@@ -1476,7 +1141,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     type="button"
                     onClick={() => { playChime('click'); toggleSound(); }}
                     className="w-8 h-3.5 bg-[#16192E] rounded-full transform -rotate-12 border border-[#16192E]/40 active:translate-y-0.5 shadow-sm cursor-pointer"
-                  ></button>
+                  />
                   <span className="text-[7px] font-pixel text-[#16192E] uppercase mt-1">ЗВУК</span>
                 </div>
                 <div className="flex flex-col items-center">
@@ -1484,7 +1149,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                     type="button"
                     onClick={() => { playChime('click'); setIsPauseMenuOpen(p => !p); }}
                     className="w-8 h-3.5 bg-[#16192E] rounded-full transform -rotate-12 border border-[#16192E]/40 active:translate-y-0.5 shadow-sm cursor-pointer"
-                  ></button>
+                  />
                   <span className="text-[7px] font-pixel text-[#16192E] uppercase mt-1">START</span>
                 </div>
               </div>
@@ -1496,7 +1161,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
             {/* Right: Round Arcade Action Buttons (B & A) */}
             <div className="flex items-center gap-2.5">
-              {/* Button B */}
               <div className="flex flex-col items-center">
                 <button
                   type="button"
@@ -1509,7 +1173,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
                 <span className="text-[7.5px] font-pixel text-[#16192E] mt-1 uppercase">МЕНЮ</span>
               </div>
 
-              {/* Button A */}
               <div className="flex flex-col items-center">
                 <button
                   type="button"
@@ -1524,7 +1187,6 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
             </div>
           </div>
 
-          {/* Bottom Brand Imprint */}
           <div className="mt-1 flex items-center justify-center gap-1 text-[#BA0029]/70">
             <span className="text-[8px] font-pixel tracking-widest uppercase">LOOP.EXE CO-OP SYSTEM</span>
             <span className="text-[8px]">♡</span>

@@ -347,6 +347,22 @@ export function calculateCoupleAnalysis(
       metricTag: `${dimValues.averageScore}% ценности`,
     });
   }
+  if (dimIntimacy.isCompleted) {
+    strengths.push({
+      title: 'Чувственная близость & Романтическая искра',
+      description: 'Глубокая искренность, доверие телам друг друга и способность сохранять романтический трепет в буднях.',
+      icon: 'Sparkles',
+      metricTag: `${dimIntimacy.averageScore}% интимность`,
+    });
+  }
+  if (dimLifestyle.isCompleted) {
+    strengths.push({
+      title: 'Синхронизация биоритмов & Гедонизм',
+      description: 'Гармоничный баланс между совместными впечатлениями и уважением к личному пространству каждого.',
+      icon: 'Sun',
+      metricTag: `${dimLifestyle.averageScore}% биоритмы`,
+    });
+  }
 
   // Dynamic growth zones
   const growthZones: DeepCoupleAnalysis['growthZones'] = [];

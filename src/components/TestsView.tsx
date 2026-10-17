@@ -11,6 +11,7 @@ import { TestCard } from './tests/TestCard.tsx';
 import { TestFeaturedCard } from './tests/TestFeaturedCard.tsx';
 import { TestRunnerModal } from './tests/TestRunnerModal.tsx';
 import { TestCompletedModal } from './tests/TestCompletedModal.tsx';
+import { TestResultModal } from './tests/TestResultModal.tsx';
 import { apiFetch } from '../utils/api.ts';
 
 export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
@@ -46,6 +47,7 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
   const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
   const [answerMetrics, setAnswerMetrics] = useState<Record<string, any>>({});
   const [testJustFinished, setTestJustFinished] = useState<TestCategory | null>(null);
+  const [viewingResultTest, setViewingResultTest] = useState<TestCategory | null>(null);
 
   const getIsMyDone = useCallback((t: TestCategory) => {
     if (t.isCompletedByMe !== undefined) return !!t.isCompletedByMe;
@@ -342,7 +344,14 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
                   <TestCard
                     key={test.id}
                     test={test}
-                    onClick={() => handleStartTest(test)}
+                    onClick={() => {
+                      if (getIsMyDone(test)) {
+                        triggerHaptic('selection');
+                        setViewingResultTest(test);
+                      } else {
+                        handleStartTest(test);
+                      }
+                    }}
                     status={getTestCompletionStatus(test)}
                   />
                 ))}
@@ -366,13 +375,33 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
       {/* Test Completed Modal */}
       <TestCompletedModal
         test={testJustFinished}
+        userAnswers={userAnswers}
+        partnerAnswers={currentPartnerId === 'partner1' ? testJustFinished?.partner2Answers : testJustFinished?.partner1Answers}
         isPaired={isPaired}
         partnerName={otherPartner.name}
         onViewReport={() => {
           setTestJustFinished(null);
           setSubMode('report');
         }}
+        onViewTestResult={() => {
+          const target = testJustFinished;
+          setTestJustFinished(null);
+          setViewingResultTest(target);
+        }}
         onClose={() => setTestJustFinished(null)}
+      />
+
+      {/* Test Result & Pair Comparison Modal */}
+      <TestResultModal
+        test={viewingResultTest}
+        partner1={coupleProfile.partner1}
+        partner2={coupleProfile.partner2}
+        currentPartnerId={currentPartnerId}
+        onRetake={(test) => {
+          setViewingResultTest(null);
+          handleStartTest(test);
+        }}
+        onClose={() => setViewingResultTest(null)}
       />
     </PageLayout>
   );

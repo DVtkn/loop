@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, Check, ArrowLeft, ArrowRight, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { Lock, Check, ArrowLeft, ArrowRight, ShieldCheck, HeartHandshake, X, Sparkles } from 'lucide-react';
 import { TestCategory, Question } from '../../types.ts';
 import { getTestMeta } from './testMeta.ts';
 import { TradeOffQuestion } from './TradeOffQuestion.tsx';
+import { triggerHaptic } from '../../utils/haptics.ts';
 
 interface AnswerMetadata {
   reactionTimeMs?: number;
@@ -22,6 +23,16 @@ interface TestRunnerModalProps {
   onClose: () => void;
 }
 
+const MOTIVATION_STEPS = [
+  'Начало пути ✨',
+  'Отличный темп 🔥',
+  'В самое яблочко 🎯',
+  'Половина пройдена 💫',
+  'Узнаём друг друга лучше ❤️',
+  'Почти у цели 🌟',
+  'Финальный штрих 🎉',
+];
+
 export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
   activeTest,
   currentQuestionIndex,
@@ -33,7 +44,7 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
 }) => {
   const q: Question | undefined = activeTest?.questions[currentQuestionIndex];
 
-  // Latency & toggle telemetry tracking (хуки — до раннего возврата, чтобы не нарушать порядок)
+  // Latency & toggle telemetry tracking
   const questionStartTimeRef = useRef<number>(Date.now());
   const toggleCountRef = useRef<number>(0);
 
@@ -46,8 +57,15 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
 
   const selectedVal = userAnswers[q.id];
   const meta = getTestMeta(activeTest);
+  const totalQuestions = activeTest.questions.length;
+  const progressPercent = ((currentQuestionIndex + 1) / totalQuestions) * 100;
+  const motivationText =
+    currentQuestionIndex === totalQuestions - 1
+      ? 'Финальный штрих 🎉'
+      : MOTIVATION_STEPS[currentQuestionIndex % MOTIVATION_STEPS.length];
 
   const handleChoice = (val: any, rawPayload?: any) => {
+    triggerHaptic('light');
     const elapsed = Date.now() - questionStartTimeRef.current;
     toggleCountRef.current += 1;
 
@@ -60,6 +78,7 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
   };
 
   const handleTradeOffChange = (allocations: Record<string, number>) => {
+    triggerHaptic('selection');
     const elapsed = Date.now() - questionStartTimeRef.current;
     toggleCountRef.current += 1;
 
@@ -93,38 +112,73 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          initial={{ opacity: 0, scale: 0.95, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 10 }}
-          transition={{ duration: 0.2 }}
-          className="bg-[var(--surface)] rounded-[28px] max-w-xl w-full shadow-2xl border border-[var(--divider)] overflow-hidden flex flex-col max-h-[90vh]"
+          exit={{ opacity: 0, scale: 0.95, y: 14 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="bg-[var(--surface)] rounded-[32px] max-w-xl w-full shadow-2xl border border-[var(--divider)] overflow-hidden flex flex-col max-h-[92vh] relative"
         >
-          {/* Modal Header */}
-          <div className="p-5 sm:p-6 border-b border-[var(--divider)] bg-[var(--surface)]">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-xs font-bold text-[var(--accent)]">{meta.emotionalTitle}</span>
-              <span className="text-xs font-semibold text-[var(--text-2)]">
-                Вопрос {currentQuestionIndex + 1} из {activeTest.questions.length}
-              </span>
+          {/* Header */}
+          <div className="p-5 sm:p-6 border-b border-[var(--divider)] bg-[var(--surface)]/90 backdrop-blur-sm relative">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-[var(--surface-blush)] text-[var(--accent)] border border-[var(--accent)]/20 text-xs font-bold flex items-center gap-1">
+                  <span>{meta.categoryIcon}</span>
+                  <span>{meta.categoryLabel}</span>
+                </span>
+                <span className="text-xs font-semibold text-[var(--text-3)] hidden sm:inline">
+                  • {meta.emotionalTitle}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-[var(--surface-2)] text-[var(--text-2)]">
+                  {currentQuestionIndex + 1} / {totalQuestions}
+                </span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-blush)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center transition-all cursor-pointer"
+                  title="Отложить тест"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* Smooth Progress Bar */}
-            <div className="w-full bg-[var(--surface-2)] h-1.5 rounded-full overflow-hidden">
-              <div
-                className="bg-[var(--accent)] h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${((currentQuestionIndex + 1) / activeTest.questions.length) * 100}%`,
-                }}
-              />
+            {/* Progress and Motivation Streak */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-3)] font-medium">
+                <span className="flex items-center gap-1 text-[var(--accent)] font-semibold">
+                  <Sparkles className="w-3 h-3" />
+                  {motivationText}
+                </span>
+                <span>{Math.round(progressPercent)}%</span>
+              </div>
+              <div className="w-full bg-[var(--surface-2)] h-2 rounded-full overflow-hidden">
+                <motion.div
+                  className="bg-linear-to-r from-[var(--accent)] to-rose-400 h-full rounded-full"
+                  initial={{ width: `${((currentQuestionIndex) / totalQuestions) * 100}%` }}
+                  animate={{ width: `${progressPercent}%` }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Question Content */}
-          <div className="p-6 sm:p-7 overflow-y-auto space-y-6 flex-1">
-            {q && (
-              <div className="space-y-5">
+          {/* Question Content Body */}
+          <div className="p-5 sm:p-7 overflow-y-auto space-y-6 flex-1">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={q.id}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-5"
+              >
                 {/* Methodological badge */}
                 {q.type === 'ipsative' && (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-semibold border border-indigo-500/20">
@@ -140,7 +194,7 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
                   </div>
                 )}
 
-                <h2 className="text-base sm:text-lg font-bold text-[var(--text)] leading-relaxed">
+                <h2 className="text-base sm:text-xl font-extrabold text-[var(--text)] leading-snug tracking-tight">
                   {q.text}
                 </h2>
 
@@ -167,31 +221,32 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
 
                 {/* Scale Question Type */}
                 {q.type === 'scale' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {q.options.map((opt) => {
                       const isSelected = selectedVal === opt.value;
                       return (
-                        <button
+                        <motion.button
                           key={opt.label}
                           type="button"
+                          whileTap={{ scale: 0.985 }}
                           onClick={() => handleChoice(opt.value)}
-                          className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${
+                          className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-center justify-between cursor-pointer ${
                             isSelected
-                              ? 'border-[var(--accent)] bg-[var(--surface-blush)] font-bold text-[var(--text)] shadow-2xs'
-                              : 'border-[var(--divider)] bg-[var(--surface-2)] hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text)]'
+                              ? 'border-[var(--accent)] bg-[var(--surface-blush)] font-bold text-[var(--text)] shadow-sm ring-1 ring-[var(--accent)]/30'
+                              : 'border-[var(--divider)] bg-[var(--surface-2)] hover:border-[var(--text-3)] text-[var(--text-2)] hover:text-[var(--text)]'
                           }`}
                         >
-                          <span>{opt.label}</span>
+                          <span className="pr-3 leading-relaxed">{opt.label}</span>
                           <span
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 ml-2 ${
+                            className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 transition-transform ${
                               isSelected
-                                ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
+                                ? 'border-[var(--accent)] bg-[var(--accent)] text-white scale-110 shadow-xs'
                                 : 'border-[var(--divider)] text-transparent'
                             }`}
                           >
                             <Check className="w-3.5 h-3.5" />
                           </span>
-                        </button>
+                        </motion.button>
                       );
                     })}
                   </div>
@@ -199,44 +254,51 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
 
                 {/* Single / Ipsative / Forced Vulnerability Question Types */}
                 {(q.type === 'single' || q.type === 'ipsative' || q.type === 'forced_vulnerability') && (
-                  <div className="space-y-2.5">
+                  <div className="space-y-3">
                     {q.options.map((opt) => {
                       const isSelected = selectedVal === opt.value;
                       return (
-                        <button
+                        <motion.button
                           key={opt.label}
                           type="button"
+                          whileTap={{ scale: 0.985 }}
                           onClick={() => handleChoice(opt.value)}
-                          className={`w-full p-3.5 sm:p-4 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-start gap-3 cursor-pointer ${
+                          className={`w-full p-4 sm:p-4.5 rounded-2xl border text-left text-xs sm:text-sm transition-all flex items-start gap-3.5 cursor-pointer ${
                             isSelected
-                              ? 'border-[var(--accent)] bg-[var(--surface-blush)] font-bold text-[var(--text)] shadow-2xs'
-                              : 'border-[var(--divider)] bg-[var(--surface-2)] hover:bg-[var(--surface)] text-[var(--text-2)] hover:text-[var(--text)]'
+                              ? 'border-[var(--accent)] bg-[var(--surface-blush)] font-bold text-[var(--text)] shadow-sm ring-1 ring-[var(--accent)]/30'
+                              : 'border-[var(--divider)] bg-[var(--surface-2)] hover:bg-[var(--surface)] hover:border-[var(--text-3)] text-[var(--text-2)] hover:text-[var(--text)]'
                           }`}
                         >
                           <div
-                            className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-[var(--accent)]' : 'border-[var(--divider)]'
+                            className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                              isSelected
+                                ? 'border-[var(--accent)] bg-[var(--accent)] text-white scale-105 shadow-2xs'
+                                : 'border-[var(--divider)]'
                             }`}
                           >
-                            {isSelected && <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />}
+                            {isSelected ? (
+                              <Check className="w-3 h-3 text-white stroke-[3]" />
+                            ) : (
+                              <div className="w-1.5 h-1.5 rounded-full bg-transparent" />
+                            )}
                           </div>
-                          <span className="leading-relaxed">{opt.label}</span>
-                        </button>
+                          <span className="leading-relaxed flex-1">{opt.label}</span>
+                        </motion.button>
                       );
                     })}
                   </div>
                 )}
-              </div>
-            )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {/* Modal Footer Controls */}
+          {/* Footer Controls */}
           <div className="p-4 sm:p-5 border-t border-[var(--divider)] bg-[var(--surface)] flex items-center justify-between">
             <button
               type="button"
               onClick={onPrevQuestion}
               disabled={currentQuestionIndex === 0}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Назад</span>
@@ -246,23 +308,24 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-2 rounded-xl text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] cursor-pointer"
+                className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] cursor-pointer transition-colors hidden sm:inline"
               >
                 Отложить
               </button>
-              <button
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
                 onClick={onNextQuestion}
                 disabled={!isAnswered}
-                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                className="px-6 py-3 rounded-2xl text-xs sm:text-sm font-extrabold text-white bg-linear-to-r from-[var(--accent)] to-rose-500 hover:brightness-105 disabled:opacity-40 disabled:cursor-not-allowed shadow-md flex items-center gap-2 cursor-pointer transition-all"
               >
                 <span>
                   {currentQuestionIndex === activeTest.questions.length - 1
-                    ? 'Завершить (+150 XP)'
+                    ? 'Завершить (+150 XP) 🎉'
                     : 'Далее'}
                 </span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+                <ArrowRight className="w-4 h-4" />
+              </motion.button>
             </div>
           </div>
         </motion.div>
@@ -270,3 +333,4 @@ export const TestRunnerModal: React.FC<TestRunnerModalProps> = ({
     </AnimatePresence>
   );
 };
+

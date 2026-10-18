@@ -5,7 +5,9 @@ import {
   SLEEP_IMAGE,
   SLEEP_IMAGE_FALLBACK,
   MOOD_BUBBLES,
+  getPetVisualStatus,
 } from '../../../data/petData.ts';
+import { PetAvatarLiving } from '../../pet/PetAvatarLiving.tsx';
 
 interface FloatingHeart {
   id: number;
@@ -152,6 +154,8 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
     );
   }
 
+  const visualStatus = getPetVisualStatus(pet, isNightOrSleepy);
+
   return (
     <div className="flex flex-col justify-between h-full space-y-1">
       <div className="flex items-center justify-between pb-1 border-b border-[#111C2D]/15 text-[9px] font-bold text-[#111C2D]">
@@ -188,7 +192,7 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
         ))}
       </div>
 
-      {/* Central Pet Interactive Stage */}
+      {/* Central Pet Interactive Stage with Living Pet Avatar */}
       <div
         onClick={onTapPet}
         className="relative flex-1 flex flex-col items-center justify-center my-0.5 cursor-pointer select-none"
@@ -198,7 +202,7 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
           <div className="bg-white border-[1.5px] border-[#16192E] rounded-full px-3 py-1 text-[9.5px] font-bold shadow-[2px_2px_0px_#16192E] inline-flex items-center gap-1.5 animate-bounce text-center">
             <span className="text-xs">{pet.species === 'cat' ? '🐱' : '🐶'}</span>
             <span className="text-[#16192E] font-black tracking-tight leading-tight">
-              {currentFunnyQuote || (MOOD_BUBBLES[pet.mood] || 'Тяв! Люблю вас! 💖')}
+              {currentFunnyQuote || visualStatus.speech}
             </span>
             <span className="text-xs">✨</span>
           </div>
@@ -211,20 +215,13 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
             style={{ animationDuration: '24s' }}
           />
 
-          <div
-            className={`relative z-10 w-32 h-32 sm:w-36 sm:h-36 rounded-3xl overflow-hidden bg-white/95 border-3 border-[#16192E] shadow-[0_6px_0_#16192E] flex items-center justify-center p-1.5 transition-transform duration-200 ${
-              isBouncing ? 'scale-110 -rotate-3' : 'active:scale-95'
-            }`}
-          >
-            <img
-              src={PET_SPECIES_DETAILS[pet.species].image}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = PET_SPECIES_DETAILS[pet.species].imageFallback;
-              }}
-              alt={pet.name}
-              className="w-full h-full object-contain filter drop-shadow-[0_4px_6px_rgba(22,25,46,0.25)] select-none animate-pet-wiggle"
-            />
-          </div>
+          <PetAvatarLiving
+            pet={pet}
+            size="console"
+            isBouncing={isBouncing}
+            showNeedBadge={false}
+            interactive={false}
+          />
 
           {showPurrBadge && (
             <div className="absolute -right-3 top-0 bg-[#FFE600] text-[#16192E] border-2 border-[#16192E] px-2 py-0.5 rounded-full font-pixel text-[8px] font-black shadow-[2px_2px_0px_#16192E] z-30 animate-pulse">
@@ -254,8 +251,16 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
           <span className="text-[9.5px] font-black text-[#111C2D]">
             {pet.species === 'cat' ? 'Кошечка' : 'Чихуахуа'} {pet.name} • Lv.{pet.level} 🐾
           </span>
-          <span className="bg-[#FFE600] text-[#111C2D] text-[7.5px] font-black px-1.5 py-0.2 rounded-full border border-[#111C2D]">
-            x2 БОНУС
+          <span
+            className={`text-[7.5px] font-black px-1.5 py-0.2 rounded-full border border-[#111C2D] ${
+              visualStatus.urgency === 'critical'
+                ? 'bg-[#FB083C] text-white animate-pulse'
+                : visualStatus.urgency === 'warning'
+                ? 'bg-[#FFE600] text-[#111C2D]'
+                : 'bg-[#32FF98] text-[#111C2D]'
+            }`}
+          >
+            {visualStatus.badgeEmoji} {visualStatus.badgeText}
           </span>
         </div>
 
@@ -299,13 +304,16 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
         <div className="grid grid-cols-2 gap-1.5">
           {quickActions.map((act) => {
             const isSelected = selectedQuickAction === act.type;
+            const isUrgent = visualStatus.primaryAction === act.type;
             return (
               <div
                 key={act.type}
                 onClick={() => onSelectQuickAction(act.type)}
-                className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all ${
+                className={`rounded-lg p-1 flex items-center gap-1.5 cursor-pointer transition-all relative ${
                   isSelected
                     ? 'bg-[#FEF08A] border-2 border-[#FB083C] shadow-[1px_1px_0px_#111C2D]'
+                    : isUrgent
+                    ? 'bg-[#FEF08A]/60 border-2 border-[#00BCD4] shadow-xs animate-pulse'
                     : 'bg-white/90 border border-[#111C2D] shadow-xs'
                 }`}
               >
@@ -315,6 +323,9 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
                     <span className="text-[8.5px] font-black text-[#111C2D] leading-none">{act.label}</span>
                     {isSelected && (
                       <span className="bg-[#BA0029] text-white text-[6px] font-black px-1 rounded">ЖМИ А</span>
+                    )}
+                    {!isSelected && isUrgent && (
+                      <span className="bg-[#00BCD4] text-[#111C2D] text-[6px] font-black px-1 rounded">НУЖНО!</span>
                     )}
                   </div>
                   <span className={`text-[6.5px] ${act.color} font-black mt-0.5`}>{act.xp}</span>
@@ -326,22 +337,35 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
       </div>
 
       {/* Primary Action Banner Button */}
-      <button
-        type="button"
-        onClick={() => onPerformAction(selectedQuickAction)}
-        disabled={isLoading}
-        className="w-full bg-[#BA0029] hover:bg-[#E90036] active:scale-[0.98] border-[2.5px] border-[#111C2D] rounded-xl py-2 px-3 flex items-center justify-between shadow-[0_3px_0_#111C2D] text-white transition-all cursor-pointer"
-      >
-        <span className="flex items-center gap-1.5 text-xs font-black tracking-wide">
-          <span>🍽</span>
-          <span className="truncate">
-            {actionFeedback || `ПОКОРМИТЬ ${pet.name.toUpperCase()} (ЖМИ А)`}
-          </span>
-        </span>
-        <span className="bg-[#FFD600] text-[#111C2D] font-black text-[9px] px-2 py-0.5 rounded-full border border-[#111C2D] shadow-xs shrink-0">
-          +15 XP
-        </span>
-      </button>
+      {(() => {
+        const actionLabels: Record<PetActionType, { label: string; xp: string; icon: string }> = {
+          feed: { label: `ПОКОРМИТЬ ${pet.name.toUpperCase()}`, xp: '+15 XP', icon: '🍽' },
+          play: { label: `ПОИГРАТЬ С ${pet.name.toUpperCase()}`, xp: '+20 XP', icon: '🎾' },
+          wash: { label: `ПОМЫТЬ ${pet.name.toUpperCase()}`, xp: '+15 XP', icon: '🧼' },
+          sleep: { label: `УЛОЖИТЬ СПАТЬ ${pet.name.toUpperCase()}`, xp: '+25 XP', icon: '🌙' },
+          hug: { label: `ОБНЯТЬ ${pet.name.toUpperCase()}`, xp: '+10 XP', icon: '❤️' },
+        };
+        const currentMeta = actionLabels[selectedQuickAction] || actionLabels.feed;
+
+        return (
+          <button
+            type="button"
+            onClick={() => onPerformAction(selectedQuickAction)}
+            disabled={isLoading}
+            className="w-full bg-[#BA0029] hover:bg-[#E90036] active:scale-[0.98] border-[2.5px] border-[#111C2D] rounded-xl py-2 px-3 flex items-center justify-between shadow-[0_3px_0_#111C2D] text-white transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-1.5 text-xs font-black tracking-wide">
+              <span>{currentMeta.icon}</span>
+              <span className="truncate">
+                {actionFeedback || `${currentMeta.label} (ЖМИ А)`}
+              </span>
+            </span>
+            <span className="bg-[#FFD600] text-[#111C2D] font-black text-[9px] px-2 py-0.5 rounded-full border border-[#111C2D] shadow-xs shrink-0">
+              {currentMeta.xp}
+            </span>
+          </button>
+        );
+      })()}
     </div>
   );
 };

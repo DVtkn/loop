@@ -229,16 +229,16 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const species = petState?.species || 'dog';
   const speciesMeta = PET_SPECIES_DETAILS[species];
   const isNight = new Date().getHours() >= 23 || new Date().getHours() < 7;
-  const isSleepy = petState?.mood === 'sleepy' || isNight;
+  const visualStatus = petState ? getPetVisualStatus(petState, isNight) : null;
 
   const currentSpeech =
-    petState?.hunger && petState.hunger < 35
-      ? MOOD_BUBBLES.hungry
-      : petState?.joy && petState.joy < 35
-      ? MOOD_BUBBLES.playful
-      : isSleepy
-      ? MOOD_BUBBLES.sleepy
-      : (FUNNY_PET_QUOTES[species] && FUNNY_PET_QUOTES[species][quoteIndex]) || MOOD_BUBBLES.happy;
+    petState && visualStatus
+      ? (quoteIndex > 0
+          ? STATE_PET_QUOTES[species]?.[visualStatus.stateType]?.[
+              quoteIndex % STATE_PET_QUOTES[species][visualStatus.stateType].length
+            ]
+          : visualStatus.speech) || visualStatus.speech
+      : 'Тяв! Люблю вас! 💖';
 
   return (
     <>
@@ -274,9 +274,9 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         {/* Living Pet Center Area */}
         {hasPet ? (
           <div className="flex flex-col sm:flex-row items-center gap-5 my-1 z-10">
-            {/* Pet Sprite Character with Floating Speech Bubble */}
+            {/* Pet Living Character with Speech Bubble */}
             <div className="relative flex flex-col items-center">
-              {/* Floating Heart Effect */}
+              {/* Floating Heart / XP Reward Effect */}
               <AnimatePresence>
                 {floatingHeart && (
                   <motion.div
@@ -285,45 +285,40 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
                     animate={{ opacity: 1, y: -36, scale: 1.15 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className="absolute -top-6 font-black text-xs px-2.5 py-1 rounded-full bg-rose-500 text-white shadow-lg z-30 pointer-events-none whitespace-nowrap"
+                    className="absolute -top-7 font-black text-xs px-2.5 py-1 rounded-full bg-rose-500 text-white shadow-lg z-30 pointer-events-none whitespace-nowrap"
                   >
                     {floatingHeart.text}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Speech Bubble */}
+              {/* Dynamic Speech Bubble */}
               <motion.div
                 key={currentSpeech}
                 initial={{ opacity: 0, scale: 0.9, y: 4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="mb-2 px-3 py-1.5 rounded-2xl bg-[var(--surface-2)] text-[var(--text)] border border-[var(--divider)] shadow-xs text-xs font-semibold max-w-[210px] text-center leading-snug"
+                className="mb-2 px-3 py-1.5 rounded-2xl bg-[var(--surface-2)] text-[var(--text)] border border-[var(--divider)] shadow-xs text-xs font-semibold max-w-[230px] text-center leading-snug"
               >
                 {currentSpeech}
               </motion.div>
 
-              {/* Character Avatar / Sprite */}
-              <motion.div
-                animate={isBouncing ? { y: [-6, 0, -4, 0], scale: [1, 1.05, 1] } : {}}
-                transition={{ duration: 0.4 }}
-                onClick={handleTapPet}
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-linear-to-b from-amber-100/60 to-rose-100/40 dark:from-zinc-800 dark:to-zinc-900 border-2 border-[var(--divider)] flex items-center justify-center p-2 shadow-md relative group/sprite hover:scale-103 transition-transform cursor-pointer"
-                title="Погладить питомца"
-              >
-                {!imgError ? (
-                  <img
-                    src={isSleepy ? SLEEP_IMAGE : speciesMeta?.image || '/assets/tamagotchi/dog-happy.png'}
-                    alt={petState.name}
-                    className="w-full h-full object-contain rounded-2xl select-none"
-                    onError={() => setImgError(true)}
-                  />
-                ) : (
-                  <span className="text-4xl">{species === 'dog' ? '🐶' : '🐱'}</span>
-                )}
-              </motion.div>
+              {/* Master Living Pet Avatar Component with all dirty/sleepy/hungry overlays */}
+              <PetAvatarLiving
+                pet={petState}
+                size="md"
+                isBouncing={isBouncing}
+                onTap={() => handleTapPet()}
+                showNeedBadge={true}
+                interactive={true}
+              />
+
+              <div className="text-[10px] text-[var(--text-3)] font-medium mt-1 flex items-center gap-1">
+                <span>👆</span>
+                <span>Нажмите на малыша, чтобы погладить</span>
+              </div>
             </div>
 
-            {/* Right side: Stats & Quick Care Actions */}
+            {/* Right side: Stats & Complete Care Actions */}
             <div className="flex-1 w-full space-y-3">
               <div className="space-y-1.5 bg-[var(--surface-2)]/60 p-3 rounded-2xl border border-[var(--divider)]/60">
                 <StatBar label="Сытость" value={petState.hunger} color={getStatColor(petState.hunger)} />
@@ -332,35 +327,102 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
                 <StatBar label="Чистота" value={petState.cleanliness} color={getStatColor(petState.cleanliness)} />
               </div>
 
-              {/* Quick Action Pills */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Complete 4-Care Action Grid with Smart Urgency Highlighting */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 1. Feed */}
                 <button
                   type="button"
                   onClick={(e) => handleQuickAction('feed', e)}
                   disabled={quickActionLoading}
-                  className="py-2 px-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-rose-500/20 active:scale-96"
+                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer border active:scale-95 relative ${
+                    visualStatus?.primaryAction === 'feed'
+                      ? 'bg-rose-500/20 text-rose-600 dark:text-rose-300 border-rose-500/50 ring-2 ring-rose-400 ring-offset-1 shadow-sm font-extrabold'
+                      : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/20'
+                  }`}
+                  title="Покормить питомца (+15 XP)"
                 >
-                  <Utensils className="w-3.5 h-3.5" />
-                  <span>Покормить</span>
+                  <div className="flex items-center gap-1">
+                    <Utensils className="w-3.5 h-3.5" />
+                    <span>Кормить</span>
+                  </div>
+                  <span className="text-[9px] text-rose-500/80 font-black">+15 XP 🍓</span>
+                  {visualStatus?.primaryAction === 'feed' && (
+                    <span className="absolute -top-1.5 -right-1 bg-rose-500 text-white text-[7px] font-black px-1.5 py-0.2 rounded-full animate-bounce shadow-xs">
+                      Нужно!
+                    </span>
+                  )}
                 </button>
 
+                {/* 2. Play */}
                 <button
                   type="button"
                   onClick={(e) => handleQuickAction('play', e)}
                   disabled={quickActionLoading}
-                  className="py-2 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-500/20 active:scale-96"
+                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer border active:scale-95 relative ${
+                    visualStatus?.primaryAction === 'play'
+                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/50 ring-2 ring-amber-400 ring-offset-1 shadow-sm font-extrabold'
+                      : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                  }`}
+                  title="Поиграть с питомцем (+20 XP)"
                 >
-                  <Smile className="w-3.5 h-3.5" />
-                  <span>Поиграть</span>
+                  <div className="flex items-center gap-1">
+                    <Smile className="w-3.5 h-3.5" />
+                    <span>Играть</span>
+                  </div>
+                  <span className="text-[9px] text-amber-500/80 font-black">+20 XP 🎾</span>
+                  {visualStatus?.primaryAction === 'play' && (
+                    <span className="absolute -top-1.5 -right-1 bg-amber-500 text-white text-[7px] font-black px-1.5 py-0.2 rounded-full animate-bounce shadow-xs">
+                      Нужно!
+                    </span>
+                  )}
                 </button>
 
+                {/* 3. Wash */}
                 <button
                   type="button"
-                  onClick={handleTapPet}
-                  className="py-2 px-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-purple-500/20 active:scale-96"
+                  onClick={(e) => handleQuickAction('wash', e)}
+                  disabled={quickActionLoading}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer border active:scale-95 relative ${
+                    visualStatus?.primaryAction === 'wash'
+                      ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border-cyan-500/50 ring-2 ring-cyan-400 ring-offset-1 shadow-sm font-extrabold'
+                      : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
+                  }`}
+                  title="Помыть питомца в пенной ванне (+15 XP)"
                 >
-                  <Heart className="w-3.5 h-3.5 fill-purple-400 text-purple-400" />
-                  <span>Погладить</span>
+                  <div className="flex items-center gap-1">
+                    <Bath className="w-3.5 h-3.5" />
+                    <span>Помыть</span>
+                  </div>
+                  <span className="text-[9px] text-cyan-600/80 dark:text-cyan-400 font-black">+15 XP 🧼</span>
+                  {visualStatus?.primaryAction === 'wash' && (
+                    <span className="absolute -top-1.5 -right-1 bg-cyan-500 text-white text-[7px] font-black px-1.5 py-0.2 rounded-full animate-bounce shadow-xs">
+                      Срочно! 🧼
+                    </span>
+                  )}
+                </button>
+
+                {/* 4. Sleep */}
+                <button
+                  type="button"
+                  onClick={(e) => handleQuickAction('sleep', e)}
+                  disabled={quickActionLoading}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer border active:scale-95 relative ${
+                    visualStatus?.primaryAction === 'sleep'
+                      ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border-indigo-500/50 ring-2 ring-indigo-400 ring-offset-1 shadow-sm font-extrabold'
+                      : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+                  }`}
+                  title="Уложить спать (+25 XP)"
+                >
+                  <div className="flex items-center gap-1">
+                    <Moon className="w-3.5 h-3.5" />
+                    <span>Спать</span>
+                  </div>
+                  <span className="text-[9px] text-indigo-500/80 font-black">+25 XP 💤</span>
+                  {visualStatus?.primaryAction === 'sleep' && (
+                    <span className="absolute -top-1.5 -right-1 bg-indigo-500 text-white text-[7px] font-black px-1.5 py-0.2 rounded-full animate-bounce shadow-xs">
+                      Срочно! 💤
+                    </span>
+                  )}
                 </button>
               </div>
             </div>

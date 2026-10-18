@@ -22,6 +22,7 @@ interface NavigationProps {
   setActiveTab?: (tab: NavigationTab) => void;
   onTabChange?: (tab: NavigationTab) => void;
   onOpenAchievements?: () => void;
+  variant?: 'sidebar' | 'bottom' | 'both';
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -29,6 +30,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   setActiveTab,
   onTabChange,
   onOpenAchievements,
+  variant = 'both',
 }) => {
   const {
     currentPartnerId,
@@ -87,12 +89,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   return (
     <>
       {/* DESKTOP SLEEK SIDEBAR */}
-      <aside className="hidden md:flex flex-col w-64 apple-glass text-[var(--text)] min-h-screen border-r border-[var(--divider)] shrink-0 sticky top-0 h-screen justify-between z-30 select-none transition-colors">
-        
-        {/* Brand Header */}
-        <div>
-          <div className="p-5 border-b border-[var(--divider)] flex items-center justify-between">
-            <div className="flex items-center gap-3">
+      {variant !== 'bottom' && (
+        <aside className="hidden md:flex flex-col w-64 apple-glass text-[var(--text)] min-h-screen border-r border-[var(--divider)] shrink-0 sticky top-0 h-screen justify-between z-30 select-none transition-colors">
+          
+          {/* Brand Header */}
+          <div>
+            <div className="p-5 border-b border-[var(--divider)] flex items-center justify-between">
+              <div className="flex items-center gap-3">
               <LoopLogo size="md" />
               <div>
                 <div className="flex items-center gap-1.5">
@@ -214,8 +217,10 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
       </aside>
+      )}
 
       {/* MOBILE BOTTOM TAB BAR (Native iOS Tabbar Style - 5 permanent tabs) */}
+      {variant !== 'sidebar' && (
       <nav 
         aria-label="Основная навигация"
         className="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 select-none bg-[var(--surface-solid)]/90 dark:bg-[var(--surface-solid)]/95 backdrop-blur-xl border-t border-[var(--divider)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
@@ -251,6 +256,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
       </nav>
+      )}
     </>
   );
 };

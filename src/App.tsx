@@ -164,6 +164,7 @@ const MainLayout: React.FC = () => {
           setActiveTab={setActiveTab} 
           onTabChange={setActiveTab}
           onOpenAchievements={() => setShowAchievementsModal(true)}
+          variant="sidebar"
         />
       </div>
 
@@ -198,6 +199,7 @@ const MainLayout: React.FC = () => {
             setActiveTab={setActiveTab}
             onTabChange={setActiveTab}
             onOpenAchievements={() => setShowAchievementsModal(true)}
+            variant="bottom"
           />
         </div>
       </div>

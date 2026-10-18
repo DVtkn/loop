@@ -11,6 +11,7 @@ import { DailyQuestionTeaser } from './dashboard/DailyQuestionTeaser.tsx';
 import { PartnerDetailModal } from './dashboard/PartnerDetailModal.tsx';
 import { SetStartDateModal } from './dashboard/SetStartDateModal.tsx';
 import { DailyHabitTracker } from './dashboard/DailyHabitTracker.tsx';
+import { HugButtonWithMenu } from './dashboard/HugButtonWithMenu.tsx';
 import { WeeklyFeaturedTestCard } from './dashboard/WeeklyFeaturedTestCard.tsx';
 import { PetCard } from './PetCard.tsx';
 import { PairEventsFeed } from './dashboard/PairEventsFeed.tsx';
@@ -336,6 +337,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onOpenDetails={() => setShowPartnerDetailModal(true)}
           onGoToProfile={() => setActiveTab('profile')}
           onSetStartDate={() => setShowStartDateModal(true)}
+        />
+
+        {/* Главная большая кнопка быстрого касания / объятия партнёра («Киллер-фича Loop») */}
+        <HugButtonWithMenu
+          partnerName={isPaired ? partnerName : 'половинки'}
+          quickHugSent={quickHugSent}
+          onSendHug={handleQuickHug}
+          onSendSpecificTap={handleSendSpecificTap}
         />
 
         {/* Интерактивный мини-трекер ритуала пары (3/3 шага) */}

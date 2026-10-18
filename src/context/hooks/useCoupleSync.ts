@@ -121,42 +121,63 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
   const fetchCoupleDataRef = params.fetchCoupleDataRef || internalFetchRef;
   const isInitialRemoteLoadDone = useRef(false);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isRefreshingTestsRef = useRef(false);
+  const isFetchingCoupleDataRef = useRef(false);
 
   // 1. Refresh tests status from server
   const refreshTestsStatus = useCallback(async () => {
-    if (!currentUser?.login) return;
+    if (!currentUser?.login || isRefreshingTestsRef.current) return;
+    isRefreshingTestsRef.current = true;
     try {
       const res = await apiFetch('/api/tests/status');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.statuses)) {
           const statusMap = new Map(data.statuses.map((s: any) => [s.testId, s]));
-          setTests((prev) =>
-            prev.map((t) => {
+          setTests((prev) => {
+            let hasChanged = false;
+            const updated = prev.map((t) => {
               const s: any = statusMap.get(t.id);
               if (!s) return t;
               const isP1 = currentPartnerId === 'partner1';
+              const p1Done = isP1 ? s.isCompletedByMe : s.isCompletedByPartner;
+              const p2Done = isP1 ? s.isCompletedByPartner : s.isCompletedByMe;
+              if (
+                t.isCompletedByMe === s.isCompletedByMe &&
+                t.isCompletedByPartner === s.isCompletedByPartner &&
+                t.myAnswersCount === s.myAnswersCount &&
+                t.partnerAnswersCount === s.partnerAnswersCount &&
+                t.partner1Done === p1Done &&
+                t.partner2Done === p2Done
+              ) {
+                return t;
+              }
+              hasChanged = true;
               return {
                 ...t,
                 isCompletedByMe: s.isCompletedByMe,
                 isCompletedByPartner: s.isCompletedByPartner,
                 myAnswersCount: s.myAnswersCount,
                 partnerAnswersCount: s.partnerAnswersCount,
-                partner1Done: isP1 ? s.isCompletedByMe : s.isCompletedByPartner,
-                partner2Done: isP1 ? s.isCompletedByPartner : s.isCompletedByMe,
+                partner1Done: p1Done,
+                partner2Done: p2Done,
               };
-            })
-          );
+            });
+            return hasChanged ? updated : prev;
+          });
         }
       }
     } catch {
       // offline resilience
+    } finally {
+      isRefreshingTestsRef.current = false;
     }
   }, [currentUser?.login, currentPartnerId, setTests]);
 
   // 2. Fetch full couple snapshot from remote
   const fetchCoupleDataFromRemote = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser?.login || isFetchingCoupleDataRef.current) return;
+    isFetchingCoupleDataRef.current = true;
     const cleanLogin = currentUser.login.toLowerCase().trim().replace(/^@/, '');
     const partner = currentUser.partnerLogin ? currentUser.partnerLogin.toLowerCase().trim().replace(/^@/, '') : null;
     const coupleKey = partner ? [cleanLogin, partner].sort().join('_') : cleanLogin;
@@ -166,27 +187,90 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
       if (res.ok) {
         const { data } = await res.json();
         if (data && typeof data === 'object') {
-          if (data.coupleProfile) setCoupleProfile((prev) => ({ ...prev, ...data.coupleProfile }));
-          if (Array.isArray(data.pulseHistory)) setPulseHistory(data.pulseHistory);
-          if (Array.isArray(data.challenges)) setChallenges(data.challenges);
-          if (Array.isArray(data.smallCravings)) setSmallCravings(data.smallCravings);
-          if (data.flowerPreferences) setFlowerPreferences((prev) => ({ ...prev, ...data.flowerPreferences }));
-          if (Array.isArray(data.wishlist)) setWishlist(data.wishlist);
-          if (Array.isArray(data.venues)) setVenues(data.venues);
-          if (Array.isArray(data.dateInvites)) setDateInvites(data.dateInvites);
-          if (Array.isArray(data.scheduleEvents)) setScheduleEvents(data.scheduleEvents);
-          if (Array.isArray(data.moodHistory)) setMoodHistory(data.moodHistory);
+          if (data.coupleProfile) {
+            setCoupleProfile((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.coupleProfile)) return prev;
+              return { ...prev, ...data.coupleProfile };
+            });
+          }
+          if (Array.isArray(data.pulseHistory)) {
+            setPulseHistory((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.pulseHistory)) return prev;
+              return data.pulseHistory;
+            });
+          }
+          if (Array.isArray(data.challenges)) {
+            setChallenges((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.challenges)) return prev;
+              return data.challenges;
+            });
+          }
+          if (Array.isArray(data.smallCravings)) {
+            setSmallCravings((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.smallCravings)) return prev;
+              return data.smallCravings;
+            });
+          }
+          if (data.flowerPreferences) {
+            setFlowerPreferences((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.flowerPreferences)) return prev;
+              return { ...prev, ...data.flowerPreferences };
+            });
+          }
+          if (Array.isArray(data.wishlist)) {
+            setWishlist((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.wishlist)) return prev;
+              return data.wishlist;
+            });
+          }
+          if (Array.isArray(data.venues)) {
+            setVenues((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.venues)) return prev;
+              return data.venues;
+            });
+          }
+          if (Array.isArray(data.dateInvites)) {
+            setDateInvites((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.dateInvites)) return prev;
+              return data.dateInvites;
+            });
+          }
+          if (Array.isArray(data.scheduleEvents)) {
+            setScheduleEvents((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.scheduleEvents)) return prev;
+              return data.scheduleEvents;
+            });
+          }
+          if (Array.isArray(data.moodHistory)) {
+            setMoodHistory((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.moodHistory)) return prev;
+              return data.moodHistory;
+            });
+          }
           if (data.coupleXP !== undefined) setCoupleXP((prev) => Math.max(prev, Number(data.coupleXP) || 0));
-          if (Array.isArray(data.xpHistory)) setXpHistory(data.xpHistory);
-          if (Array.isArray(data.timeCapsules)) setTimeCapsules(data.timeCapsules);
+          if (Array.isArray(data.xpHistory)) {
+            setXpHistory((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.xpHistory)) return prev;
+              return data.xpHistory;
+            });
+          }
+          if (Array.isArray(data.timeCapsules)) {
+            setTimeCapsules((prev) => {
+              if (JSON.stringify(prev) === JSON.stringify(data.timeCapsules)) return prev;
+              return data.timeCapsules;
+            });
+          }
         }
       }
       await refreshTestsStatus();
     } catch {
       // offline resilience
+    } finally {
+      isFetchingCoupleDataRef.current = false;
     }
   }, [
-    currentUser,
+    currentUser?.login,
+    currentUser?.partnerLogin,
     setCoupleProfile,
     setPulseHistory,
     setChallenges,
@@ -206,11 +290,11 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
   fetchCoupleDataRef.current = fetchCoupleDataFromRemote;
 
   useEffect(() => {
-    if (!currentUser) return;
-    fetchCoupleDataFromRemote().then(() => {
+    if (!currentUser?.login) return;
+    fetchCoupleDataRef.current?.().then(() => {
       isInitialRemoteLoadDone.current = true;
     });
-  }, [currentUser?.login, currentUser?.partnerLogin, fetchCoupleDataFromRemote]);
+  }, [currentUser?.login, currentUser?.partnerLogin]);
 
   // 3. Periodic server polling sync (every 5 seconds)
   useEffect(() => {

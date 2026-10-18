@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { apiFetch } from '../../utils/api.ts';
 import {
   UserAccount,
@@ -88,6 +88,11 @@ export function useCoupleAssessments({
     safeSetStorage('together_mood_history', moodHistory);
   }, [moodHistory]);
 
+  const refreshTestsStatusRef = useRef(refreshTestsStatus);
+  useEffect(() => {
+    refreshTestsStatusRef.current = refreshTestsStatus;
+  }, [refreshTestsStatus]);
+
   // Load user-isolated tests on user change
   useEffect(() => {
     if (currentUser?.login) {
@@ -98,11 +103,11 @@ export function useCoupleAssessments({
       } else {
         setTests(getFreshTests());
       }
-      refreshTestsStatus();
+      refreshTestsStatusRef.current?.();
     } else {
       setTests(getFreshTests());
     }
-  }, [currentUser?.login, refreshTestsStatus, getUserTestsStorageKey]);
+  }, [currentUser?.login, getUserTestsStorageKey]);
 
   const addPulseCheckin = useCallback(
     (closeness: number, constructiveness: number, comment: string) => {

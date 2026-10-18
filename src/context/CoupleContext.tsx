@@ -102,6 +102,7 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [font]);
 
   const fetchCoupleDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const refreshTestsStatusRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   // 1. Gamification XP Hook
   const { coupleXP, setCoupleXP, xpHistory, setXpHistory, coupleLevelInfo, achievements, addCoupleXP, triggerConfetti } =
@@ -308,9 +309,9 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateUserProfile,
     addCoupleXP,
     triggerConfetti,
-    refreshTestsStatus: async () => {
-      await refreshTestsStatus();
-    },
+    refreshTestsStatus: useCallback(async () => {
+      await refreshTestsStatusRef.current?.();
+    }, []),
   });
 
   // 9. Chat & AI Messages Sub-hook
@@ -381,6 +382,8 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     triggerConfetti,
     fetchCoupleDataRef,
   });
+
+  refreshTestsStatusRef.current = refreshTestsStatus;
 
   const contextValue: CoupleContextType = useMemo(
     () => ({

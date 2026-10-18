@@ -2,19 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useCouple } from '../context/CoupleContext.tsx';
 import { NavigationTab } from '../types.ts';
 import { PageLayout } from './ui/PageLayout.tsx';
-import { ScheduleModal } from './ScheduleModal.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
 import { dispatchInAppNotification } from '../utils/pushManager.ts';
 import { calculateCoupleAnalysis } from '../utils/psychologyEngine.ts';
 import { PartnerStatusCard, getPartnerStatusDetails } from './dashboard/PartnerStatusCard.tsx';
 import { CompatibilityAndStreak } from './dashboard/CompatibilityAndStreak.tsx';
-import { QuickShortcuts } from './dashboard/QuickShortcuts.tsx';
-import { HugButtonWithMenu } from './dashboard/HugButtonWithMenu.tsx';
 import { DailyQuestionTeaser } from './dashboard/DailyQuestionTeaser.tsx';
-import { PairEventsFeed } from './dashboard/PairEventsFeed.tsx';
 import { PartnerDetailModal } from './dashboard/PartnerDetailModal.tsx';
-import { MoodPickerModal } from './dashboard/MoodPickerModal.tsx';
-import { QuickActionModal } from './dashboard/QuickActionModal.tsx';
 import { SetStartDateModal } from './dashboard/SetStartDateModal.tsx';
 import { DailyHabitTracker } from './dashboard/DailyHabitTracker.tsx';
 import { WeeklyFeaturedTestCard } from './dashboard/WeeklyFeaturedTestCard.tsx';
@@ -29,16 +23,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     currentPartnerId,
     coupleProfile,
     updateCoupleProfile,
-    addMoodStatus,
     questionAnswer,
     answerQuestionOfDay,
     feedItems,
     addFeedItem,
     tests,
     dateInvites,
-    scheduleEvents,
     setUsSubTab,
-    setDatesSubTab,
     currentUser,
     sendTouchAction,
     triggerConfetti,
@@ -152,58 +143,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     return streak;
   }, [xpHistory, pulseHistory, moodHistory, loveTaps, feedItems, dateInvites]);
 
-  // Find nearest upcoming scheduled date if any
-  const upcomingDate = (dateInvites || []).find(
-    (d) => !d.completed && !d.review && (d.status === 'CONFIRMED' || d.status === 'PROPOSED' || d.status === 'PENDING')
-  );
 
   // Interaction feedback states
   const [quickHugSent, setQuickHugSent] = useState<boolean>(false);
   const [showPartnerDetailModal, setShowPartnerDetailModal] = useState<boolean>(false);
   const [showStartDateModal, setShowStartDateModal] = useState<boolean>(false);
-  const [showMoodPicker, setShowMoodPicker] = useState<boolean>(false);
-  const [activeQuickAction, setActiveQuickAction] = useState<string | null>(null);
-  const [quickActionText, setQuickActionText] = useState<string>('');
-  const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
-
-  const todayDateStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
-
-  const todayScheduleEvents = useMemo(() => {
-    return (scheduleEvents || []).filter((ev) => !ev.deleted && ev.date === todayDateStr);
-  }, [scheduleEvents, todayDateStr]);
-
-  const scheduleSummary = useMemo(() => {
-    if (todayScheduleEvents.length === 0) {
-      return {
-        badge: 'Свободно',
-        badgeClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
-        title: 'Наши планы',
-        subtitle: 'Вечер свободен у обоих',
-      };
-    }
-
-    const n = todayScheduleEvents.length;
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    let plural = 'событий';
-    if (mod100 < 11 || mod100 > 14) {
-      if (mod10 === 1) plural = 'событие';
-      else if (mod10 >= 2 && mod10 <= 4) plural = 'события';
-    }
-
-    const hasEvening = todayScheduleEvents.some((e) => {
-      const startMin = e.startTime.split(':').map(Number);
-      const endMin = (e.endTime || '').split(':').map(Number);
-      return startMin[0] >= 18 || endMin[0] > 18;
-    });
-
-    return {
-      badge: `${n} ${plural}`,
-      badgeClass: 'text-sky-600 dark:text-sky-400 bg-sky-500/10',
-      title: 'Наши планы',
-      subtitle: hasEvening ? `Сегодня: ${n} ${plural}` : `Сегодня: ${n} ${plural} • Вечер свободен`,
-    };
-  }, [todayScheduleEvents]);
 
   const dailyQuestions = [
     'Что сегодня заставило тебя искренне улыбнуться?',
@@ -243,17 +187,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     });
   };
 
-  const handleCustomMoodSubmit = (key: string, label: string, note: string) => {
-    addMoodStatus(key, label, 7, note);
-    addFeedItem({
-      author: currentPartnerId,
-      type: 'sparkle',
-      title: `${currentPartner?.name} обновил(а) настроение: ${label}`,
-      subtitle: note || 'Новый статус',
-    });
-    triggerConfetti();
-  };
-
   const handleAnswerSubmit = (answer: string) => {
     answerQuestionOfDay(answer);
     addFeedItem({
@@ -262,36 +195,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
       title: `${currentPartner?.name} ответил(а) на вопрос дня: «${answer}»`,
       subtitle: 'Вопрос дня',
     });
-    triggerConfetti();
-  };
-
-  const handleSendQuickAction = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickActionText.trim() || !activeQuickAction) return;
-
-    let titlePrefix = 'отправил(а) сообщение';
-    let iconType: any = 'sparkle';
-
-    if (activeQuickAction === 'felt') {
-      titlePrefix = 'поделился(ась) чувством';
-      iconType = 'heart';
-    } else if (activeQuickAction === 'appreciated') {
-      titlePrefix = 'поблагодарил(а)';
-      iconType = 'sparkle';
-    } else if (activeQuickAction === 'tell') {
-      titlePrefix = 'хочет рассказать';
-      iconType = 'pin';
-    }
-
-    addFeedItem({
-      author: currentPartnerId,
-      type: iconType,
-      title: `${currentPartner?.name} ${titlePrefix}: «${quickActionText}»`,
-      subtitle: 'Быстрое внимание',
-    });
-
-    setQuickActionText('');
-    setActiveQuickAction(null);
     triggerConfetti();
   };
 
@@ -403,16 +306,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           }}
         />
 
-        {/* Быстрое касание / Объятие */}
-        {isPaired && (
-          <HugButtonWithMenu
-            partnerName={partnerName}
-            quickHugSent={quickHugSent}
-            onSendHug={handleQuickHug}
-            onSendSpecificTap={handleSendSpecificTap}
-          />
-        )}
-
         {/* 2. Зона 2: Главный ритуал дня (Вопрос дня для двоих) */}
         <DailyQuestionTeaser
           currentDailyQuestion={currentDailyQuestion}
@@ -441,7 +334,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           <PetCard isPaired={isPaired} />
         </div>
 
-        {/* 4. Зона 4: Аналитика и инструменты союза */}
+        {/* 5. Зона 5: Аналитика и инструменты союза */}
         <CompatibilityAndStreak
           hasCompatibilityData={hasCompatibilityData}
           compatibilityPercent={compatibilityPercent}
@@ -453,50 +346,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           }}
           onOpenTests={() => setActiveTab('tests')}
         />
-
-        {/* Быстрые переходы к практикам */}
-        <QuickShortcuts
-          onOpenWheel={() => {
-            setDatesSubTab('wheel');
-            setActiveTab('dates');
-          }}
-          onOpenDeepTalk={() => setActiveTab('deeptalk')}
-          onOpenCapsule={() => {
-            setUsSubTab('capsule');
-            setActiveTab('us');
-          }}
-        />
-
-        {/* События пары и планы */}
-        <PairEventsFeed
-          isPaired={isPaired}
-          feedItems={feedItems}
-          questionAnswer={questionAnswer}
-          scheduleSummary={scheduleSummary}
-          upcomingDate={upcomingDate}
-          onOpenSchedule={() => setShowScheduleModal(true)}
-          onOpenDates={() => {
-            setDatesSubTab('history');
-            setActiveTab('dates');
-          }}
-        />
       </div>
 
       {/* Модальные окна */}
-      <MoodPickerModal
-        isOpen={showMoodPicker}
-        onClose={() => setShowMoodPicker(false)}
-        onSubmitMood={handleCustomMoodSubmit}
-      />
-
-      <QuickActionModal
-        activeQuickAction={activeQuickAction}
-        quickActionText={quickActionText}
-        onChangeText={setQuickActionText}
-        onClose={() => setActiveQuickAction(null)}
-        onSubmit={handleSendQuickAction}
-      />
-
       <PartnerDetailModal
         isOpen={showPartnerDetailModal}
         onClose={() => setShowPartnerDetailModal(false)}
@@ -517,16 +369,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
         onClose={() => setShowStartDateModal(false)}
         currentStartDate={coupleProfile?.startDate}
         onSave={(newStartDate) => updateCoupleProfile({ startDate: newStartDate })}
-      />
-
-      <ScheduleModal
-        isOpen={showScheduleModal}
-        onClose={() => setShowScheduleModal(false)}
-        onOpenDateWheel={() => {
-          setShowScheduleModal(false);
-          setDatesSubTab('wheel');
-          setActiveTab('dates');
-        }}
       />
     </PageLayout>
   );

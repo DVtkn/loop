@@ -174,6 +174,7 @@ const MainLayout: React.FC = () => {
               onOpenAchievements={() => setShowAchievementsModal(true)}
               onOpenSettings={() => setActiveTab('profile')}
             />
+            <IOSInstallPrompt />
           </div>
         )}
 
@@ -200,9 +201,6 @@ const MainLayout: React.FC = () => {
           />
         </div>
       </div>
-      
-      {/* iOS Home Screen Install Helper Banner */}
-      <IOSInstallPrompt />
 
       {/* Real-time Partner Touch In-App Toast */}
       <PartnerTouchToast

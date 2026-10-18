@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Share, PlusSquare, X, Smartphone, CheckCircle } from 'lucide-react';
-import { isIOSDevice, isStandaloneApp, safeGetStorage, safeSetStorage } from '../utils/safeStorage';
+import { Share, PlusSquare, X, Smartphone, Sparkles, ChevronRight } from 'lucide-react';
+import { isIOSDevice, isStandaloneApp, safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
+import { triggerHaptic } from '../utils/haptics.ts';
 
 interface IOSInstallPromptProps {
   forceOpen?: boolean;
@@ -11,6 +12,7 @@ export const IOSInstallPrompt: React.FC<IOSInstallPromptProps> = ({ forceOpen = 
   const [isIOS, setIsIOS] = useState<boolean>(false);
   const [isStandalone, setIsStandalone] = useState<boolean>(false);
   const [dismissed, setDismissed] = useState<boolean>(false);
+  const [showFullModal, setShowFullModal] = useState<boolean>(forceOpen);
 
   useEffect(() => {
     try {
@@ -25,96 +27,153 @@ export const IOSInstallPrompt: React.FC<IOSInstallPromptProps> = ({ forceOpen = 
     }
   }, [forceOpen]);
 
+  useEffect(() => {
+    if (forceOpen) setShowFullModal(true);
+  }, [forceOpen]);
+
   const handleDismiss = () => {
     setDismissed(true);
+    setShowFullModal(false);
     safeSetStorage('together_ios_prompt_dismissed', true);
     if (onClose) onClose();
   };
 
-  // If forceOpen is active, or user is on iOS and not standalone and hasn't dismissed yet
   const isVisible = forceOpen || (isIOS && !isStandalone && !dismissed);
 
   if (!isVisible) return null;
 
   return (
     <>
-      {/* Floating Bottom Notification Banner for iPhone Safari */}
-      <div className="fixed bottom-20 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 sm:max-w-md z-50 animate-in fade-in slide-in-from-bottom-5 duration-300">
-        <div className="bg-slate-900/95 text-white p-4 rounded-xl shadow-xl border border-indigo-500/30 backdrop-blur-md">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0 shadow-xs">
-                <Smartphone className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
-                  <span>Добавьте на экран «Домой»</span>
-                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded font-mono border border-indigo-500/30">
-                    iOS Web App
-                  </span>
-                </h4>
-                <p className="text-[11px] text-slate-300 mt-0.5">
-                  Работает на весь экран без адресной строки Safari
-                </p>
-              </div>
-            </div>
-
+      {/* 1. Subtle, Elegant Strip (Flo & Couple Joy aesthetic, non-intrusive) */}
+      {!showFullModal && (
+        <aside aria-label="Установка приложения" className="w-full bg-[var(--surface-blush)]/80 backdrop-blur-md border-b border-[var(--accent)]/15 px-3 py-1.5 sm:px-4 sm:py-2 z-20">
+          <div className="max-w-4xl mx-auto flex items-center justify-between gap-2.5">
             <button
-              onClick={handleDismiss}
-              className="text-slate-400 hover:text-white p-1 rounded-md transition-colors"
-              aria-label="Закрыть"
+              type="button"
+              onClick={() => {
+                triggerHaptic('selection');
+                setShowFullModal(true);
+              }}
+              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <div className="w-6 h-6 rounded-lg bg-rose-500/10 text-[var(--accent)] flex items-center justify-center shrink-0">
+                <Smartphone className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-[var(--text)] leading-tight">
+                  Добавьте на экран «Домой»
+                </span>
+                <span className="text-[10px] bg-rose-500/15 text-[var(--accent)] px-1.5 py-0.2 rounded-full font-semibold">
+                  PWA
+                </span>
+                <span className="text-[11px] text-[var(--text-2)] hidden sm:inline">
+                  Полноэкранный режим без Safari
+                </span>
+              </div>
             </button>
-          </div>
 
-          {/* 3 Step Instruction */}
-          <div className="mt-3 pt-3 border-t border-slate-800 space-y-2 text-xs">
-            <div className="flex items-center gap-2 text-slate-200">
-              <span className="w-5 h-5 rounded-full bg-slate-800 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 border border-slate-700">
-                1
-              </span>
-              <span>
-                Нажмите кнопку <strong className="text-white">«Поделиться»</strong> внизу экрана Safari{' '}
-                <Share className="w-3.5 h-3.5 inline-block text-indigo-400 -mt-0.5 ml-0.5" />
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-slate-200">
-              <span className="w-5 h-5 rounded-full bg-slate-800 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 border border-slate-700">
-                2
-              </span>
-              <span>
-                Выберите <strong className="text-white">«На экран „Домой“»</strong>{' '}
-                <PlusSquare className="w-3.5 h-3.5 inline-block text-indigo-400 -mt-0.5 ml-0.5" />
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-slate-200">
-              <span className="w-5 h-5 rounded-full bg-slate-800 text-indigo-400 flex items-center justify-center font-bold text-[10px] shrink-0 border border-slate-700">
-                3
-              </span>
-              <span>
-                Нажмите <strong className="text-indigo-300">«Добавить»</strong> в верхнем правом углу
-              </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic('selection');
+                  setShowFullModal(true);
+                }}
+                className="text-[11px] font-bold text-[var(--accent)] hover:underline px-1.5 py-0.5 cursor-pointer"
+              >
+                Инструкция
+              </button>
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="w-6 h-6 rounded-full hover:bg-[var(--surface-2)] text-[var(--text-3)] hover:text-[var(--text)] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                aria-label="Закрыть"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
+        </aside>
+      )}
 
-          <div className="mt-3 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>Быстрый доступ с иконки iPhone</span>
+      {/* 2. Detailed Step-by-Step Bottom Sheet Modal (Only when explicitly opened) */}
+      {showFullModal && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center items-center">
+          <div
+            onClick={handleDismiss}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fadeIn"
+          />
+
+          <div className="relative z-10 w-full max-w-md bg-[var(--surface-solid)] rounded-t-[32px] sm:rounded-3xl p-5 sm:p-6 border border-[var(--divider)] shadow-2xl space-y-4 animate-slideUp pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))]">
+            <div className="w-10 h-1 rounded-full bg-[var(--divider)] mx-auto sm:hidden mb-1 shrink-0" />
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-[var(--accent)] flex items-center justify-center shrink-0">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-[var(--text)] flex items-center gap-1.5">
+                    <span>Добавьте на экран «Домой»</span>
+                  </h4>
+                  <p className="text-xs text-[var(--text-2)]">
+                    Работает на весь экран без рамок Safari
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Закрыть"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 3 Step Instruction */}
+            <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-3 text-xs">
+              <div className="flex items-center gap-3 text-[var(--text)]">
+                <span className="w-6 h-6 rounded-full bg-[var(--surface-solid)] text-[var(--accent)] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs border border-[var(--accent)]/20">
+                  1
+                </span>
+                <span>
+                  Нажмите кнопку <strong className="font-bold">«Поделиться»</strong> внизу экрана Safari{' '}
+                  <Share className="w-3.5 h-3.5 inline-block text-[var(--accent)] -mt-0.5 ml-0.5" />
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 text-[var(--text)]">
+                <span className="w-6 h-6 rounded-full bg-[var(--surface-solid)] text-[var(--accent)] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs border border-[var(--accent)]/20">
+                  2
+                </span>
+                <span>
+                  Прокрутите вниз и выберите <strong className="font-bold">«На экран „Домой“»</strong>{' '}
+                  <PlusSquare className="w-3.5 h-3.5 inline-block text-[var(--accent)] -mt-0.5 ml-0.5" />
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3 text-[var(--text)]">
+                <span className="w-6 h-6 rounded-full bg-[var(--surface-solid)] text-[var(--accent)] flex items-center justify-center font-bold text-xs shrink-0 shadow-xs border border-[var(--accent)]/20">
+                  3
+                </span>
+                <span>
+                  Нажмите <strong className="text-[var(--accent)] font-bold">«Добавить»</strong> в правом верхнем углу
+                </span>
+              </div>
             </div>
 
             <button
+              type="button"
               onClick={handleDismiss}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+              className="w-full py-3 rounded-2xl bg-[var(--accent)] text-white font-bold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
             >
               Понятно
             </button>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 };

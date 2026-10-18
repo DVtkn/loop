@@ -99,11 +99,29 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onComplete }) =>
     }
   };
 
-  const handleCopyInvite = () => {
-    const text = `Привет! Давай подключимся в приложении Loop для нашей пары. Мой код сопряжения: ${createdLinkCode || coupleProfile.linkCode}`;
+  const handleCopyInvite = async () => {
+    const inviteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://loopza.vercel.app';
+    const code = createdLinkCode || coupleProfile.linkCode || '';
+    const text = `Привет! Давай подключимся в приложении Loop для нашей пары: ${inviteUrl}\nМой код сопряжения: ${code}`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Приглашение в Loop',
+          text,
+          url: inviteUrl,
+        });
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 3000);
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        navigator.clipboard.writeText(text).catch(() => {});
+        await navigator.clipboard.writeText(text);
       }
     } catch {}
     setCopiedCode(true);

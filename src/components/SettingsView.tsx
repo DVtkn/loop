@@ -86,9 +86,30 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  const handleCopyLinkCode = () => {
+  const handleCopyLinkCode = async () => {
+    const inviteUrl = typeof window !== 'undefined' ? window.location.origin : 'https://loopza.vercel.app';
+    const code = coupleProfile.linkCode || '';
+    const text = `Привет! Давай подключимся в приложении Loop для нашей пары: ${inviteUrl}\nКод сопряжения: ${code}`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Код сопряжения Loop',
+          text,
+          url: inviteUrl,
+        });
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 2000);
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
     try {
-      if (navigator.clipboard) navigator.clipboard.writeText(coupleProfile.linkCode || '');
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+      }
     } catch {}
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);

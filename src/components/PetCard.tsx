@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Gamepad2, Plus, Sparkles, MessageCircle, Utensils, Smile, Moon } from 'lucide-react';
+import { Heart, Gamepad2, Plus, Sparkles, Utensils, Smile, Moon, Bath } from 'lucide-react';
 import { getPetStateApi, performPetActionApi } from '../api/pet.api.ts';
 import { CouplePetState, PetActionType, PetSpecies } from '../types.ts';
 import { LoopConsole } from './LoopConsole.tsx';
+import { PetAvatarLiving } from './pet/PetAvatarLiving.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
 import { play8BitAudio } from '../utils/audio8Bit.ts';
 import { dispatchInAppNotification } from '../utils/pushManager.ts';
 import { safeGetStorage } from '../utils/safeStorage.ts';
-import { PET_SPECIES_DETAILS, SLEEP_IMAGE, SLEEP_IMAGE_FALLBACK, FUNNY_PET_QUOTES, MOOD_BUBBLES } from '../data/petData.ts';
+import {
+  PET_SPECIES_DETAILS,
+  STATE_PET_QUOTES,
+  getPetVisualStatus,
+  PetVisualStatus,
+} from '../data/petData.ts';
 
 interface PetCardProps {
   isPaired: boolean;
@@ -40,7 +46,6 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const [isBouncing, setIsBouncing] = useState(false);
   const [quickActionLoading, setQuickActionLoading] = useState(false);
   const [floatingHeart, setFloatingHeart] = useState<{ id: number; text: string } | null>(null);
-  const [imgError, setImgError] = useState(false);
 
   const loadPetState = async () => {
     if (!token) {
@@ -86,6 +91,8 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       triggerHaptic('medium');
       if (action === 'feed') play8BitAudio('feed');
       else if (action === 'play') play8BitAudio('play');
+      else if (action === 'wash') play8BitAudio('wash');
+      else if (action === 'sleep') play8BitAudio('sleep');
       else play8BitAudio('purr');
 
       setIsBouncing(true);
@@ -96,7 +103,16 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
         setPetState(res.state);
       }
 
-      const rewardText = action === 'feed' ? '+15 XP 🍓' : action === 'play' ? '+20 XP ⚡' : '+10 XP ❤️';
+      const rewardText =
+        action === 'feed'
+          ? '+15 XP 🍓'
+          : action === 'play'
+          ? '+20 XP ⚡'
+          : action === 'wash'
+          ? '+15 XP 🧼'
+          : action === 'sleep'
+          ? '+25 XP 💤'
+          : '+10 XP ❤️';
       setFloatingHeart({ id: Date.now(), text: rewardText });
       setTimeout(() => setFloatingHeart(null), 1400);
     } catch (err) {
@@ -106,16 +122,20 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     }
   };
 
-  const handleTapPet = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleTapPet = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     triggerHaptic('selection');
-    play8BitAudio('pop');
+    play8BitAudio(petState?.species === 'cat' ? 'purr' : 'play');
     setIsBouncing(true);
     setTimeout(() => setIsBouncing(false), 500);
 
     const species = petState?.species || 'dog';
-    const quotes = FUNNY_PET_QUOTES[species] || [];
-    setQuoteIndex((prev) => (prev + 1) % Math.max(1, quotes.length));
+    const isNight = new Date().getHours() >= 23 || new Date().getHours() < 7;
+    const currentStatus = petState ? getPetVisualStatus(petState, isNight) : null;
+    const pool = currentStatus
+      ? STATE_PET_QUOTES[species]?.[currentStatus.stateType] || STATE_PET_QUOTES[species]?.happy || []
+      : [];
+    setQuoteIndex((prev) => (prev + 1) % Math.max(1, pool.length));
 
     setFloatingHeart({ id: Date.now(), text: '💖 мур!' });
     setTimeout(() => setFloatingHeart(null), 1200);

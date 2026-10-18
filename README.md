@@ -1,101 +1,148 @@
-# Loop 💞
+# Loop 💞 — Бережное пространство для двоих
 
-PWA-приложение для пар: психологические тесты (привязанность, языки любви, ЭФТ-циклы, ценности, близость, образ жизни, Big Five), радар-матрица совместимости, couple-отчёт, ИИ-психолог «Сова», подарки-заметки, капсулы времени, push-уведомления.
+**Loop** — мобильное PWA-приложение для пар, объединяющее ежедневные эмоциональные ритуалы, заботу о совместном виртуальном питомце (Тамагочи), научно обоснованную психометрику (8 тестов, 24 шкалы, 6 сфер радара), приватный мессенджер и поддержку ИИ-психолога «Сова».
 
-## 🔴 Живое приложение
+---
 
-**https://loopza.vercel.app**
+## 🔴 Живое приложение в Production
 
-Продакшен: Vercel (проект `loop`, скоуп `vtkn1`) + Neon PostgreSQL (проект `sparkling-glade-90089889`).
+**[https://loopza.vercel.app](https://loopza.vercel.app)**
 
-## Быстрый старт
+- **Хостинг и CI/CD**: Vercel (Production проект `loop`, скоуп `vtkn1`)
+- **База данных**: Neon Serverless PostgreSQL (`sparkling-glade-90089889`, регион `eu-central-1`)
+- **Репозиторий**: [DVtkn/loop](https://github.com/DVtkn/loop)
+
+---
+
+## ✨ Ключевые возможности
+
+1. **🔴 Большая Красная Кнопка («Обнять»)**:
+   - Hero-кнопка на главном экране для мгновенного проявления тепла в 1 тап.
+   - Мультисенсорный отклик: тактильная отдача Haptic (`navigator.vibrate`), звук биения сердца через Web Audio API, взрыв сердечек и салют.
+   - Мгновенная доставка через Realtime SSE и браузерный Web Push на телефон партнёра.
+   - Быстрые реакции: «Обнять», «Поцелуй», «Скучаю», «Думаю о тебе».
+
+2. **🐾 Виртуальный питомец союза (Тамагочи)**:
+   - Интерактивная игровая консоль пары (GameBoy / Retro Tamagotchi стиль с физическими кнопками A/B/D-Pad).
+   - Выбор питомца: милый щенок Чихуахуа или озорной Котёнок.
+   - 5 шкал жизненных потребностей: Сытость, Радость, Энергия, Чистота, Любовь/Синергия.
+   - Ночной режим сна: питомец засыпает в звёздном колпаке на облачной подушке со звуками сна.
+   - Начисление опыта XP паре и прокачка уровней союза за совместный уход.
+
+3. **🔒 Слепой ритуал дня (Blind Reveal Mystery Question)**:
+   - Ежедневный вопрос для сближения пары.
+   - Ответ партнёра запечатан замочком и блюром до тех пор, пока вы не напишете свой — полная честность без конформизма.
+   - Моментальная анимация раскрытия ответов при взаимности и возможность отправить эмодзи-реакции.
+
+4. **📊 Аналитика союза и 8 психологических исследований**:
+   - 8 научно обоснованных тестов (44 кейс-вопроса): привязанность (ECR-R), 5 языков любви (Чепмен), 4 всадника (Готтман), стили конфликтов (Томас-Килманн), семейные сценарии (Боуэн), треугольник любви (Стернберг), идеальный день и профиль личности (Big Five).
+   - Гексагональный Радар 6 интегральных сфер: Доверие, Близость, Общение, Ценности, Интимность, Быт.
+   - 24 первичные психометрические шкалы, определение уникального архетипа союза (без слова «якорь»), анализ слепых зон и персонализированные рекомендации паре для роста.
+
+5. **💬 Приватный чат и ИИ-психолог «Сова»**:
+   - Безопасный мессенджер пары: текстовые сообщения, голосовые аудиозаметки, фото-вложения.
+   - Режим «Соло» с бережным ИИ-терапевтом (Groq LLM Llama-3.3-70b с локальным фоллбэком на детерминированный движок).
+   - Спец-протоколы: «Мягкий старт по Готтману», «Экстренная психологическая помощь при ссоре».
+
+6. **📱 Мобильная эргономика Mobile-First**:
+   - Фиксированный нижний таб-бар с безопасными отступами `safe-area-inset-bottom`.
+   - Полноэкранный чат со скрытием таб-бара (`body.in-chat-view .bottom-nav`).
+   - Защита от автозума в Safari iOS (все инпуты $\ge 16\text{px}$).
+   - 0px горизонтального оверфлоу.
+
+---
+
+## 🛠 Быстрый старт разработчика
+
+### Требования
+- Node.js 18.x или 20.x LTS
+- npm 9+ или bun
+
+### Установка и запуск
 
 ```bash
+# 1. Клонирование репозитория
+git clone https://github.com/DVtkn/loop.git
+cd loop
+
+# 2. Установка зависимостей
 npm install
-cp .env.example .env   # заполните DATABASE_URL и JWT_SECRET
-npm run dev            # http://localhost:3000 (Express API + Vite)
+
+# 3. Настройка окружения
+cp .env.example .env   # укажите DATABASE_URL (Neon Postgres) и JWT_SECRET
+
+# 4. Запуск в режиме разработки (Express API + Vite HMR)
+npm run dev            # http://localhost:3000
 ```
 
-### Команды
+### Команды проекта
 
-| Команда | Что делает |
-|---|---|
-| `npm run dev` | локальный сервер (`tsx server.ts`) |
-| `npm run build` | Vite-бандл клиента + esbuild-бандлы сервера (`dist/server.cjs`, `api/index.js` для Vercel) |
-| `npm run test` | юнит-тесты Vitest (`tests/unit/`) |
-| `npm run test:e2e` | Playwright (`e2e/`, нужен запущенный прод или `BASE_URL`) |
-| `npm run test:tsc` | проверка типов (`tsc --noEmit`) |
-| `npm run test:integration` | интеграционный прогон lifecycle-сценария (`scripts/integration/`) |
-| `node scripts/db/apply-migrations-http.mjs` | применить drizzle-миграции к Neon через HTTP (TCP 5432 заблокирован локально) |
-| `npx tsx scripts/e2e/e2e-prod-submit.mts` | E2E-прогон всех 8 тестов парой на проде |
-| `npx vercel deploy --prod --scope=vtkn1 --yes` | прод-деплой |
+| Команда | Назначение |
+| :--- | :--- |
+| `npm run dev` | Локальный dev-сервер (`tsx server.ts`) на порту 3000 |
+| `npm run build` | Сборка клиента Vite + серверный бандл для Vercel (`dist/server.cjs`, `api/index.js`) |
+| `npm run test` | Запуск юнит-тестов Vitest (`tests/unit/`) |
+| `npm run test:tsc` | Строгая проверка типов TypeScript (`tsc --noEmit`) |
+| `npm run test:e2e` | Playwright сквозные тесты интерфейса (`e2e/`) |
+| `npm run test:integration`| Интеграционный прогон жизненного цикла пары (`scripts/integration/`) |
+| `node scripts/db/apply-migrations-http.mjs` | Применение Drizzle-миграций к Neon через HTTP |
+| `npx tsx scripts/e2e/e2e-prod-submit.mts` | Сквозной E2E-сабмит всех 8 тестов на продакшене |
+| `npx vercel deploy --prod --scope=vtkn1 --yes` | Деплой на production Vercel |
 
-## Карта проекта
+---
 
-```
+## 📂 Структура проекта
+
+```text
 api/index.js            ← сгенерированный Vercel API-бандл (npm run build), не править руками
 server.ts               ← локальный dev-вход (импортирует src/server)
-drizzle/                ← SQL-миграции (0000…0003), применяются scripts/db/
+drizzle/                ← SQL-миграции Drizzle ORM
 
 src/
-  main.tsx, App.tsx     ← точка входа React-клиента
-  components/           ← вьюхи верхнего уровня (AuthView, DashboardView, ChatView, ReportView, …)
-                            + подпапки по доменам: tests/, radar/, photo/, dashboard/, ui/
-  context/              ← CoupleContext + hooks/* (авторизация, XP, тачи, пэйринг)
-  api/                  ← клиентские API-слои (auth, pair, couple, chat, photos)
-  utils/                ← клиентская логика: psychologyEngine (пересчёт радара), pushManager, safeStorage
-  data/                 ← questionBank.ts — банк вопросов всех 8 тестов (единственный источник)
-  shared/tests.registry.ts ← реестр тестов: ID, категории, кол-во вопросов (должен совпадать с questionBank)
-  types.ts              ← клиентские типы
+  main.tsx, App.tsx     ← точка входа React-клиента и маршрутизация
+  components/           ← экраны верхнего уровня:
+                            AuthView, DashboardView, UsView, DatesView, ChatView, SettingsView
+                            + подпапки: dashboard/, console/ (Тамагочи), tests/, radar/, photo/, ui/
+  context/              ← CoupleContext + хуки (useCoupleDaily, useCoupleTouches, useCoupleXP, useCouplePet)
+  api/                  ← клиентские API-модули: auth, pair, couple, pet, chat, photos
+  data/                 ← questionBank.ts (банк 8 тестов), petData.ts (Тамагочи), gamificationData.ts
+  shared/               ← tests.registry.ts (реестр 8 тестов)
+  utils/                ← soundFx.ts (Web Audio API), haptics.ts, psychologyEngine.ts, pushManager.ts
 
   server/
-    app.ts              ← Express-приложение: подключение всех модулей-роутеров (бандлится в api/index.js)
-    index.ts            ← dev-обёртка (старт + статика)
-    core/               ← config.ts (env), logger.ts, types.ts (DbUser/toSafeUser)
-    db/                 ← schema.ts (Drizzle) + client.ts (Neon poolQueryViaFetch — не удалять)
-    modules/            ← по одному на домен: routes.ts (HTTP) + service.ts (логика)
-      auth/             ← регистрация/вход (bcrypt, JWT)
-      pairing/          ← запросы пары, accept (схема: { fromLogin, toLogin })
-      tests/            ← ★ ядро: tests.service.ts (atomicSubmitTestAnswers, генерация couple_reports),
-                            psychometrics.calc.ts (24 шкалы → Big Five), report.matrix.ts
-      analytics/        ← read-API couple-report / overview (только своя пара, иначе 403)
-      chat/ couple-data/ photos/ realtime/  ← остальные домены
-    services/           ← общие серверные сервисы: aiService (Groq), analytics (метрики), insights,
-                            pairService, storageService
-    shared/             ← middleware/ (auth, rate limiter, errorHandler, requirePairOwnership),
-                            validators/ (zod-схемы), errors/, utils/
+    app.ts              ← Express приложение: подключение модулей роутинга
+    db/                 ← schema.ts (Drizzle схемы) + client.ts (Neon serverless пул)
+    modules/            ← доменные микро-модули (routes + service):
+                            auth/       — регистрация, вход, профиль, смена пароля
+                            pairing/    — отправка заявок, подтверждение пары
+                            pet/        — рождение, действия заботы, decay потребностей Тамагочи
+                            tests/      — атомарная сдача тестов, 24-шкальный расчёт
+                            analytics/  — генерация couple_reports, тренды, радар
+                            chat/       — сообщения пары, голосовые, диалог с Совой
+                            couple-data/— синхронизация прогресса, быстрые касания (SSE)
+                            photos/     — защищённый фотоархив пары
+    services/           ← aiService (Groq Llama-3.3), storageService, pairService
+    shared/             ← middleware (requireAuth, requirePairOwnership), validators (Zod)
 
-tests/unit/             ← Vitest (jsdom)
-scripts/
-  db/                   ← применение миграций
-  e2e/                  ← прогон пайплайна тестов на проде
-  integration/          ← ручные интеграционные проверки (DB, чат, Groq, lifecycle)
-  verify/               ← smoke-скрипты
-e2e/                    ← Playwright-спеки (мастер-джурни пары)
-docs/                   ← DEPLOYMENT.md, PRD.md, SECURITY.md, AGENTS.md, wiki/
+tests/unit/             ← Vitest юнит-тесты компонентов и логики
+docs/                   ← PRD.md, DEPLOYMENT.md, SECURITY.md, AGENTS.md, wiki/
 ```
 
-## Как устроен ключевой пайплайн (тесты → отчёт)
+---
 
-1. Оба партнёра сдают 8 тестов: `POST /api/tests/submit` → `atomicSubmitTestAnswers` (одна транзакция: ответы → сессия `completed` → пересчёт 24-шкального профиля).
-2. `coupleId` сервера = **pairKey**: `[login, partnerLogin].sort().join('_')`, выводится из JWT + `users.partnerLogin` (таблица `couples` в этом контуре не участвует).
-3. Когда у обоих сессия `completed`, триггер создаёт/обновляет строку `couple_reports` (PK `id` — явный `crypto.randomUUID()`, `couple_id` unique → upsert; радар 6 сфер + `personality_types` Big Five).
-4. Чтение: `GET /api/analytics/couple-report/:pairKey` — только участникам пары (чужая пара → 403).
+## 🔐 Безопасность и архитектура данных
 
-⚠️ Порядок «сначала `completed`, потом триггер» критичен — см. «Критические уроки» в `docs/DEPLOYMENT.md`.
+- **Изоляция пар (IDOR Prevention)**: Все эндпоинты данных пары валидируются через middleware `requirePairOwnership`. Доступ к данным чужого союза гарантированно блокируется (401/403).
+- **Fail-Fast в Production**: При отсутствии `DATABASE_URL` или `JWT_SECRET` в проде сервер немедленно падает (`FATAL`), предотвращая работу на временных дисках.
+- **Хеширование паролей**: `bcryptjs` (10 раундов соли) с защитой от тайминг-атак и брутфорс-лимитером.
+- **Математическая детерминированность**: Радар и метрики совместимости рассчитываются строгими математическими формулами в PostgreSQL без галлюцинаций нейросетей.
 
-## Переменные окружения
+---
 
-`DATABASE_URL` (Neon), `JWT_SECRET`, `PORT`, `NODE_ENV`, `VERCEL`, `ALLOWED_ORIGINS`, `GROQ_API_KEY`, `GEMINI_API_KEY`, VAPID-ключи для push. Референс — `.env.example`.
+## 📚 Документация
 
-## Документация
-
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — деплой + **критические уроки релиза**
-- [`docs/PRD.md`](docs/PRD.md) — продуктовые требования
-- [`docs/SECURITY.md`](docs/SECURITY.md) — безопасность
-- [`docs/AGENTS.md`](docs/AGENTS.md) — правила для ИИ-агентов (SSOT)
-- [`docs/wiki/`](docs/wiki/) — расширенная вики
-
-## Статус релиза (проверено 2026-09-15)
-
-Продакшен-контур verified end-to-end: 16/16 сабмитов, генерация couple_reports, изоляция партнёров, Playwright мастер-джурни зелёный. Ограничения беты — в `docs/DEPLOYMENT.md`.
+- [📋 Детальный PRD v3.0.0](docs/PRD.md)
+- [🚀 Руководство по развёртыванию (Deployment Guide)](docs/DEPLOYMENT.md)
+- [🔒 Политика безопасности (Security Policy)](docs/SECURITY.md)
+- [🤖 Правила для ИИ-агентов (AGENTS.md)](docs/AGENTS.md)
+- [📖 База знаний (GitHub Wiki)](docs/wiki/)

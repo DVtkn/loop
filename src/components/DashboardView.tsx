@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Bell, X } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext.tsx';
 import { NavigationTab } from '../types.ts';
 import { PageLayout } from './ui/PageLayout.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
-import { dispatchInAppNotification } from '../utils/pushManager.ts';
+import { dispatchInAppNotification, getPushStatus, requestPushPermission } from '../utils/pushManager.ts';
 import { calculateCoupleAnalysis } from '../utils/psychologyEngine.ts';
 import { PartnerStatusCard, getPartnerStatusDetails } from './dashboard/PartnerStatusCard.tsx';
 import { CompatibilityAndStreak } from './dashboard/CompatibilityAndStreak.tsx';
@@ -154,6 +155,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
   const [showPartnerDetailModal, setShowPartnerDetailModal] = useState<boolean>(false);
   const [showStartDateModal, setShowStartDateModal] = useState<boolean>(false);
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+
+  // Subtle Web Push opt-in banner for couples
+  const [showPushBanner, setShowPushBanner] = useState<boolean>(() => {
+    try {
+      if (typeof window === 'undefined') return false;
+      const dismissed = localStorage.getItem('loop_push_prompt_dismissed');
+      const status = getPushStatus();
+      return !dismissed && status.isSupported && status.permission === 'default';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleEnablePushBanner = async () => {
+    try {
+      const res = await requestPushPermission(currentUser?.id, coupleProfile?.id);
+      if (res === 'granted') {
+        triggerConfetti();
+        triggerHaptic('success');
+      }
+    } finally {
+      setShowPushBanner(false);
+    }
+  };
+
+  const handleDismissPushBanner = () => {
+    try {
+      localStorage.setItem('loop_push_prompt_dismissed', 'true');
+    } catch {}
+    setShowPushBanner(false);
+  };
 
   const todayDateStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -338,6 +370,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onGoToProfile={() => setActiveTab('profile')}
           onSetStartDate={() => setShowStartDateModal(true)}
         />
+
+        {/* Мягкий баннер включения системных push-уведомлений для пары */}
+        {isPaired && showPushBanner && (
+          <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-rose-50/90 to-pink-50/90 dark:from-rose-950/30 dark:to-pink-950/20 rounded-2xl border border-rose-200/70 dark:border-rose-900/40 shadow-xs transition-all">
+            <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center shrink-0">
+                <Bell className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-stone-900 dark:text-stone-100 truncate">Включите уведомления</div>
+                <div className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-1">Узнавайте, когда партнёр обнимает вас или пишет</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleEnablePushBanner}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500 text-white shadow-xs hover:bg-rose-600 active:scale-95 transition-all cursor-pointer"
+              >
+                Включить
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissPushBanner}
+                className="p-1.5 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+                aria-label="Закрыть"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Главная большая кнопка быстрого касания / объятия партнёра («Киллер-фича Loop») */}
         <HugButtonWithMenu

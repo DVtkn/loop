@@ -937,12 +937,12 @@ __export(pairService_exports, {
   createPairRequest: () => createPairRequest,
   disconnectPair: () => disconnectPair
 });
-import { eq as eq4, or as or3, and as and2 } from "drizzle-orm";
-import crypto5 from "crypto";
+import { eq as eq5, or as or3, and as and2 } from "drizzle-orm";
+import crypto6 from "crypto";
 async function acceptPair(cleanMe, cleanPartner) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
   if (isSqlConfigured() && db) {
-    const pending = await db.select().from(pairRequests).where(and2(eq4(pairRequests.fromLogin, cleanPartner), eq4(pairRequests.toLogin, cleanMe)));
+    const pending = await db.select().from(pairRequests).where(and2(eq5(pairRequests.fromLogin, cleanPartner), eq5(pairRequests.toLogin, cleanMe)));
     if (pending.length === 0) {
       throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
     }
@@ -961,12 +961,12 @@ async function acceptPair(cleanMe, cleanPartner) {
     }
     try {
       await db.transaction(async (tx) => {
-        await tx.update(users).set({ partnerLogin: cleanPartner, pairedAt: now }).where(eq4(users.login, cleanMe));
-        await tx.update(users).set({ partnerLogin: cleanMe, pairedAt: now }).where(eq4(users.login, cleanPartner));
+        await tx.update(users).set({ partnerLogin: cleanPartner, pairedAt: now }).where(eq5(users.login, cleanMe));
+        await tx.update(users).set({ partnerLogin: cleanMe, pairedAt: now }).where(eq5(users.login, cleanPartner));
         await tx.delete(pairRequests).where(
           or3(
-            and2(eq4(pairRequests.fromLogin, cleanPartner), eq4(pairRequests.toLogin, cleanMe)),
-            and2(eq4(pairRequests.fromLogin, cleanMe), eq4(pairRequests.toLogin, cleanPartner))
+            and2(eq5(pairRequests.fromLogin, cleanPartner), eq5(pairRequests.toLogin, cleanMe)),
+            and2(eq5(pairRequests.fromLogin, cleanMe), eq5(pairRequests.toLogin, cleanPartner))
           )
         );
       });
@@ -1005,7 +1005,7 @@ async function acceptPair(cleanMe, cleanPartner) {
           coupleProfile: {
             id: "c-" + Date.now(),
             status: "ACTIVE",
-            linkCode: `LOOP-${crypto5.randomInt(1e3, 1e4)}`,
+            linkCode: `LOOP-${crypto6.randomInt(1e3, 1e4)}`,
             startDate: now.split("T")[0],
             city: updatedMe2.city || updatedPartner2.city || "\u041C\u043E\u0441\u043A\u0432\u0430",
             partner1: {
@@ -1044,12 +1044,12 @@ async function acceptPair(cleanMe, cleanPartner) {
   if (isSqlConfigured() && db) {
     try {
       await db.transaction(async (tx) => {
-        await tx.update(users).set({ partnerLogin: cleanPartner, pairedAt: now }).where(eq4(users.login, cleanMe));
-        await tx.update(users).set({ partnerLogin: cleanMe, pairedAt: now }).where(eq4(users.login, cleanPartner));
+        await tx.update(users).set({ partnerLogin: cleanPartner, pairedAt: now }).where(eq5(users.login, cleanMe));
+        await tx.update(users).set({ partnerLogin: cleanMe, pairedAt: now }).where(eq5(users.login, cleanPartner));
         await tx.delete(pairRequests).where(
           or3(
-            and2(eq4(pairRequests.fromLogin, cleanPartner), eq4(pairRequests.toLogin, cleanMe)),
-            and2(eq4(pairRequests.fromLogin, cleanMe), eq4(pairRequests.toLogin, cleanPartner))
+            and2(eq5(pairRequests.fromLogin, cleanPartner), eq5(pairRequests.toLogin, cleanMe)),
+            and2(eq5(pairRequests.fromLogin, cleanMe), eq5(pairRequests.toLogin, cleanPartner))
           )
         );
       });
@@ -1111,7 +1111,7 @@ async function acceptPair(cleanMe, cleanPartner) {
         coupleProfile: {
           id: "c-" + Date.now(),
           status: "ACTIVE",
-          linkCode: `LOOP-${crypto5.randomInt(1e3, 1e4)}`,
+          linkCode: `LOOP-${crypto6.randomInt(1e3, 1e4)}`,
           startDate: now.split("T")[0],
           city: updatedMe.city || updatedPartner.city || "\u041C\u043E\u0441\u043A\u0432\u0430",
           partner1: {
@@ -1158,13 +1158,13 @@ async function disconnectPair(cleanLogin) {
     }
     try {
       await db.transaction(async (tx) => {
-        await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq4(users.login, cleanLogin));
+        await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq5(users.login, cleanLogin));
         if (partnerLogin) {
-          await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq4(users.login, partnerLogin));
+          await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq5(users.login, partnerLogin));
           await tx.delete(pairRequests).where(
             or3(
-              and2(eq4(pairRequests.fromLogin, cleanLogin), eq4(pairRequests.toLogin, partnerLogin)),
-              and2(eq4(pairRequests.fromLogin, partnerLogin), eq4(pairRequests.toLogin, cleanLogin))
+              and2(eq5(pairRequests.fromLogin, cleanLogin), eq5(pairRequests.toLogin, partnerLogin)),
+              and2(eq5(pairRequests.fromLogin, partnerLogin), eq5(pairRequests.toLogin, cleanLogin))
             )
           );
         }
@@ -1186,13 +1186,13 @@ async function disconnectPair(cleanLogin) {
   if (isSqlConfigured() && db) {
     try {
       await db.transaction(async (tx) => {
-        await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq4(users.login, cleanLogin));
+        await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq5(users.login, cleanLogin));
         if (partnerLogin) {
-          await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq4(users.login, partnerLogin));
+          await tx.update(users).set({ partnerLogin: null, pairedAt: null }).where(eq5(users.login, partnerLogin));
           await tx.delete(pairRequests).where(
             or3(
-              and2(eq4(pairRequests.fromLogin, cleanLogin), eq4(pairRequests.toLogin, partnerLogin)),
-              and2(eq4(pairRequests.fromLogin, partnerLogin), eq4(pairRequests.toLogin, cleanLogin))
+              and2(eq5(pairRequests.fromLogin, cleanLogin), eq5(pairRequests.toLogin, partnerLogin)),
+              and2(eq5(pairRequests.fromLogin, partnerLogin), eq5(pairRequests.toLogin, cleanLogin))
             )
           );
         }
@@ -1232,7 +1232,7 @@ async function createPairRequest(fromUser, toUser) {
   const cleanFrom = fromUser.login.toLowerCase();
   const cleanTo = toUser.login.toLowerCase();
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const reqId = crypto5.randomUUID();
+  const reqId = crypto6.randomUUID();
   const reqObj = {
     id: reqId,
     fromLogin: cleanFrom,
@@ -1250,8 +1250,8 @@ async function createPairRequest(fromUser, toUser) {
       await db.transaction(async (tx) => {
         await tx.delete(pairRequests).where(
           or3(
-            and2(eq4(pairRequests.fromLogin, cleanFrom), eq4(pairRequests.toLogin, cleanTo)),
-            and2(eq4(pairRequests.fromLogin, cleanTo), eq4(pairRequests.toLogin, cleanFrom))
+            and2(eq5(pairRequests.fromLogin, cleanFrom), eq5(pairRequests.toLogin, cleanTo)),
+            and2(eq5(pairRequests.fromLogin, cleanTo), eq5(pairRequests.toLogin, cleanFrom))
           )
         );
         await tx.insert(pairRequests).values(reqObj);
@@ -1268,8 +1268,8 @@ async function createPairRequest(fromUser, toUser) {
       await db.transaction(async (tx) => {
         await tx.delete(pairRequests).where(
           or3(
-            and2(eq4(pairRequests.fromLogin, cleanFrom), eq4(pairRequests.toLogin, cleanTo)),
-            and2(eq4(pairRequests.fromLogin, cleanTo), eq4(pairRequests.toLogin, cleanFrom))
+            and2(eq5(pairRequests.fromLogin, cleanFrom), eq5(pairRequests.toLogin, cleanTo)),
+            and2(eq5(pairRequests.fromLogin, cleanTo), eq5(pairRequests.toLogin, cleanFrom))
           )
         );
         await tx.insert(pairRequests).values(reqObj);
@@ -1316,7 +1316,7 @@ import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
-import { sql as sql4 } from "drizzle-orm";
+import { sql as sql5 } from "drizzle-orm";
 
 // src/server/core/config.ts
 init_logger();
@@ -1391,37 +1391,46 @@ async function callGroqChat(messages) {
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   if (!GROQ_API_KEY) {
     logger.warn("GROQ_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u0438 (.env)");
-    return null;
+    return "\u042F \u0440\u044F\u0434\u043E\u043C \u0438 \u0433\u043E\u0442\u043E\u0432\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0432\u0430\u0448\u0443 \u043F\u0430\u0440\u0443! \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u0442\u0435 \u043A\u043B\u044E\u0447 Groq, \u0447\u0442\u043E\u0431\u044B \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0433\u043B\u0443\u0431\u043E\u043A\u0438\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0430\u043D\u0430\u043B\u0438\u0437. \u{1F989}";
   }
-  try {
-    const response = await fetch(GROQ_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        messages,
-        model: MODEL_NAME,
-        temperature: 0.5,
-        max_tokens: 650,
-        stream: false
-      })
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${MODEL_NAME})`);
-        return content;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch(GROQ_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          messages,
+          model: MODEL_NAME,
+          temperature: 0.5,
+          max_tokens: 650,
+          stream: false
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${MODEL_NAME})`);
+          return content;
+        }
+      }
+      const errText = await response.text();
+      logger.warn(`Groq ${MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status} (\u043F\u043E\u043F\u044B\u0442\u043A\u0430 ${attempt}/2): ${errText.slice(0, 150)}`);
+      if (attempt === 1 && (response.status === 429 || response.status >= 500)) {
+        await new Promise((r) => setTimeout(r, 700));
+        continue;
+      }
+    } catch (err) {
+      logger.warn(`[Groq API Exception] \u043F\u043E\u043F\u044B\u0442\u043A\u0430 ${attempt}/2:`, void 0, err);
+      if (attempt === 1) {
+        await new Promise((r) => setTimeout(r, 700));
       }
     }
-    const errText = await response.text();
-    logger.warn(`Groq ${MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status}: ${errText.slice(0, 200)}`);
-  } catch (err) {
-    console.error("[Groq API Error]:", err);
   }
-  return null;
+  return "\u042F \u0441\u0435\u0439\u0447\u0430\u0441 \u0432\u043D\u0438\u043C\u0430\u0442\u0435\u043B\u044C\u043D\u043E \u043E\u0431\u0434\u0443\u043C\u044B\u0432\u0430\u044E \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0441\u043E\u043D\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u044E\u0441\u044C \u0441 \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u043E\u0439 \u0432\u0430\u0448\u0435\u0439 \u043F\u0430\u0440\u044B. \u0417\u0430\u0434\u0430\u0439\u0442\u0435 \u043C\u043D\u0435 \u0432\u043E\u043F\u0440\u043E\u0441 \u0435\u0449\u0451 \u0440\u0430\u0437 \u0447\u0435\u0440\u0435\u0437 \u043F\u043E\u043B\u043C\u0438\u043D\u0443\u0442\u044B \u0438\u043B\u0438 \u043F\u043E\u0434\u0435\u043B\u0438\u0442\u0435\u0441\u044C, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u0432\u044B \u0441\u0435\u0439\u0447\u0430\u0441 \u0447\u0443\u0432\u0441\u0442\u0432\u0443\u0435\u0442\u0435 \u2014 \u044F \u0440\u044F\u0434\u043E\u043C \u0438 \u0441\u043B\u0443\u0448\u0430\u044E \u0432\u0430\u0441. \u{1F989}\u{1F49A}";
 }
 async function saveAIMessageToDb(userLogin, prompt, reply) {
   if (!userLogin) return;
@@ -1582,7 +1591,8 @@ var isTestEnvironment = (req) => process.env.NODE_ENV === "test" || isTestSuiteA
 var registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1e3,
   // 1 hour
-  max: 5,
+  max: 30,
+  // Allows multiple accounts on shared home Wi-Fi / campus networks
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -1599,7 +1609,7 @@ var registerLimiter = rateLimit({
 var loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 minutes
-  max: 10,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -1616,7 +1626,7 @@ var loginLimiter = rateLimit({
 var aiLimiter = rateLimit({
   windowMs: 60 * 1e3,
   // 1 minute
-  max: 15,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -1633,7 +1643,7 @@ var aiLimiter = rateLimit({
 var pairLimiter = rateLimit({
   windowMs: 60 * 60 * 1e3,
   // 1 hour
-  max: 20,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -1728,8 +1738,144 @@ data: ${JSON.stringify(payload)}
 init_client();
 init_schema();
 init_storageService();
-import { eq as eq3, and, gt, desc } from "drizzle-orm";
-var pushSubscriptions2 = [];
+import { eq as eq4, and, gt, desc } from "drizzle-orm";
+
+// src/server/services/pushService.ts
+init_client();
+init_schema();
+init_logger();
+import webpush from "web-push";
+import crypto4 from "crypto";
+import { sql as sql2, eq as eq3 } from "drizzle-orm";
+var VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+var VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+var VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@loopapp.io";
+var isVapidReady = false;
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    isVapidReady = true;
+    logger.info("Web Push (VAPID) \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u043D \u0432 pushService");
+  } catch (err) {
+    logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 Web Push VAPID \u0432 pushService:", void 0, err);
+  }
+} else {
+  logger.info("VAPID \u043A\u043B\u044E\u0447\u0438 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u044B \u0432 .env, pushService \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0438");
+}
+function getVapidPublicKey() {
+  return VAPID_PUBLIC_KEY || null;
+}
+var memorySubscriptions = [];
+async function savePushSubscription(params) {
+  const cleanLogin = String(params.userLogin || "").toLowerCase().replace(/^@/, "").trim();
+  if (!cleanLogin || !params.subscription) return;
+  const endpoint = params.subscription.endpoint;
+  const subId = crypto4.randomUUID();
+  if (isSqlConfigured() && db) {
+    try {
+      if (endpoint) {
+        await db.delete(pushSubscriptions).where(
+          sql2`LOWER(${pushSubscriptions.userLogin}) = ${cleanLogin} AND ${pushSubscriptions.subscription}->>'endpoint' = ${endpoint}`
+        );
+      }
+      await db.insert(pushSubscriptions).values({
+        id: subId,
+        userLogin: cleanLogin,
+        coupleId: params.coupleId || null,
+        subscription: params.subscription
+      });
+      logger.info("Push-\u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0430 \u0432 Neon DB", { userLogin: cleanLogin });
+      return;
+    } catch (err) {
+      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C push-\u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443 \u0432 Neon DB, \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435 \u0432 \u043F\u0430\u043C\u044F\u0442\u044C", { userLogin: cleanLogin }, err);
+    }
+  }
+  const existingIdx = memorySubscriptions.findIndex(
+    (s) => s.userLogin === cleanLogin && s.subscription?.endpoint === endpoint
+  );
+  if (existingIdx !== -1) {
+    memorySubscriptions[existingIdx] = {
+      id: subId,
+      userLogin: cleanLogin,
+      coupleId: params.coupleId || void 0,
+      subscription: params.subscription,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  } else {
+    memorySubscriptions.push({
+      id: subId,
+      userLogin: cleanLogin,
+      coupleId: params.coupleId || void 0,
+      subscription: params.subscription,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  }
+}
+async function sendPushToUser(userLogin, payload) {
+  const cleanLogin = String(userLogin || "").toLowerCase().replace(/^@/, "").trim();
+  if (!cleanLogin || !isVapidReady) return 0;
+  const notificationPayload = JSON.stringify({
+    title: payload.title || "Loop",
+    body: payload.body || "\u041D\u043E\u0432\u043E\u0435 \u0441\u043E\u0431\u044B\u0442\u0438\u0435 \u0432 \u0432\u0430\u0448\u0435\u0439 \u043F\u0430\u0440\u0435",
+    icon: payload.icon || "/icon-192.png",
+    tag: payload.tag || "loop-event",
+    url: payload.url || "/"
+  });
+  const subsToSend = [];
+  if (isSqlConfigured() && db) {
+    try {
+      const rows = await db.select({
+        id: pushSubscriptions.id,
+        subscription: pushSubscriptions.subscription
+      }).from(pushSubscriptions).where(sql2`LOWER(${pushSubscriptions.userLogin}) = ${cleanLogin}`);
+      for (const r of rows) {
+        if (r.subscription) {
+          subsToSend.push({ id: r.id, subscription: r.subscription });
+        }
+      }
+    } catch (err) {
+      logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0432\u044B\u0431\u043E\u0440\u043A\u0438 push-\u043F\u043E\u0434\u043F\u0438\u0441\u043E\u043A \u0438\u0437 Neon DB", { userLogin: cleanLogin }, err);
+    }
+  }
+  if (subsToSend.length === 0) {
+    const memoryMatches = memorySubscriptions.filter((s) => s.userLogin === cleanLogin);
+    for (const m of memoryMatches) {
+      subsToSend.push({ id: m.id, subscription: m.subscription });
+    }
+  }
+  if (subsToSend.length === 0) {
+    return 0;
+  }
+  let sentCount = 0;
+  const expiredIds = [];
+  await Promise.allSettled(
+    subsToSend.map(async ({ id, subscription }) => {
+      try {
+        await webpush.sendNotification(subscription, notificationPayload);
+        sentCount++;
+      } catch (err) {
+        const statusCode = err?.statusCode;
+        if (statusCode === 404 || statusCode === 410) {
+          expiredIds.push(id);
+        } else {
+          logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 push-\u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F", { userLogin: cleanLogin, statusCode, err: String(err) });
+        }
+      }
+    })
+  );
+  if (expiredIds.length > 0 && isSqlConfigured() && db) {
+    try {
+      for (const id of expiredIds) {
+        await db.delete(pushSubscriptions).where(eq3(pushSubscriptions.id, id));
+      }
+      logger.info("\u0423\u0434\u0430\u043B\u0435\u043D\u044B \u043D\u0435\u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 push-\u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0438", { count: expiredIds.length });
+    } catch {
+    }
+  }
+  return sentCount;
+}
+
+// src/server/modules/realtime/realtime.service.ts
 var lastActiveCache = /* @__PURE__ */ new Map();
 async function touchUserLastActive(login) {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
@@ -1743,7 +1889,7 @@ async function touchUserLastActive(login) {
   const nowIso = new Date(now).toISOString();
   if (isSqlConfigured() && db) {
     try {
-      await db.update(users).set({ lastActiveAt: nowIso }).where(eq3(users.login, cleanLogin));
+      await db.update(users).set({ lastActiveAt: nowIso }).where(eq4(users.login, cleanLogin));
     } catch (err) {
       logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F lastActiveAt \u0432 SQL", { login: cleanLogin }, err);
     }
@@ -1827,6 +1973,15 @@ async function sendQuickTouch(params) {
     }
   }
   sendSSEEventToUser(tLogin, "touch", newTouch);
+  sendPushToUser(tLogin, {
+    title: newTouch.title,
+    body: newTouch.customNote || "\u041F\u0430\u0440\u0442\u043D\u0451\u0440 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u043B(\u0430) \u0432\u0430\u043C \u0442\u0451\u043F\u043B\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0432 Loop \u2764\uFE0F",
+    icon: "/icon.svg",
+    tag: `touch-${params.actionType}`,
+    url: "/"
+  }).catch((pushErr) => {
+    logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C Web Push \u043D\u0430 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430:", void 0, pushErr);
+  });
   logger.info("\u0411\u044B\u0441\u0442\u0440\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u0411\u0414 \u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E", {
     from: sLogin,
     to: tLogin,
@@ -1853,10 +2008,10 @@ async function handleHeartbeat(login) {
     await touchUserLastActive(cleanLogin);
     if (isSqlConfigured() && db) {
       try {
-        const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
+        const [currentUserRecord] = await db.select().from(users).where(eq4(users.login, cleanLogin)).limit(1);
         if (currentUserRecord?.partnerLogin) {
           partnerLogin = currentUserRecord.partnerLogin;
-          const [partnerRecord] = await db.select().from(users).where(eq3(users.login, partnerLogin)).limit(1);
+          const [partnerRecord] = await db.select().from(users).where(eq4(users.login, partnerLogin)).limit(1);
           if (partnerRecord?.lastActiveAt) {
             partnerLastActiveAt = partnerRecord.lastActiveAt;
           }
@@ -1900,9 +2055,9 @@ async function getEventsPoll(params) {
   }
   if (isSqlConfigured() && db && cleanLogin) {
     try {
-      const [currentUserRecord] = await db.select().from(users).where(eq3(users.login, cleanLogin)).limit(1);
+      const [currentUserRecord] = await db.select().from(users).where(eq4(users.login, cleanLogin)).limit(1);
       if (currentUserRecord?.partnerLogin) {
-        const [partnerRecord] = await db.select().from(users).where(eq3(users.login, currentUserRecord.partnerLogin)).limit(1);
+        const [partnerRecord] = await db.select().from(users).where(eq4(users.login, currentUserRecord.partnerLogin)).limit(1);
         if (partnerRecord?.lastActiveAt) {
           partnerLastActiveAt = partnerRecord.lastActiveAt;
         }
@@ -1910,7 +2065,7 @@ async function getEventsPoll(params) {
       const cutoffTime = params.since || new Date(Date.now() - 45e3).toISOString();
       const dbEvents = await db.select().from(coupleEvents).where(
         and(
-          eq3(coupleEvents.targetLogin, cleanLogin),
+          eq4(coupleEvents.targetLogin, cleanLogin),
           gt(coupleEvents.createdAt, cutoffTime)
         )
       ).orderBy(desc(coupleEvents.createdAt)).limit(30);
@@ -2029,7 +2184,7 @@ init_schema();
 init_client();
 init_storageService();
 import bcrypt from "bcryptjs";
-import crypto4 from "crypto";
+import crypto5 from "crypto";
 
 // src/server/core/types.ts
 function toSafeUser(user) {
@@ -2056,7 +2211,7 @@ async function registerUser(params) {
   const salt = await bcrypt.genSalt(10);
   const passwordHash = await bcrypt.hash(params.password, salt);
   const now = (/* @__PURE__ */ new Date()).toISOString();
-  const userId = crypto4.randomUUID();
+  const userId = crypto5.randomUUID();
   const newUser = {
     id: userId,
     login: cleanLogin,
@@ -2162,7 +2317,7 @@ async function syncAccounts(accounts) {
         const cleanLogin = String(acc.login).toLowerCase().replace(/^@/, "");
         const passwordHash = acc.passwordHash || await bcrypt.hash(acc.password || "password123", 10);
         await upsertUser({
-          id: acc.id || crypto4.randomUUID(),
+          id: acc.id || crypto5.randomUUID(),
           login: cleanLogin,
           passwordHash,
           name: acc.name || cleanLogin,
@@ -2292,7 +2447,7 @@ var pairDisconnectSchema = z2.object({
 // src/server/modules/pairing/pairing.service.ts
 init_client();
 init_schema();
-import { eq as eq5, and as and3 } from "drizzle-orm";
+import { eq as eq6, and as and3 } from "drizzle-orm";
 init_storageService();
 init_pairService();
 init_errors();
@@ -2320,7 +2475,7 @@ async function rejectPairRequest(fromLogin, toLogin) {
     }
     try {
       await db.delete(pairRequests).where(
-        and3(eq5(pairRequests.fromLogin, fromLogin), eq5(pairRequests.toLogin, toLogin))
+        and3(eq6(pairRequests.fromLogin, fromLogin), eq6(pairRequests.toLogin, toLogin))
       );
       return;
     } catch (err) {
@@ -2331,7 +2486,7 @@ async function rejectPairRequest(fromLogin, toLogin) {
   if (isSqlConfigured() && db) {
     try {
       await db.delete(pairRequests).where(
-        and3(eq5(pairRequests.fromLogin, fromLogin), eq5(pairRequests.toLogin, toLogin))
+        and3(eq6(pairRequests.fromLogin, fromLogin), eq6(pairRequests.toLogin, toLogin))
       );
     } catch (err) {
       logger.warn("\u0421\u0431\u043E\u0439 \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043F\u0430\u0440\u044B \u0438\u0437 SQL", void 0, err);
@@ -2359,8 +2514,8 @@ async function getPairStatus(login) {
       throw new DatabaseUnavailableError();
     }
     try {
-      incoming = await db.select().from(pairRequests).where(and3(eq5(pairRequests.toLogin, login), eq5(pairRequests.status, "PENDING")));
-      outgoing = await db.select().from(pairRequests).where(and3(eq5(pairRequests.fromLogin, login), eq5(pairRequests.status, "PENDING")));
+      incoming = await db.select().from(pairRequests).where(and3(eq6(pairRequests.toLogin, login), eq6(pairRequests.status, "PENDING")));
+      outgoing = await db.select().from(pairRequests).where(and3(eq6(pairRequests.fromLogin, login), eq6(pairRequests.status, "PENDING")));
       return {
         paired: !!user.partnerLogin,
         user: toSafeUser(user),
@@ -2375,8 +2530,8 @@ async function getPairStatus(login) {
   }
   if (isSqlConfigured() && db) {
     try {
-      incoming = await db.select().from(pairRequests).where(and3(eq5(pairRequests.toLogin, login), eq5(pairRequests.status, "PENDING")));
-      outgoing = await db.select().from(pairRequests).where(and3(eq5(pairRequests.fromLogin, login), eq5(pairRequests.status, "PENDING")));
+      incoming = await db.select().from(pairRequests).where(and3(eq6(pairRequests.toLogin, login), eq6(pairRequests.status, "PENDING")));
+      outgoing = await db.select().from(pairRequests).where(and3(eq6(pairRequests.fromLogin, login), eq6(pairRequests.status, "PENDING")));
     } catch (err) {
       logger.warn("\u0421\u0431\u043E\u0439 \u0432\u044B\u0431\u043E\u0440\u043A\u0438 pair_requests \u0438\u0437 SQL, \u0447\u0442\u0435\u043D\u0438\u0435 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430", void 0, err);
     }
@@ -2607,14 +2762,14 @@ var joinInviteSchema = z3.object({
 
 // src/server/modules/couple-data/couple.service.ts
 init_storageService();
-import crypto7 from "crypto";
+import crypto8 from "crypto";
 
 // src/server/services/analytics.ts
 init_client();
 init_schema();
 init_logger();
-import { eq as eq6, and as and4, gte } from "drizzle-orm";
-import crypto6 from "crypto";
+import { eq as eq7, and as and4, gte } from "drizzle-orm";
+import crypto7 from "crypto";
 async function recordDailyMetrics(coupleId, metricDate, data) {
   try {
     let moodAverage = null;
@@ -2661,7 +2816,7 @@ async function recordDailyMetrics(coupleId, metricDate, data) {
       return;
     }
     await db.insert(relationshipMetrics).values({
-      id: crypto6.randomUUID(),
+      id: crypto7.randomUUID(),
       coupleId,
       metricDate,
       radarScores,
@@ -2694,7 +2849,7 @@ async function getTrends(coupleId, periodDays) {
   const dateString = pastDate.toISOString().split("T")[0];
   try {
     const records = await db.select().from(relationshipMetrics).where(and4(
-      eq6(relationshipMetrics.coupleId, coupleId),
+      eq7(relationshipMetrics.coupleId, coupleId),
       gte(relationshipMetrics.metricDate, dateString)
     )).orderBy(relationshipMetrics.metricDate);
     return records;
@@ -2970,7 +3125,7 @@ function computeCoupleRatingAnalytics(params) {
 // src/server/modules/couple-data/couple.service.ts
 init_client();
 init_schema();
-import { eq as eq7 } from "drizzle-orm";
+import { eq as eq8 } from "drizzle-orm";
 async function syncCouplePayload(params, senderUserLogin) {
   const { login1, login2, coupleId, payload } = params;
   let key = coupleId;
@@ -3039,11 +3194,11 @@ async function fetchCoupleDataByLogins(login1, login2) {
 async function generateInviteCode(requesterLogin) {
   const cleanLogin = String(requesterLogin || "").toLowerCase().trim().replace(/^@/, "");
   if (!cleanLogin) throw { status: 401, message: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" };
-  const code = `LOOP-${crypto7.randomInt(1e5, 1e6)}`;
+  const code = `LOOP-${crypto8.randomInt(1e5, 1e6)}`;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1e3).toISOString();
   if (isSqlConfigured() && db) {
     try {
-      const res = await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq7(users.login, cleanLogin)).returning?.();
+      const res = await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq8(users.login, cleanLogin)).returning?.();
       void res;
     } catch (e) {
       logger.warn("generateInviteCode SQL failed, fallback to file", void 0, e);
@@ -3073,7 +3228,7 @@ async function generateInviteCode(requesterLogin) {
   }
   if (isSqlConfigured() && db) {
     try {
-      await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq7(users.login, cleanLogin));
+      await db.update(users).set({ inviteCode: code, inviteCodeExpires: expiresAt }).where(eq8(users.login, cleanLogin));
     } catch {
     }
   }
@@ -3087,7 +3242,7 @@ async function joinInvite(joinerLogin, rawCode) {
   let inviterRow = null;
   if (isSqlConfigured() && db) {
     try {
-      const rows = await db.select().from(users).where(eq7(users.inviteCode, cleanCode)).limit(1);
+      const rows = await db.select().from(users).where(eq8(users.inviteCode, cleanCode)).limit(1);
       if (rows.length) inviterRow = rows[0];
     } catch (e) {
       logger.warn("joinInvite SQL select failed", void 0, e);
@@ -3116,7 +3271,7 @@ async function joinInvite(joinerLogin, rawCode) {
   const result = await acceptPair2(cleanLogin, inviterLogin);
   if (isSqlConfigured() && db) {
     try {
-      await db.update(users).set({ inviteCode: null, inviteCodeExpires: null }).where(eq7(users.login, inviterLogin));
+      await db.update(users).set({ inviteCode: null, inviteCodeExpires: null }).where(eq8(users.login, inviterLogin));
     } catch {
     }
   }
@@ -3211,7 +3366,7 @@ var petSwitchSchema = z4.object({
 // src/server/modules/pet/pet.service.ts
 init_client();
 init_schema();
-import { eq as eq8, and as and5, or as or5, gte as gte2 } from "drizzle-orm";
+import { eq as eq9, and as and5, or as or5, gte as gte2 } from "drizzle-orm";
 var DEFAULT_PET_STATE = {
   id: "",
   coupleId: "",
@@ -3275,10 +3430,16 @@ function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 function deriveMood(state) {
-  if (state.energy < 20) return "sleepy";
-  if (state.hunger < 20) return "hungry";
-  if (state.cleanliness < 20) return "dirty";
-  if (state.joy >= 80) return "playful";
+  const criticalNeeds = [
+    { mood: "dirty", val: state.cleanliness },
+    { mood: "sleepy", val: state.energy },
+    { mood: "hungry", val: state.hunger }
+  ];
+  criticalNeeds.sort((a, b) => a.val - b.val);
+  if (criticalNeeds[0].val < 35) {
+    return criticalNeeds[0].mood;
+  }
+  if (state.joy >= 75) return "playful";
   return "happy";
 }
 function getXPForLevel(level) {
@@ -3295,21 +3456,21 @@ function checkLevelUp(state) {
 }
 async function getCoupleInfo(userLogin) {
   if (!isSqlConfigured() || !db) return null;
-  const userRow = await db.select().from(users).where(eq8(users.login, userLogin)).limit(1);
+  const userRow = await db.select().from(users).where(eq9(users.login, userLogin)).limit(1);
   if (!userRow.length || !userRow[0].partnerLogin) return null;
   const partnerLogin = userRow[0].partnerLogin;
   const pairKey = getPairKey(userLogin, partnerLogin);
-  const partnerUser = await db.select().from(users).where(eq8(users.login, partnerLogin)).limit(1);
+  const partnerUser = await db.select().from(users).where(eq9(users.login, partnerLogin)).limit(1);
   if (!partnerUser.length) return null;
   const coupleRow = await db.select().from(couples).where(
     or5(
       and5(
-        eq8(couples.user1Id, userRow[0].id),
-        eq8(couples.user2Id, partnerUser[0].id)
+        eq9(couples.user1Id, userRow[0].id),
+        eq9(couples.user2Id, partnerUser[0].id)
       ),
       and5(
-        eq8(couples.user1Id, partnerUser[0].id),
-        eq8(couples.user2Id, userRow[0].id)
+        eq9(couples.user1Id, partnerUser[0].id),
+        eq9(couples.user2Id, userRow[0].id)
       )
     )
   ).limit(1);
@@ -3352,8 +3513,8 @@ async function calcTodaySynergy(coupleId) {
     dayStart.setHours(0, 0, 0, 0);
     const rows = await db.select({ senderLogin: coupleEvents.senderLogin }).from(coupleEvents).where(
       and5(
-        eq8(coupleEvents.coupleId, coupleId),
-        eq8(coupleEvents.eventType, "pet_action"),
+        eq9(coupleEvents.coupleId, coupleId),
+        eq9(coupleEvents.eventType, "pet_action"),
         gte2(coupleEvents.createdAt, dayStart.toISOString())
       )
     );
@@ -3371,7 +3532,7 @@ async function getPetState(userLogin) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
   }
   try {
-    const row = await db.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
+    const row = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
     if (row.length === 0) {
       return {
         ...DEFAULT_PET_STATE,
@@ -3393,7 +3554,7 @@ async function getPetState(userLogin) {
         mood: decayed.mood,
         lastInteractionAt: new Date(decayed.lastInteractionAt).toISOString(),
         updatedAt: new Date(decayed.updatedAt).toISOString()
-      }).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
+      }).where(eq9(couplePets.pairKey, coupleInfo.pairKey));
     }
     return { ...decayed, synergy: await calcTodaySynergy(coupleInfo.coupleId) };
   } catch (e) {
@@ -3409,7 +3570,7 @@ async function createPet(userLogin, species, name) {
   if (!isSqlConfigured() || !db) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
   }
-  const existingPet = await db.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
+  const existingPet = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
   if (existingPet.length > 0) {
     throw { status: 400, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u043F\u0430\u0440\u044B \u0443\u0436\u0435 \u0441\u043E\u0437\u0434\u0430\u043D" };
   }
@@ -3470,7 +3631,7 @@ async function performPetAction(userLogin, action) {
   }
   try {
     const result = await db.transaction(async (tx) => {
-      const row = await tx.select().from(couplePets).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
+      const row = await tx.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
       if (row.length === 0) {
         throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0435 \u043E\u043D\u0431\u043E\u0440\u0434\u0438\u043D\u0433." };
       }
@@ -3527,7 +3688,7 @@ async function performPetAction(userLogin, action) {
       state.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
       const { state: leveledState, levelUp } = checkLevelUp(state);
       state = leveledState;
-      await tx.update(couplePets).set(state).where(eq8(couplePets.pairKey, coupleInfo.pairKey));
+      await tx.update(couplePets).set(state).where(eq9(couplePets.pairKey, coupleInfo.pairKey));
       const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
       await tx.insert(coupleEvents).values({
         id: eventId,
@@ -3571,7 +3732,7 @@ async function proposePetName(userLogin, name) {
       nameStatus: "pending_partner",
       nameProposedBy: coupleInfo.userId,
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    }).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).returning();
     const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     await notifyPartner(coupleInfo, userLogin, "pet_name_proposed", {
@@ -3593,7 +3754,7 @@ async function confirmPetName(userLogin, confirm) {
     const result = await db.update(couplePets).set({
       nameStatus: confirm ? "confirmed" : "pending_partner",
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    }).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).returning();
     const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     return { success: true, state };
@@ -3611,7 +3772,7 @@ async function switchPetSpecies(userLogin, species) {
     const result = await db.update(couplePets).set({
       species,
       updatedAt: now.toISOString()
-    }).where(eq8(couplePets.pairKey, coupleInfo.pairKey)).returning();
+    }).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).returning();
     const state = result.length ? normalizePetRow(result[0]) : void 0;
     if (!state) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
     return { success: true, state };
@@ -3623,10 +3784,10 @@ async function switchPetSpecies(userLogin, species) {
 async function awardCoupleXP(coupleId, xp, _reason) {
   if (!isSqlConfigured() || !db) return;
   try {
-    const couple = await db.select({ xp: couples.xpPoints }).from(couples).where(eq8(couples.id, coupleId)).limit(1);
+    const couple = await db.select({ xp: couples.xpPoints }).from(couples).where(eq9(couples.id, coupleId)).limit(1);
     await db.update(couples).set({
       xpPoints: (couple[0]?.xp || 0) + xp
-    }).where(eq8(couples.id, coupleId));
+    }).where(eq9(couples.id, coupleId));
   } catch (e) {
     logger.warn("awardCoupleXP failed", void 0, e);
   }
@@ -3651,7 +3812,7 @@ async function logPetEvent(coupleId, userLogin, eventType, payload) {
 async function notifyPartner(coupleInfo, userLogin, eventType, payload) {
   if (!isSqlConfigured() || !db) return;
   try {
-    const userRow = await db.select().from(users).where(eq8(users.id, coupleInfo.userId)).limit(1);
+    const userRow = await db.select().from(users).where(eq9(users.id, coupleInfo.userId)).limit(1);
     if (!userRow.length) return;
     const partnerLogin = userRow[0].partnerLogin;
     if (!partnerLogin) return;
@@ -4190,6 +4351,14 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req, res, next) =
               payload: { message, coupleId, mode: mode || "together" }
             }).catch(() => {
             });
+            sendPushToUser(targetLogin, {
+              title: `@${cleanSender}`,
+              body: content.trim().length > 90 ? content.trim().slice(0, 87) + "..." : content.trim(),
+              icon: "/icon.svg",
+              tag: `chat-${coupleId}`,
+              url: "/"
+            }).catch(() => {
+            });
           }
         }
       });
@@ -4416,13 +4585,13 @@ import { Router as Router6 } from "express";
 // src/server/modules/analytics/analytics.service.ts
 init_client();
 init_schema();
-import { desc as desc2, eq as eq10 } from "drizzle-orm";
+import { desc as desc2, eq as eq11 } from "drizzle-orm";
 
 // src/server/services/insights.ts
 init_client();
 init_schema();
 init_logger();
-import crypto8 from "crypto";
+import crypto9 from "crypto";
 async function detectRiskZones(metrics) {
   const risks = [];
   if (metrics.length < 14) return risks;
@@ -4500,7 +4669,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
   }
   try {
     await db.insert(aiInsights).values({
-      id: crypto8.randomUUID(),
+      id: crypto9.randomUUID(),
       coupleId,
       type,
       content: insightContent,
@@ -4518,8 +4687,8 @@ async function generateWeeklyInsight(coupleId, contextData) {
 // src/server/modules/tests/tests.service.ts
 init_client();
 init_schema();
-import crypto9 from "crypto";
-import { eq as eq9, and as and6 } from "drizzle-orm";
+import crypto10 from "crypto";
+import { eq as eq10, and as and6 } from "drizzle-orm";
 
 // src/shared/tests.registry.ts
 var TESTS_REGISTRY = {
@@ -5013,7 +5182,7 @@ var EXPECTED_QUESTIONS = Object.fromEntries(
 async function resolveTestCoupleId(userLogin) {
   const clean = (s) => s.toLowerCase().trim().replace(/^@/, "");
   if (!isSqlConfigured() || !db) return clean(userLogin);
-  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq9(users.login, userLogin));
+  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq10(users.login, userLogin));
   if (!u) return clean(userLogin);
   if (!u.partnerLogin) return clean(u.login);
   return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
@@ -5035,17 +5204,17 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq9(users.login, userLogin));
+      const [u] = await tx.select().from(users).where(eq10(users.login, userLogin));
       const userId = u ? u.id : userLogin;
       let session = await tx.select().from(testSessions).where(
         and6(
-          eq9(testSessions.coupleId, coupleId),
-          eq9(testSessions.testId, testId),
-          eq9(testSessions.status, "in_progress")
+          eq10(testSessions.coupleId, coupleId),
+          eq10(testSessions.testId, testId),
+          eq10(testSessions.status, "in_progress")
         )
       ).limit(1);
       if (!session.length) {
-        const newSessionId = crypto9.randomUUID();
+        const newSessionId = crypto10.randomUUID();
         const [created] = await tx.insert(testSessions).values({
           id: newSessionId,
           testId,
@@ -5057,7 +5226,7 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       }
       const sessionId = session[0].id;
       const answerRecords = answers.map((a) => ({
-        id: crypto9.randomUUID(),
+        id: crypto10.randomUUID(),
         sessionId,
         userId,
         questionId: a.questionId,
@@ -5071,10 +5240,10 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       }));
       await tx.insert(testAnswers).values(answerRecords);
       await tx.delete(testDrafts).where(
-        and6(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
+        and6(eq10(testDrafts.userId, userId), eq10(testDrafts.testId, testId))
       );
       await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
-      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq9(testSessions.id, sessionId));
+      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq10(testSessions.id, sessionId));
       const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
         status: "completed",
@@ -5099,19 +5268,19 @@ async function submitTestAnswer(params) {
   }
   if (isSqlConfigured() && db) {
     return await db.transaction(async (tx) => {
-      const [u] = await tx.select().from(users).where(eq9(users.login, params.userLogin));
+      const [u] = await tx.select().from(users).where(eq10(users.login, params.userLogin));
       const userId = u ? u.id : params.userLogin;
       let sessionId = params.sessionId;
       if (!sessionId) {
         let session = await tx.select().from(testSessions).where(
           and6(
-            eq9(testSessions.coupleId, params.coupleId),
-            eq9(testSessions.testId, params.testId),
-            eq9(testSessions.status, "in_progress")
+            eq10(testSessions.coupleId, params.coupleId),
+            eq10(testSessions.testId, params.testId),
+            eq10(testSessions.status, "in_progress")
           )
         ).limit(1);
         if (!session.length) {
-          const newSessionId = crypto9.randomUUID();
+          const newSessionId = crypto10.randomUUID();
           const [created] = await tx.insert(testSessions).values({
             id: newSessionId,
             testId: params.testId,
@@ -5124,7 +5293,7 @@ async function submitTestAnswer(params) {
         sessionId = session[0].id;
       }
       await tx.insert(testAnswers).values({
-        id: crypto9.randomUUID(),
+        id: crypto10.randomUUID(),
         sessionId,
         userId,
         questionId: params.questionId,
@@ -5159,7 +5328,7 @@ async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
   if (!isSqlConfigured() || !db) {
     return { status: "saved_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.insert(testDrafts).values({
     userId,
@@ -5180,19 +5349,19 @@ async function getTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return null;
   }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
-  const [draft] = await db.select().from(testDrafts).where(and6(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))).limit(1);
+  const [draft] = await db.select().from(testDrafts).where(and6(eq10(testDrafts.userId, userId), eq10(testDrafts.testId, testId))).limit(1);
   return draft ?? null;
 }
 async function clearTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
     return { status: "cleared_locally", message: "Dev mode: no DB" };
   }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   await db.delete(testDrafts).where(
-    and6(eq9(testDrafts.userId, userId), eq9(testDrafts.testId, testId))
+    and6(eq10(testDrafts.userId, userId), eq10(testDrafts.testId, testId))
   );
   return { status: "cleared", testId };
 }
@@ -5204,7 +5373,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [u] = await db.select().from(users).where(eq9(users.login, userLogin));
+  const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   if (!u) return [];
   const userId = u.id;
   if (!u.partnerLogin) {
@@ -5214,7 +5383,7 @@ async function getTestsStatusForUser(userLogin) {
       isCompletedByPartner: false
     }));
   }
-  const [partner] = await db.select({ id: users.id }).from(users).where(eq9(users.login, u.partnerLogin));
+  const [partner] = await db.select({ id: users.id }).from(users).where(eq10(users.login, u.partnerLogin));
   const partnerId = partner?.id;
   if (!partnerId) {
     return CATALOG_TEST_IDS.map((testId) => ({
@@ -5224,18 +5393,18 @@ async function getTestsStatusForUser(userLogin) {
     }));
   }
   const coupleId = await resolveTestCoupleId(userLogin);
-  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(
+  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
     and6(
-      eq9(testAnswers.userId, userId),
-      eq9(testSessions.status, "completed"),
-      eq9(testSessions.coupleId, coupleId)
+      eq10(testAnswers.userId, userId),
+      eq10(testSessions.status, "completed"),
+      eq10(testSessions.coupleId, coupleId)
     )
   );
-  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(
+  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
     and6(
-      eq9(testAnswers.userId, partnerId),
-      eq9(testSessions.status, "completed"),
-      eq9(testSessions.coupleId, coupleId)
+      eq10(testAnswers.userId, partnerId),
+      eq10(testSessions.status, "completed"),
+      eq10(testSessions.coupleId, coupleId)
     )
   );
   const mySet = new Set(myCompleted.map((r) => r.testId));
@@ -5249,7 +5418,7 @@ async function getTestsStatusForUser(userLogin) {
 async function _recalculateUserProfile(tx, coupleId, userId, testId, sessionId) {
   const rows = await tx.select({
     answers: testAnswers
-  }).from(testAnswers).innerJoin(testSessions, eq9(testAnswers.sessionId, testSessions.id)).where(and6(eq9(testAnswers.userId, userId), eq9(testSessions.coupleId, coupleId)));
+  }).from(testAnswers).innerJoin(testSessions, eq10(testAnswers.sessionId, testSessions.id)).where(and6(eq10(testAnswers.userId, userId), eq10(testSessions.coupleId, coupleId)));
   if (!rows.length) return;
   const rawForEngine = rows.map((r) => ({
     questionId: r.answers.questionId,
@@ -5292,7 +5461,7 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId, sessionId) 
   });
 }
 async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
-  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq9(testAnswers.sessionId, testSessions.id)).where(and6(eq9(testSessions.coupleId, coupleId), eq9(testSessions.status, "completed")));
+  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(and6(eq10(testSessions.coupleId, coupleId), eq10(testSessions.status, "completed")));
   const completedByUser = /* @__PURE__ */ new Map();
   for (const row of tests) {
     const { testId, userId: uId } = row;
@@ -5311,8 +5480,8 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
     return { state: "PARTNER_PENDING" };
   }
   const [profile1, profile2] = await Promise.all([
-    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[0])).limit(1),
-    tx.select().from(userPsychProfiles).where(eq9(userPsychProfiles.userId, userIds[1])).limit(1)
+    tx.select().from(userPsychProfiles).where(eq10(userPsychProfiles.userId, userIds[0])).limit(1),
+    tx.select().from(userPsychProfiles).where(eq10(userPsychProfiles.userId, userIds[1])).limit(1)
   ]);
   const scales1 = profile1[0]?.traitScores;
   const scales2 = profile2[0]?.traitScores;
@@ -5349,7 +5518,7 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
   };
   await tx.insert(coupleReports).values({
     ...reportValues,
-    id: crypto9.randomUUID(),
+    id: crypto10.randomUUID(),
     createdAt: /* @__PURE__ */ new Date()
   }).onConflictDoUpdate({
     target: [coupleReports.coupleId],
@@ -5363,14 +5532,14 @@ async function fetchAiInsights(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const insights = await db.select().from(aiInsights).where(eq10(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
+  const insights = await db.select().from(aiInsights).where(eq11(aiInsights.coupleId, coupleId)).orderBy(desc2(aiInsights.createdAt)).limit(10);
   return insights;
 }
 async function getUserPsychProfiles(coupleId) {
   if (!isSqlConfigured() || !db) {
     return [];
   }
-  const profiles = await db.select().from(userPsychProfiles).where(eq10(userPsychProfiles.coupleId, coupleId));
+  const profiles = await db.select().from(userPsychProfiles).where(eq11(userPsychProfiles.coupleId, coupleId));
   return profiles;
 }
 async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
@@ -5387,15 +5556,15 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
       profiles: []
     };
   }
-  const [couple] = await db.select().from(couples).where(eq10(couples.id, coupleId)).limit(1);
-  const profiles = await db.select().from(userPsychProfiles).where(eq10(userPsychProfiles.coupleId, coupleId));
-  const [report] = await db.select().from(coupleReports).where(eq10(coupleReports.coupleId, coupleId)).limit(1);
+  const [couple] = await db.select().from(couples).where(eq11(couples.id, coupleId)).limit(1);
+  const profiles = await db.select().from(userPsychProfiles).where(eq11(userPsychProfiles.coupleId, coupleId));
+  const [report] = await db.select().from(coupleReports).where(eq11(coupleReports.coupleId, coupleId)).limit(1);
   let completedTestsCount = 0;
   if (currentUserIdOrLogin) {
     const allUsers2 = await db.select().from(users);
     const currentUser2 = allUsers2.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
     if (currentUser2) {
-      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(eq10(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
+      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(eq11(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
       completedTestsCount = userCompletedSessions.length;
     }
   }
@@ -5519,7 +5688,7 @@ init_client();
 init_logger();
 init_storageService();
 init_errors();
-import crypto10 from "crypto";
+import crypto11 from "crypto";
 var isProd6 = () => process.env.NODE_ENV === "production";
 function detectMimeType(buffer) {
   if (!buffer || buffer.length < 12) return null;
@@ -5541,7 +5710,7 @@ var PhotoStorageService = class {
    * Сохранить фото в базу данных (BYTEA) и вернуть только метаданные
    */
   async savePhoto(input) {
-    const id = input.id || crypto10.randomUUID();
+    const id = input.id || crypto11.randomUUID();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const caption = input.caption?.trim() || null;
     const width = typeof input.width === "number" ? input.width : null;
@@ -6106,7 +6275,6 @@ var touchEventSchema = z6.object({
 });
 
 // src/server/modules/realtime/realtime.routes.ts
-import webpush from "web-push";
 var realtimeRouter = Router8();
 realtimeRouter.post("/heartbeat", requireAuth, async (req, res) => {
   try {
@@ -6187,68 +6355,56 @@ realtimeRouter.get("/events-stream/:login", requireAuth, (req, res) => {
     removeSSEClient(login, res);
   });
 });
-var VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-var VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-var VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:support@loopapp.io";
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  try {
-    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-    logger.info("Web Push (VAPID) \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u043D");
-  } catch (err) {
-    logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 Web Push VAPID:", void 0, err);
-  }
-} else {
-  logger.info("VAPID \u043A\u043B\u044E\u0447\u0438 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u044B \u0432 .env, web-push \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0432 \u0440\u0435\u0436\u0438\u043C\u0435 \u0437\u0430\u0433\u043B\u0443\u0448\u043A\u0438");
-}
 var pushRouter = Router8();
 pushRouter.get("/vapid-public-key", (_req, res) => {
-  return res.json({ publicKey: VAPID_PUBLIC_KEY || null });
+  return res.json({ publicKey: getVapidPublicKey() });
 });
-pushRouter.post("/subscribe", requireAuth, (req, res) => {
-  const { subscription, partnerId, coupleId } = req.body;
-  if (subscription) {
-    pushSubscriptions2.push({
-      subscription,
-      partnerId,
-      coupleId,
-      subscribedAt: (/* @__PURE__ */ new Date()).toISOString()
-    });
-    logger.info("\u041D\u043E\u0432\u0430\u044F \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0430 \u043D\u0430 push-\u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043D\u0430", { coupleId });
+pushRouter.post("/subscribe", requireAuth, async (req, res) => {
+  try {
+    const { subscription, coupleId } = req.body;
+    const userLogin = req.user?.login;
+    if (!userLogin) {
+      return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
+    }
+    if (subscription) {
+      await savePushSubscription({
+        userLogin,
+        coupleId: coupleId || null,
+        subscription
+      });
+    }
+    return res.json({ status: "subscribed" });
+  } catch (err) {
+    logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F push-\u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0438:", void 0, err);
+    return res.status(500).json({ error: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043F\u043E\u0434\u043F\u0438\u0441\u043A\u0443" });
   }
-  return res.json({ status: "subscribed", count: pushSubscriptions2.length });
 });
 pushRouter.post("/send-test", requireAuth, async (req, res) => {
-  const { title, body } = req.body;
-  const notificationTitle = title || "Loop \u2022 \u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430";
-  const notificationBody = body || "\u0422\u0435\u0441\u0442\u043E\u0432\u043E\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E.";
-  if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && pushSubscriptions2.length > 0) {
-    const payload = JSON.stringify({
+  try {
+    const userLogin = req.user?.login;
+    if (!userLogin) {
+      return res.status(401).json({ error: "\u041D\u0435\u0430\u0432\u0442\u043E\u0440\u0438\u0437\u043E\u0432\u0430\u043D" });
+    }
+    const { title, body } = req.body;
+    const notificationTitle = title || "Loop \u2022 \u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430";
+    const notificationBody = body || "\u0422\u0435\u0441\u0442\u043E\u0432\u043E\u0435 push-\u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u043E.";
+    const sentCount = await sendPushToUser(userLogin, {
       title: notificationTitle,
       body: notificationBody,
       icon: "/icon.svg",
-      tag: "test-push"
+      tag: "test-push",
+      url: "/"
     });
-    const results = await Promise.allSettled(
-      pushSubscriptions2.map(
-        (sub) => webpush.sendNotification(sub.subscription, payload)
-      )
-    );
-    const deliveredCount = results.filter((r) => r.status === "fulfilled").length;
     return res.json({
       status: "dispatched",
       title: notificationTitle,
       body: notificationBody,
-      sentCount: deliveredCount,
-      totalSubscriptions: pushSubscriptions2.length
+      sentCount
     });
+  } catch (err) {
+    logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0442\u0435\u0441\u0442\u043E\u0432\u043E\u0439 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 \u043F\u0443\u0448\u0430:", err);
+    return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 push-\u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F" });
   }
-  return res.json({
-    status: "dispatched",
-    title: notificationTitle,
-    body: notificationBody,
-    sentCount: 0,
-    totalSubscriptions: pushSubscriptions2.length
-  });
 });
 
 // src/server/modules/tests/tests.routes.ts
@@ -6470,6 +6626,10 @@ async function initDatabase() {
       logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0443\u043B \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439 \u043A PostgreSQL.");
       return;
     }
+    const check = await pool.query("SELECT to_regclass('public.users') as ex");
+    if (check.rows[0]?.ex) {
+      return;
+    }
     const statements = [
       `CREATE TABLE IF NOT EXISTS users (
         id text PRIMARY KEY,
@@ -6484,6 +6644,8 @@ async function initDatabase() {
         data_version integer NOT NULL DEFAULT 1
       )`,
       `CREATE INDEX IF NOT EXISTS users_login_idx ON users(login)`,
+      `CREATE INDEX IF NOT EXISTS users_lower_login_idx ON users(LOWER(login))`,
+      `CREATE INDEX IF NOT EXISTS users_lower_partner_idx ON users(LOWER(partner_login))`,
       `CREATE TABLE IF NOT EXISTS pair_requests (
         id text PRIMARY KEY,
         from_login text NOT NULL,
@@ -6697,7 +6859,7 @@ apiRouter.get("/health", async (req, res) => {
   if (isSqlConfigured() && db) {
     const start = Date.now();
     try {
-      await db.execute(sql4`SELECT 1`);
+      await db.execute(sql5`SELECT 1`);
       dbLatencyMs = Date.now() - start;
       dbStatus = "connected";
     } catch (err) {

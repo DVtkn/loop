@@ -44,6 +44,13 @@ export async function initDatabase() {
       logger.warn("Не удалось создать пул подключений к PostgreSQL.");
       return;
     }
+
+    // Fast-path: если таблицы уже инициализированы, пропускаем повторный 30-кратный DDL-цикл
+    const check = await pool.query("SELECT to_regclass('public.users') as ex");
+    if (check.rows[0]?.ex) {
+      return;
+    }
+
     const statements = [
       `CREATE TABLE IF NOT EXISTS users (
         id text PRIMARY KEY,
@@ -58,6 +65,8 @@ export async function initDatabase() {
         data_version integer NOT NULL DEFAULT 1
       )`,
       `CREATE INDEX IF NOT EXISTS users_login_idx ON users(login)`,
+      `CREATE INDEX IF NOT EXISTS users_lower_login_idx ON users(LOWER(login))`,
+      `CREATE INDEX IF NOT EXISTS users_lower_partner_idx ON users(LOWER(partner_login))`,
       `CREATE TABLE IF NOT EXISTS pair_requests (
         id text PRIMARY KEY,
         from_login text NOT NULL,

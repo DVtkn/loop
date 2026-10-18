@@ -94,10 +94,17 @@ function clamp(val: number, min: number, max: number): number {
 }
 
 function deriveMood(state: CouplePetState): PetMood {
-  if (state.energy < 20) return "sleepy";
-  if (state.hunger < 20) return "hungry";
-  if (state.cleanliness < 20) return "dirty";
-  if (state.joy >= 80) return "playful";
+  const criticalNeeds: { mood: PetMood; val: number }[] = [
+    { mood: 'dirty', val: state.cleanliness },
+    { mood: 'sleepy', val: state.energy },
+    { mood: 'hungry', val: state.hunger },
+  ];
+  criticalNeeds.sort((a, b) => a.val - b.val);
+
+  if (criticalNeeds[0].val < 35) {
+    return criticalNeeds[0].mood;
+  }
+  if (state.joy >= 75) return "playful";
   return "happy";
 }
 

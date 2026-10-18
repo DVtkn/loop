@@ -8,7 +8,7 @@ const isTestEnvironment = (req: Request) =>
 
 export const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
+  max: 30, // Allows multiple accounts on shared home Wi-Fi / campus networks
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -25,7 +25,7 @@ export const registerLimiter = rateLimit({
 
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -42,7 +42,7 @@ export const loginLimiter = rateLimit({
 
 export const aiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 15,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,
@@ -59,7 +59,7 @@ export const aiLimiter = rateLimit({
 
 export const pairLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20,
+  max: 50,
   standardHeaders: true,
   legacyHeaders: false,
   skip: isTestEnvironment,

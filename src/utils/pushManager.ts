@@ -193,6 +193,17 @@ export function dispatchInAppNotification(data: InAppNotificationData) {
   }
 }
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 /**
  * Requests push permission from browser and registers with backend
  */
@@ -217,16 +228,34 @@ export async function requestPushPermission(partnerId?: string, coupleId?: strin
       try {
         const registration = await navigator.serviceWorker.ready;
         if (registration && registration.pushManager) {
-          // Attempt subscription
-          const subscription = await registration.pushManager.getSubscription();
-          
-          // Send to backend
-          if (subscription || partnerId) {
+          // Check existing subscription
+          let subscription = await registration.pushManager.getSubscription();
+
+          // If not subscribed yet, fetch backend VAPID public key and subscribe
+          if (!subscription) {
+            try {
+              const keyRes = await apiFetch('/api/push/vapid-public-key');
+              if (keyRes.ok) {
+                const { publicKey } = await keyRes.json();
+                if (publicKey) {
+                  subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),
+                  });
+                }
+              }
+            } catch (subscribeErr) {
+              console.warn('[PushManager] Web push subscribe note:', subscribeErr);
+            }
+          }
+
+          // Send subscription to backend
+          if (subscription) {
             await apiFetch('/api/push/subscribe', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                subscription: subscription ? subscription.toJSON() : null,
+                subscription: subscription.toJSON(),
                 partnerId: partnerId || 'partner1',
                 coupleId: coupleId || 'couple-main',
               }),

@@ -19,6 +19,7 @@ import {
 } from "./chat.service.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
 import { recordCoupleEvent } from "../realtime/realtime.service.ts";
+import { sendPushToUser } from "../../services/pushService.ts";
 import { evaluateSafetyRisk } from "./safety.filter.ts";
 import { calculateCoupleAnalysis } from "../../../utils/psychologyEngine.ts";
 import { logger } from "../../shared/utils/logger.ts";
@@ -119,6 +120,15 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req: Authenticate
               senderLogin: cleanSender,
               eventType: "chat_message",
               payload: { message, coupleId, mode: mode || "together" },
+            }).catch(() => {});
+
+            // Send real system Web Push to partner
+            sendPushToUser(targetLogin, {
+              title: `@${cleanSender}`,
+              body: content.trim().length > 90 ? content.trim().slice(0, 87) + "..." : content.trim(),
+              icon: "/icon.svg",
+              tag: `chat-${coupleId}`,
+              url: "/",
             }).catch(() => {});
           }
         }

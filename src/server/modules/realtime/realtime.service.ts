@@ -4,6 +4,7 @@ import { db, isSqlConfigured } from "../../db/client.ts";
 import { coupleEvents, users } from "../../db/schema.ts";
 import { eq, or, and, gt, desc } from "drizzle-orm";
 import { readEmergencyFile, writeEmergencyFile } from "../../services/storageService.ts";
+import { sendPushToUser } from "../../services/pushService.ts";
 
 export interface PushSubscriptionRecord {
   subscription: any;
@@ -156,6 +157,17 @@ export async function sendQuickTouch(params: {
 
   // Broadcast in realtime to target partner via Server-Sent Events (SSE) если сокет ещё жив
   sendSSEEventToUser(tLogin, "touch", newTouch);
+
+  // Send real system Web Push to partner's locked/background device
+  sendPushToUser(tLogin, {
+    title: newTouch.title,
+    body: newTouch.customNote || "Партнёр отправил(а) вам тёплое касание в Loop ❤️",
+    icon: "/icon.svg",
+    tag: `touch-${params.actionType}`,
+    url: "/",
+  }).catch((pushErr) => {
+    logger.warn("Не удалось отправить Web Push на устройство партнёра:", undefined, pushErr);
+  });
 
   logger.info("Быстрое касание сохранено в БД и отправлено", {
     from: sLogin,

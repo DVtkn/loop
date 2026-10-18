@@ -14,6 +14,8 @@
 
 ### Ссылки проекта
 
-- [Живой стенд Loop](https://loopza.ai.studio)
-- [Спецификация PRD.md](../PRD.md)
-- [Политика безопасности](../SECURITY.md)
+- 🚀 [Продакшен стенд Loop](https://loopza.vercel.app)
+- 🐙 [GitHub репозиторий](https://github.com/DVtkn/loop)
+- 📋 [Спецификация PRD.md](../PRD.md)
+- 🔒 [Политика безопасности](../SECURITY.md)
+- 🚀 [Деплой и инфраструктура](../DEPLOYMENT.md)

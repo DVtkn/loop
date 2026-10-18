@@ -39,33 +39,58 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
       <section
         id="block-daily-question"
         onClick={handleOpen}
-        className="p-3.5 sm:p-4 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs hover:border-[var(--accent)]/40 flex items-center justify-between gap-3 transition-all cursor-pointer group select-none"
+        className="p-5 sm:p-6 rounded-[32px] bg-linear-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/30 to-amber-50/30 dark:from-[var(--surface-solid)] dark:via-[var(--surface-blush)]/20 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[var(--surface-blush)] text-[var(--accent)] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-            <Quote className="w-4.5 h-4.5" />
+        {/* Soft Background Warm Glow */}
+        <div className="absolute -top-12 -right-12 w-36 h-36 bg-[var(--accent)]/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Card Header Badge */}
+        <div className="flex items-center justify-between z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--surface-solid)]/90 backdrop-blur-xs text-[var(--accent)] font-bold text-xs shadow-2xs border border-[var(--accent)]/15">
+            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+            <span>Главный ритуал дня</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs sm:text-sm font-bold text-[var(--text)] leading-tight">Вопрос дня</h3>
-              {questionAnswer ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Отвечено</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center text-[11px] font-semibold text-[var(--accent)] bg-[var(--surface-blush)] px-2 py-0.5 rounded-full">
-                  Новый
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-[var(--text-2)] mt-0.5 italic line-clamp-1">«{currentDailyQuestion}»</p>
-          </div>
+
+          {questionAnswer ? (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Вы ответили</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+              <span>🔒</span>
+              <span>Ответ скрыт</span>
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-1 text-xs font-semibold text-[var(--text-2)] group-hover:text-[var(--accent)] transition-colors shrink-0">
-          <span className="hidden sm:inline">{questionAnswer ? 'Посмотреть' : 'Ответить'}</span>
-          <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-[var(--accent)] transition-transform group-hover:translate-x-0.5" />
+        {/* Question Text */}
+        <div className="z-10 space-y-1.5">
+          <p className="text-base sm:text-lg font-bold text-[var(--text)] tracking-tight leading-snug">
+            «{currentDailyQuestion}»
+          </p>
+
+          {questionAnswer ? (
+            <div className="text-xs text-[var(--text-2)] bg-[var(--surface-solid)]/80 p-2.5 rounded-2xl border border-[var(--divider)]/50 line-clamp-2 italic">
+              Ваш ответ: «{questionAnswer}»
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--text-2)] flex items-center gap-1 font-medium">
+              <span>💡</span>
+              <span>Узнайте, что думает любимый человек</span>
+            </p>
+          )}
+        </div>
+
+        {/* Bottom CTA Button */}
+        <div className="pt-1 z-10">
+          <div className="w-full py-2.5 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-[var(--accent)] text-[var(--text)] group-hover:text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-xs border border-[var(--divider)] group-hover:border-[var(--accent)] transition-all">
+            <span className="flex items-center gap-2">
+              <Heart className="w-4 h-4 text-[var(--accent)] group-hover:text-white transition-colors" />
+              <span>{questionAnswer ? 'Посмотреть ответы пары' : 'Ответить и открыть секрет'}</span>
+            </span>
+            <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+          </div>
         </div>
       </section>
 

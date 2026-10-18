@@ -64,10 +64,10 @@ export const QuickShortcuts: React.FC<QuickShortcutsProps> = ({
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.96 }}
             onClick={item.onClick}
-            className="p-3 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] hover:border-[var(--accent)]/40 shadow-xs flex flex-col items-center text-center gap-2 transition-all cursor-pointer group select-none"
+            className="p-3 sm:p-3.5 rounded-[24px] bg-[var(--surface-solid)] border border-[var(--card-border)] hover:border-[var(--accent)]/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col items-center text-center gap-2 transition-all cursor-pointer group select-none"
           >
             <div
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl ${item.bg} ${item.color} flex items-center justify-center transition-transform group-hover:scale-105 shrink-0`}
+              className={`w-10 h-10 rounded-2xl ${item.bg} ${item.color} flex items-center justify-center transition-transform group-hover:scale-105 shrink-0`}
             >
               <Icon className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             </div>

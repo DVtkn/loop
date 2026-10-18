@@ -119,7 +119,7 @@ export const GamifiedQuestionCard: React.FC<GamifiedQuestionCardProps> = ({
         onDragStart={() => setIsSwiping(true)}
         onDragEnd={handleDragEnd}
         style={{ x, rotate }}
-        className="w-full bg-[var(--surface-solid)] border border-[var(--divider)] rounded-3xl p-5 sm:p-7 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[380px] transition-shadow duration-300 hover:shadow-2xl"
+        className="w-full bg-linear-to-b from-[var(--surface-solid)] to-[var(--surface-2)]/30 border border-[var(--card-border)] rounded-[32px] p-6 sm:p-8 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] relative overflow-hidden flex flex-col justify-between min-h-[380px] transition-shadow duration-300"
       >
         {/* Swipe Visual Badges (Right / Left) */}
         {isBinaryOrTernary && (
@@ -268,17 +268,17 @@ export const GamifiedQuestionCard: React.FC<GamifiedQuestionCardProps> = ({
                     type="button"
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleSelectOption(opt.value)}
-                    className={`w-full p-4 sm:p-4.5 rounded-2xl border text-left transition-all flex items-start gap-3.5 cursor-pointer group ${
+                    className={`w-full p-4 sm:p-4.5 rounded-[22px] border text-left transition-all flex items-start gap-3.5 cursor-pointer group ${
                       isSelected
-                        ? 'border-[var(--accent)] bg-[var(--surface-blush)] font-bold text-[var(--text)] shadow-sm ring-2 ring-[var(--accent)]/25'
-                        : 'border-[var(--divider)] bg-[var(--surface-2)] hover:bg-[var(--surface-subtle)] hover:border-[var(--text-3)] text-[var(--text-2)] hover:text-[var(--text)]'
+                        ? 'border-[var(--accent)] bg-linear-to-r from-[var(--surface-blush)] to-[var(--surface-solid)] font-bold text-[var(--text)] shadow-md ring-2 ring-[var(--accent)]/25'
+                        : 'border-[var(--card-border)] bg-[var(--surface-solid)] hover:bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] shadow-2xs'
                     }`}
                   >
                     <div
-                      className={`w-7 h-7 rounded-xl border flex items-center justify-center text-xs font-black shrink-0 transition-all ${
+                      className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs font-black shrink-0 transition-all ${
                         isSelected
                           ? 'border-[var(--accent)] bg-[var(--accent)] text-white shadow-xs'
-                          : 'border-[var(--divider)] bg-[var(--surface-3)] text-[var(--text-2)] group-hover:border-[var(--text-3)]'
+                          : 'border-[var(--card-border)] bg-[var(--surface-2)] text-[var(--text-2)] group-hover:border-[var(--text-3)]'
                       }`}
                     >
                       {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : optLetter}

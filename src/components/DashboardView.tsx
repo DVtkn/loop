@@ -300,6 +300,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           isPaired={isPaired}
           partnerName={partnerName}
           safeOtherPartner={safeOtherPartner}
+          myPartner={currentPartner}
+          streakDaysCount={streakDaysCount}
           partnerStatusInfo={partnerStatusInfo}
           coupleStartDate={coupleProfile?.startDate}
           onOpenDetails={() => setShowPartnerDetailModal(true)}

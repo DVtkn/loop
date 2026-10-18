@@ -154,6 +154,8 @@ interface PartnerStatusCardProps {
   isPaired: boolean;
   partnerName: string;
   safeOtherPartner: any;
+  myPartner?: any;
+  streakDaysCount?: number;
   partnerStatusInfo: {
     isOnline: boolean;
     statusText: string;
@@ -169,6 +171,8 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
   isPaired,
   partnerName,
   safeOtherPartner,
+  myPartner,
+  streakDaysCount = 0,
   partnerStatusInfo,
   coupleStartDate,
   onOpenDetails,
@@ -180,16 +184,16 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
       <section
         id="block-1-partner-status-empty"
         onClick={onGoToProfile}
-        className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-dashed border-[var(--divider)] shadow-xs flex items-center justify-between gap-3 transition-all hover:border-[var(--accent)]/40 hover:bg-[var(--surface-2)] cursor-pointer group select-none"
+        className="p-4 sm:p-5 rounded-[28px] bg-[var(--surface-solid)] border border-dashed border-[var(--divider)] shadow-xs flex items-center justify-between gap-3 transition-all hover:border-[var(--accent)]/50 hover:shadow-md cursor-pointer group select-none"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-            <UserPlus className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+          <div className="w-12 h-12 rounded-full bg-[var(--surface-blush)] text-[var(--accent)] flex items-center justify-center shrink-0">
+            <UserPlus className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1 space-y-0.5">
-            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Пара не создана</div>
+            <div className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">Пригласить половинку</div>
             <div className="text-xs sm:text-sm text-[var(--text-2)] font-medium">
-              Свяжите аккаунты, чтобы объединить тесты и аналитику
+              Свяжите аккаунты для совместных тестов и вопросов дня
             </div>
           </div>
         </div>
@@ -200,60 +204,70 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
 
   const formattedDays = formatDaysTogetherDetailed(coupleStartDate);
   const isPartnerMoodSet = !!(safeOtherPartner?.currentMood?.label && isMoodRecent(safeOtherPartner.currentMood.updatedAt));
+  const myName = myPartner?.name || 'Я';
 
   return (
     <section
       id="block-1-partner-status"
       onClick={onOpenDetails}
-      className="p-3.5 sm:p-4 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex items-center justify-between gap-3 transition-all hover:border-[var(--accent)]/40 cursor-pointer group select-none"
+      className="p-4 sm:p-5 rounded-[28px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex items-center justify-between gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        {/* Partner Avatar with Online Indicator */}
-        <div className="relative shrink-0">
-          <ColoredAvatar avatar={safeOtherPartner.avatar || 'heart'} name={partnerName} size="md" />
-          <span
-            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-[var(--surface-solid)] ${
-              partnerStatusInfo.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
-            }`}
-          />
+      {/* Background Soft Glow */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)]/6 rounded-full blur-2xl pointer-events-none" />
+
+      <div className="flex items-center gap-3.5 min-w-0 z-10">
+        {/* Couple Joy: Twin Connected Avatars with Pulse Link */}
+        <div className="flex items-center shrink-0 relative">
+          {/* My Avatar */}
+          <div className="relative z-10">
+            <ColoredAvatar avatar={myPartner?.avatar || 'heart'} name={myName} size="md" />
+          </div>
+
+          {/* Connected Love Bridge Icon */}
+          <div className="relative -mx-2 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-solid)] shadow-xs border border-[var(--accent)]/20">
+            <span className="text-[11px] leading-none animate-pulse">💖</span>
+          </div>
+
+          {/* Partner Avatar with Online Indicator */}
+          <div className="relative z-10">
+            <ColoredAvatar avatar={safeOtherPartner.avatar || 'heart'} name={partnerName} size="md" />
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-[var(--surface-solid)] ${
+                partnerStatusInfo.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
+              }`}
+            />
+          </div>
         </div>
 
-        {/* Partner Name, Online Status, Mood & Days Together */}
+        {/* Partner Info & Together Timer */}
         <div className="min-w-0 flex-1 space-y-0.5">
-          {/* Line 1: Name + Online Status */}
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Line 1: Partner Name + Online Status */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">{partnerName}</span>
             <span className="text-[var(--text-3)] text-xs font-normal">•</span>
-            <span className="flex items-center gap-1.5 text-xs text-[var(--text-2)] font-medium">
+            <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold">
               <span
                 className={`w-1.5 h-1.5 rounded-full ${partnerStatusInfo.isOnline ? 'bg-emerald-500' : 'bg-zinc-400'}`}
               />
-              <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : ''}>
+              <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-2)]'}>
                 {partnerStatusInfo.statusText}
               </span>
             </span>
           </div>
 
-          {/* Line 2: Mood */}
+          {/* Line 2: Mood or Days */}
           <div className="text-xs text-[var(--text-2)] flex items-center gap-1.5 flex-wrap">
             {isPartnerMoodSet ? (
-              <>
-                <span className="text-[11px] text-[var(--accent)] font-semibold">Настроение:</span>
-                <span className="text-[var(--text)] font-medium">
-                  {safeOtherPartner.currentMood.label}
-                </span>
-              </>
-            ) : (
-              <span className="text-[11px] text-[var(--text-3)] font-normal">
-                Настроение не указано
+              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text)] font-medium bg-[var(--surface-2)] px-2 py-0.5 rounded-full border border-[var(--divider)]">
+                <span>Настроение:</span>
+                <span className="text-[var(--accent)] font-semibold">{safeOtherPartner.currentMood.label}</span>
               </span>
-            )}
-          </div>
+            ) : null}
 
-          {/* Line 3: Days Together */}
-          <div className="text-[11px] sm:text-xs text-[var(--text-2)] flex items-center gap-1.5 font-normal">
             {formattedDays ? (
-              <span className="text-[var(--text)] font-medium">{formattedDays}</span>
+              <span className="text-[11px] sm:text-xs text-[var(--text-2)] font-medium">
+                {formattedDays}
+              </span>
             ) : (
               <button
                 type="button"
@@ -261,20 +275,27 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
                   e.stopPropagation();
                   onSetStartDate?.();
                 }}
-                className="inline-flex items-center gap-1 text-[var(--accent)] hover:underline font-medium cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] text-[var(--accent)] hover:underline font-medium cursor-pointer"
               >
-                <CalendarHeart className="w-3.5 h-3.5" />
-                <span>Укажите дату начала отношений</span>
+                <CalendarHeart className="w-3 h-3" />
+                <span>Дата начала</span>
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Tap Affordance */}
-      <div className="flex items-center gap-1 text-xs font-semibold text-[var(--text-2)] group-hover:text-[var(--accent)] transition-colors shrink-0">
-        <span className="hidden sm:inline">Подробнее</span>
-        <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-[var(--accent)] transition-transform group-hover:translate-x-0.5" />
+      {/* Right Side: Streak Flame badge or Arrow */}
+      <div className="flex items-center gap-2 shrink-0 z-10">
+        {streakDaysCount > 0 && (
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20 shadow-2xs">
+            <span>🔥</span>
+            <span>{streakDaysCount} дн.</span>
+          </div>
+        )}
+        <div className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-3)] group-hover:text-[var(--accent)] group-hover:bg-[var(--surface-blush)] flex items-center justify-center transition-all">
+          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+        </div>
       </div>
     </section>
   );

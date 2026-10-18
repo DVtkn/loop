@@ -36,11 +36,11 @@ export const CompatibilityAndStreak: React.FC<CompatibilityAndStreakProps> = ({
             onOpenTests();
           }
         }}
-        className="p-3 sm:p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] hover:border-[var(--accent)]/40 shadow-xs flex items-center justify-between gap-2 transition-all cursor-pointer text-left group select-none"
+        className="p-3.5 sm:p-4 rounded-[24px] bg-[var(--surface-solid)] border border-[var(--card-border)] hover:border-[var(--accent)]/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex items-center justify-between gap-2 transition-all cursor-pointer text-left group select-none"
         title={hasCompatibilityData ? 'Перейти в Паспорт пары' : 'Пройти первый тест для расчёта совместимости'}
       >
-        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="w-9 h-9 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
             <Sparkles className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -61,10 +61,10 @@ export const CompatibilityAndStreak: React.FC<CompatibilityAndStreakProps> = ({
       {/* Стрик активности пары */}
       <motion.div
         whileHover={{ y: -1 }}
-        className="p-3 sm:p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex items-center gap-2 sm:gap-2.5 transition-all text-left select-none"
+        className="p-3.5 sm:p-4 rounded-[24px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] flex items-center gap-2.5 transition-all text-left select-none"
       >
         <div
-          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+          className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 ${
             streakDaysCount > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-zinc-500/10 text-zinc-400'
           }`}
         >

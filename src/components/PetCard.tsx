@@ -157,23 +157,23 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       <>
         <section
           onClick={handleOpenConsole}
-          className="p-5 sm:p-6 rounded-[28px] bg-[var(--surface-solid)] border border-[var(--divider)] shadow-sm flex flex-col gap-4 transition-all hover:border-[var(--accent)]/40 hover:shadow-md cursor-pointer group"
+          className="p-5 sm:p-6 rounded-[32px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-4 transition-all cursor-pointer group select-none relative overflow-hidden"
         >
           <div className="flex items-center gap-4 min-w-0">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center shrink-0 text-3xl shadow-xs group-hover:scale-105 transition-transform">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 text-3xl shadow-xs group-hover:scale-105 transition-transform">
               🥚
             </div>
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base text-[var(--text)] leading-tight">
-                  Тамагочи союза LOOP.exe
+                  Питомец союза
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                  90s Ретро
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--surface-blush)] text-[var(--accent)] border border-[var(--accent)]/20">
+                  Совместный друг
                 </span>
               </div>
               <div className="text-xs text-[var(--text-2)] font-medium leading-relaxed">
-                Вырастите совместного щенка или котёнка: заботьтесь вместе, копите уровни и получайте бонусы
+                Вырастите общего щенка или котёнка: заботьтесь каждый день и копите совместные бонусы
               </div>
             </div>
           </div>
@@ -184,10 +184,10 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
               e.stopPropagation();
               handleOpenConsole();
             }}
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-linear-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 text-[var(--text)] text-xs sm:text-sm font-black hover:brightness-105 active:scale-98 transition-all shadow-xs border border-white/10"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl bg-[var(--surface-blush)] hover:bg-[var(--accent)] text-[var(--accent)] hover:text-white text-xs sm:text-sm font-bold active:scale-98 transition-all shadow-xs border border-[var(--accent)]/20"
           >
-            <Gamepad2 className="w-4 h-4 text-[var(--accent)]" />
-            <span>Запустить карманную консоль</span>
+            <Gamepad2 className="w-4 h-4" />
+            <span>Выбрать и оживить питомца</span>
             <Plus className="w-3.5 h-3.5" />
           </button>
         </section>
@@ -224,7 +224,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     <>
       <section
         onClick={handleOpenConsole}
-        className="p-5 sm:p-6 rounded-[32px] bg-[var(--surface-solid)] border border-[var(--divider)] shadow-sm flex flex-col gap-4 transition-all hover:border-[var(--accent)]/40 hover:shadow-lg cursor-pointer group select-none relative overflow-hidden"
+        className="p-5 sm:p-6 rounded-[32px] bg-linear-to-b from-[var(--surface-solid)] to-[var(--surface-2)]/30 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-4 transition-all cursor-pointer group select-none relative overflow-hidden"
       >
         {/* Soft Ambient Background Glow */}
         <div className="absolute top-0 right-0 w-44 h-44 bg-[var(--accent)]/8 rounded-full blur-3xl pointer-events-none" />

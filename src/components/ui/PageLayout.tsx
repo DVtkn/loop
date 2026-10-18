@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ArrowLeft, Home } from 'lucide-react';
 import { useCouple } from '../../context/CoupleContext';
+import { triggerHaptic } from '../../utils/haptics';
 
 interface PageLayoutProps {
   title?: string;
@@ -25,13 +26,42 @@ export function PageLayout({
 }: PageLayoutProps) {
   const { activeTab } = useCouple();
   const isChatTab = activeTab === 'chat' || activeTab === 'owl';
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     document.body.classList.toggle('in-chat-view', isChatTab);
   }, [isChatTab]);
 
+  // Native iOS / Telegram Edge Swipe Back gesture
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!onBack || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    if (touch.clientX < 45) {
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!onBack || !touchStartRef.current || e.changedTouches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+
+    if (dx > 70 && dy < 65) {
+      triggerHaptic('light');
+      onBack();
+    }
+    touchStartRef.current = null;
+  };
+
   return (
-    <main className={`flex-1 min-h-0 flex flex-col min-w-0 w-full mx-auto ${
+    <main
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className={`flex-1 min-h-0 flex flex-col min-w-0 w-full mx-auto ${
       isChatTab
         ? 'max-w-xl px-0 pb-0 h-full overflow-hidden'
         : 'max-w-3xl px-4 sm:px-6 pt-2 sm:pt-3 pb-24 md:pb-10 overflow-y-auto'

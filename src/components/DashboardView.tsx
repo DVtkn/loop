@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCouple } from '../context/CoupleContext.tsx';
 import { NavigationTab } from '../types.ts';
 import { PageLayout } from './ui/PageLayout.tsx';
 import { ScheduleModal } from './ScheduleModal.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
+import { dispatchInAppNotification } from '../utils/pushManager.ts';
 import { calculateCoupleAnalysis } from '../utils/psychologyEngine.ts';
 import { PartnerStatusCard, getPartnerStatusDetails } from './dashboard/PartnerStatusCard.tsx';
 import { CompatibilityAndStreak } from './dashboard/CompatibilityAndStreak.tsx';
@@ -15,6 +16,8 @@ import { PartnerDetailModal } from './dashboard/PartnerDetailModal.tsx';
 import { MoodPickerModal } from './dashboard/MoodPickerModal.tsx';
 import { QuickActionModal } from './dashboard/QuickActionModal.tsx';
 import { SetStartDateModal } from './dashboard/SetStartDateModal.tsx';
+import { DailyHabitTracker } from './dashboard/DailyHabitTracker.tsx';
+import { WeeklyFeaturedTestCard } from './dashboard/WeeklyFeaturedTestCard.tsx';
 import { PetCard } from './PetCard.tsx';
 
 interface DashboardViewProps {
@@ -292,6 +295,79 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     triggerConfetti();
   };
 
+  const hasPetCaredToday = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return (xpHistory || []).some(
+      (e) => (e.reason?.toLowerCase().includes('питомц') || e.reason?.toLowerCase().includes('кормл') || e.reason?.toLowerCase().includes('покормил')) && e.timestamp?.startsWith(todayStr)
+    );
+  }, [xpHistory]);
+
+  const hasHugSentToday = quickHugSent || (loveTaps || []).some((t) => t.createdAt?.startsWith(new Date().toISOString().split('T')[0]));
+  const hasQuestionAnsweredToday = !!questionAnswer;
+
+  // Partner daily answer check from synced activity
+  const partnerDailyAnswer = useMemo(() => {
+    const item = (feedItems || []).find(
+      (f) =>
+        f.author !== currentPartnerId &&
+        (f.title.includes('ответил(а) на вопрос') || f.title.includes('вопрос дня'))
+    );
+    return item ? item.subtitle : null;
+  }, [feedItems, currentPartnerId]);
+
+  const handleDailyQuestionReaction = (emoji: string) => {
+    addFeedItem({
+      author: currentPartnerId,
+      type: 'heart',
+      title: `${currentPartner?.name} поставил(а) ${emoji} на ответ дня`,
+      subtitle: `«${currentDailyQuestion}»`,
+    });
+    triggerConfetti();
+  };
+
+  // 📳 Shake to Hug: встряхивание смартфона отправляет партнёру мгновенное объятие
+  useEffect(() => {
+    if (!isPaired) return;
+    let lastX = 0, lastY = 0, lastZ = 0, lastTime = 0;
+    const SHAKE_THRESHOLD = 32;
+    let lastShakeTime = 0;
+
+    const handleDeviceMotion = (e: DeviceMotionEvent) => {
+      const acc = e.accelerationIncludingGravity;
+      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
+
+      const now = Date.now();
+      if (now - lastTime > 120) {
+        const diffTime = now - lastTime;
+        lastTime = now;
+        const delta = Math.abs(acc.x + acc.y + acc.z - lastX - lastY - lastZ);
+        const speed = (delta / diffTime) * 10000;
+
+        if (speed > SHAKE_THRESHOLD && now - lastShakeTime > 4000) {
+          lastShakeTime = now;
+          handleQuickHug();
+          dispatchInAppNotification({
+            title: '📳 Жест встряхивания сработал!',
+            body: `Вы встряхнули телефон и отправили тёплое объятие для ${partnerName} ❤️`,
+            icon: 'heart',
+          });
+        }
+        lastX = acc.x;
+        lastY = acc.y;
+        lastZ = acc.z;
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'DeviceMotionEvent' in window) {
+      window.addEventListener('devicemotion', handleDeviceMotion);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('devicemotion', handleDeviceMotion);
+      }
+    };
+  }, [isPaired, handleQuickHug, partnerName]);
+
   return (
     <PageLayout hideHeader>
       <div className="space-y-4 sm:space-y-5 pb-8 sm:pb-12">
@@ -309,6 +385,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onSetStartDate={() => setShowStartDateModal(true)}
         />
 
+        {/* Интерактивный мини-трекер ритуала пары (3/3 шага) */}
+        <DailyHabitTracker
+          hasHugSent={hasHugSentToday}
+          hasQuestionAnswered={hasQuestionAnsweredToday}
+          hasPetCared={hasPetCaredToday}
+          streakDays={streakDaysCount}
+          onSendHug={handleQuickHug}
+          onOpenQuestion={() => {
+            const el = document.getElementById('block-daily-question');
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el?.click();
+          }}
+          onOpenPet={() => {
+            const el = document.getElementById('block-living-pet');
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+        />
+
         {/* Быстрое касание / Объятие */}
         {isPaired && (
           <HugButtonWithMenu
@@ -323,11 +417,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
         <DailyQuestionTeaser
           currentDailyQuestion={currentDailyQuestion}
           questionAnswer={questionAnswer}
+          partnerAnswer={partnerDailyAnswer}
+          partnerName={partnerName}
           onAnswerSubmit={handleAnswerSubmit}
+          onSendReaction={handleDailyQuestionReaction}
         />
 
-        {/* 3. Зона 3: Живой тамагочи союза */}
-        <PetCard isPaired={isPaired} />
+        {/* 3. Зона 3: Психологическое познание друг друга (Тест недели) */}
+        <WeeklyFeaturedTestCard
+          tests={tests || []}
+          currentPartnerId={currentPartnerId}
+          partnerName={partnerName}
+          onOpenTest={() => setActiveTab('tests')}
+          onOpenAllTests={() => setActiveTab('tests')}
+          onOpenPassport={() => {
+            setUsSubTab('passport');
+            setActiveTab('us');
+          }}
+        />
+
+        {/* 4. Зона 4: Живой тамагочи союза */}
+        <div id="block-living-pet">
+          <PetCard isPaired={isPaired} />
+        </div>
 
         {/* 4. Зона 4: Аналитика и инструменты союза */}
         <CompatibilityAndStreak

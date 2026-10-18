@@ -25,6 +25,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { PageLayout } from './ui/PageLayout';
 import { ColoredAvatar } from './ColoredIcon';
 import { calculateCoupleAnalysis } from '../utils/psychologyEngine';
+import { PartnerCareCheatSheet } from './us/PartnerCareCheatSheet';
 
 export const UsView: React.FC = () => {
   const {
@@ -252,7 +253,15 @@ export const UsView: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Cards Grid: Книга заботы & Deep Talk карточки */}
+            {/* 3. Partner Care Cheat-Sheet (Психологическая памятка союза) */}
+            <PartnerCareCheatSheet
+              currentPartnerId={currentPartnerId}
+              coupleProfile={coupleProfile}
+              analysis={analysis}
+              tests={tests}
+            />
+
+            {/* 4. Cards Grid: Книга заботы & Deep Talk карточки */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               
               {/* Card A: Книга заботы */}

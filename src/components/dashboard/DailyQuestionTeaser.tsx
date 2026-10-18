@@ -1,22 +1,54 @@
 import React, { useState } from 'react';
-import { Quote, CheckCircle2, ChevronRight, X, Sparkles, Pencil, Heart } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Quote,
+  CheckCircle2,
+  ChevronRight,
+  X,
+  Sparkles,
+  Pencil,
+  Heart,
+  Lock,
+  Unlock,
+  Clock,
+  Send,
+  Flame,
+  Laugh,
+} from 'lucide-react';
+import { triggerHaptic } from '../../utils/haptics.ts';
 
 interface DailyQuestionTeaserProps {
   currentDailyQuestion: string;
   questionAnswer?: string | null;
+  partnerAnswer?: string | null;
+  partnerName?: string;
   onAnswerSubmit: (answer: string) => void;
+  onSendReaction?: (reaction: string) => void;
+  currentReaction?: string | null;
 }
+
+const REACTION_EMOJIS = ['❤️', '🔥', '🥺', '😂', '👏', '✨'];
 
 export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
   currentDailyQuestion,
   questionAnswer,
+  partnerAnswer,
+  partnerName = 'Партнёр',
   onAnswerSubmit,
+  onSendReaction,
+  currentReaction,
 }) => {
   const [showQuestionModal, setShowQuestionModal] = useState<boolean>(false);
   const [isEditingQuestionAnswer, setIsEditingQuestionAnswer] = useState<boolean>(false);
   const [userQuestionAnswer, setUserQuestionAnswer] = useState<string>('');
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(currentReaction || null);
+
+  const hasMyAnswer = !!questionAnswer;
+  const hasPartnerAnswer = !!partnerAnswer;
+  const bothAnswered = hasMyAnswer && hasPartnerAnswer;
 
   const handleOpen = () => {
+    triggerHaptic('selection');
     setUserQuestionAnswer(questionAnswer || '');
     setIsEditingQuestionAnswer(false);
     setShowQuestionModal(true);
@@ -30,8 +62,17 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userQuestionAnswer.trim()) return;
+    triggerHaptic('medium');
     onAnswerSubmit(userQuestionAnswer.trim());
-    handleClose();
+    setIsEditingQuestionAnswer(false);
+  };
+
+  const handleEmojiClick = (emoji: string) => {
+    triggerHaptic('selection');
+    setSelectedEmoji(emoji);
+    if (onSendReaction) {
+      onSendReaction(emoji);
+    }
   };
 
   return (
@@ -51,14 +92,24 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
             <span>Главный ритуал дня</span>
           </div>
 
-          {questionAnswer ? (
+          {bothAnswered ? (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
+              <Unlock className="w-3.5 h-3.5" />
+              <span>Оба ответили 🎉</span>
+            </span>
+          ) : hasMyAnswer ? (
             <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Вы ответили</span>
             </span>
+          ) : hasPartnerAnswer ? (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/15 px-2.5 py-1 rounded-full border border-rose-500/25 animate-pulse">
+              <Lock className="w-3.5 h-3.5" />
+              <span>{partnerName} ответил(а)!</span>
+            </span>
           ) : (
             <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-              <span>🔒</span>
+              <Lock className="w-3.5 h-3.5" />
               <span>Ответ скрыт</span>
             </span>
           )}
@@ -70,14 +121,33 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
             «{currentDailyQuestion}»
           </p>
 
-          {questionAnswer ? (
-            <div className="text-xs text-[var(--text-2)] bg-[var(--surface-solid)]/80 p-2.5 rounded-2xl border border-[var(--divider)]/50 line-clamp-2 italic">
-              Ваш ответ: «{questionAnswer}»
+          {bothAnswered ? (
+            <div className="flex items-center gap-2 text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-500/10 p-2.5 rounded-2xl border border-purple-500/20">
+              <span>🔓</span>
+              <span>Ответы раскрыты! Нажмите, чтобы прочитать и обсудить.</span>
+            </div>
+          ) : hasMyAnswer ? (
+            <div className="text-xs text-[var(--text-2)] bg-[var(--surface-solid)]/80 p-2.5 rounded-2xl border border-[var(--divider)]/50 space-y-1">
+              <div className="line-clamp-1 italic">Ваш ответ: «{questionAnswer}»</div>
+              <div className="text-[11px] text-[var(--text-3)] flex items-center gap-1 font-medium">
+                <Clock className="w-3 h-3 text-amber-500" />
+                <span>Ожидаем ответ {partnerName} для взаимного открытия</span>
+              </div>
+            </div>
+          ) : hasPartnerAnswer ? (
+            <div className="p-3 rounded-2xl bg-linear-to-r from-rose-500/10 to-amber-500/10 border border-rose-500/20 space-y-1 backdrop-blur-xs">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Ответ {partnerName} заблокирован</span>
+              </div>
+              <p className="text-xs text-[var(--text-2)]">
+                Напишите свой ответ, чтобы мгновенно снять замок и прочитать ответ партнёра!
+              </p>
             </div>
           ) : (
             <p className="text-xs text-[var(--text-2)] flex items-center gap-1 font-medium">
               <span>💡</span>
-              <span>Узнайте, что думает любимый человек</span>
+              <span>Узнайте, что думает любимый человек сегодня</span>
             </p>
           )}
         </div>
@@ -87,7 +157,15 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
           <div className="w-full py-2.5 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-[var(--accent)] text-[var(--text)] group-hover:text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-xs border border-[var(--divider)] group-hover:border-[var(--accent)] transition-all">
             <span className="flex items-center gap-2">
               <Heart className="w-4 h-4 text-[var(--accent)] group-hover:text-white transition-colors" />
-              <span>{questionAnswer ? 'Посмотреть ответы пары' : 'Ответить и открыть секрет'}</span>
+              <span>
+                {bothAnswered
+                  ? 'Посмотреть ответы пары'
+                  : hasMyAnswer
+                  ? 'Мой ответ (ждём партнёра)'
+                  : hasPartnerAnswer
+                  ? `Разблокировать ответ ${partnerName}`
+                  : 'Ответить и открыть секрет'}
+              </span>
             </span>
             <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-white group-hover:translate-x-0.5 transition-all" />
           </div>
@@ -99,7 +177,7 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
         <div className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-center items-center">
           <div onClick={handleClose} className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-fadeIn" />
 
-          <div className="relative z-10 w-full max-w-lg bg-[var(--surface-solid)] rounded-t-[32px] sm:rounded-3xl p-5 sm:p-6 border border-[var(--divider)] shadow-2xl space-y-4 max-h-[90vh] flex flex-col pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))] animate-slideUp">
+          <div className="relative z-10 w-full max-w-lg bg-[var(--surface-solid)] rounded-t-[32px] sm:rounded-3xl p-5 sm:p-6 border border-[var(--divider)] shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+1rem))] animate-slideUp">
             <div className="w-10 h-1 rounded-full bg-[var(--divider)] mx-auto sm:hidden mb-1 shrink-0" />
 
             <div className="flex items-center justify-between shrink-0">
@@ -132,40 +210,111 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
               </p>
             </div>
 
-            {/* Answer Display or Form */}
-            {questionAnswer && !isEditingQuestionAnswer ? (
+            {/* PARTNER ANSWER TEASER (IF PARTNER ANSWERED BUT I HAVEN'T) */}
+            {!hasMyAnswer && hasPartnerAnswer && (
+              <div className="p-4 rounded-2xl bg-linear-to-br from-rose-500/10 via-purple-500/10 to-transparent border border-rose-500/20 text-center space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
+                  <Lock className="w-5 h-5 animate-bounce" />
+                </div>
+                <div className="text-sm font-bold text-[var(--text)]">
+                  {partnerName} уже поделился(лась) ответом!
+                </div>
+                <p className="text-xs text-[var(--text-2)] max-w-xs mx-auto">
+                  Напишите свой ответ в поле ниже, чтобы разблокировать признание любимого человека.
+                </p>
+              </div>
+            )}
+
+            {/* BOTH ANSWERED OR MY ANSWER */}
+            {hasMyAnswer && !isEditingQuestionAnswer ? (
               <div className="space-y-4">
+                
+                {/* 1. My Answer */}
                 <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Ваш ответ сохранён:</span>
+                      <span>Ваш ответ:</span>
                     </span>
-                    <span className="text-[11px] text-[var(--text-3)] font-medium">Виден партнёру</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserQuestionAnswer(questionAnswer || '');
+                        setIsEditingQuestionAnswer(true);
+                      }}
+                      className="text-xs text-[var(--text-3)] hover:text-[var(--text)] font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Изменить</span>
+                    </button>
                   </div>
-                  <p className="text-sm font-medium text-[var(--text)] leading-relaxed pt-1">«{questionAnswer}»</p>
+                  <p className="text-sm font-medium text-[var(--text)] leading-relaxed pt-1">
+                    «{questionAnswer}»
+                  </p>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserQuestionAnswer(questionAnswer);
-                      setIsEditingQuestionAnswer(true);
-                    }}
-                    className="flex-1 py-3 px-4 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-[var(--text)] font-semibold text-sm transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
-                  >
-                    <Pencil className="w-4 h-4 text-[var(--accent)]" />
-                    <span>Изменить ответ</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="px-5 py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
-                  >
-                    Готово
-                  </button>
-                </div>
+                {/* 2. Partner Answer (Unlocked vs Pending) */}
+                {bothAnswered ? (
+                  <div className="p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                        <Heart className="w-4 h-4 fill-purple-500/20" />
+                        <span>Ответ {partnerName}:</span>
+                      </span>
+                      <span className="text-[11px] font-semibold text-purple-500 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                        Раскрыто 🎉
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-[var(--text)] leading-relaxed">
+                      «{partnerAnswer}»
+                    </p>
+
+                    {/* Quick Reactions Bar */}
+                    <div className="pt-2 border-t border-purple-500/15 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-medium text-[var(--text-3)]">
+                        Реакция:
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {REACTION_EMOJIS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => handleEmojiClick(emoji)}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-transform active:scale-125 cursor-pointer ${
+                              selectedEmoji === emoji
+                                ? 'bg-purple-500/20 scale-110 shadow-xs'
+                                : 'hover:bg-[var(--surface-3)]'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-[var(--text)]">
+                        Ожидаем ответ от {partnerName}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-2)] mt-0.5">
+                        Как только {partnerName} ответит, ответы откроются обоим одновременно!
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-3 px-4 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold text-sm shadow-md transition-all active:scale-98 cursor-pointer"
+                >
+                  Закрыть
+                </button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-3.5">
@@ -178,13 +327,15 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
                   className="w-full p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] text-sm text-[var(--text)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--accent)] resize-none"
                 />
                 <div className="flex gap-2 pt-1 border-t border-[var(--divider)]">
-                  <button
-                    type="button"
-                    onClick={handleClose}
-                    className="px-4 py-3 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-[var(--text-2)] font-semibold text-sm transition-all active:scale-98 cursor-pointer"
-                  >
-                    Отмена
-                  </button>
+                  {hasMyAnswer && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingQuestionAnswer(false)}
+                      className="px-4 py-3 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-[var(--text-2)] font-semibold text-sm transition-all active:scale-98 cursor-pointer"
+                    >
+                      Отмена
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={!userQuestionAnswer.trim()}

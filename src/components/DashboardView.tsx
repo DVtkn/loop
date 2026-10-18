@@ -295,7 +295,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
   return (
     <PageLayout hideHeader>
       <div className="space-y-4 sm:space-y-5 pb-8 sm:pb-12">
-        {/* 1. Блок 1: Статус партнёра */}
+        {/* 1. Зона 1: Партнёр и мгновенная связь */}
         <PartnerStatusCard
           isPaired={isPaired}
           partnerName={partnerName}
@@ -307,10 +307,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onSetStartDate={() => setShowStartDateModal(true)}
         />
 
-        {/* 2. Блок: Тамагочи союза */}
+        {/* Быстрое касание / Объятие */}
+        {isPaired && (
+          <HugButtonWithMenu
+            partnerName={partnerName}
+            quickHugSent={quickHugSent}
+            onSendHug={handleQuickHug}
+            onSendSpecificTap={handleSendSpecificTap}
+          />
+        )}
+
+        {/* 2. Зона 2: Главный ритуал дня (Вопрос дня для двоих) */}
+        <DailyQuestionTeaser
+          currentDailyQuestion={currentDailyQuestion}
+          questionAnswer={questionAnswer}
+          onAnswerSubmit={handleAnswerSubmit}
+        />
+
+        {/* 3. Зона 3: Живой тамагочи союза */}
         <PetCard isPaired={isPaired} />
 
-        {/* 3. Блок: Превью совместимости и стрик */}
+        {/* 4. Зона 4: Аналитика и инструменты союза */}
         <CompatibilityAndStreak
           hasCompatibilityData={hasCompatibilityData}
           compatibilityPercent={compatibilityPercent}
@@ -323,7 +340,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onOpenTests={() => setActiveTab('tests')}
         />
 
-        {/* 3. Блок 3: Ряд быстрых переходов */}
+        {/* Быстрые переходы к практикам */}
         <QuickShortcuts
           onOpenWheel={() => {
             setDatesSubTab('wheel');
@@ -336,24 +353,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           }}
         />
 
-        {/* 4. Блок 4: Кнопка «Обнять» */}
-        {isPaired && (
-          <HugButtonWithMenu
-            partnerName={partnerName}
-            quickHugSent={quickHugSent}
-            onSendHug={handleQuickHug}
-            onSendSpecificTap={handleSendSpecificTap}
-          />
-        )}
-
-        {/* 5. Блок 5: Вопрос дня */}
-        <DailyQuestionTeaser
-          currentDailyQuestion={currentDailyQuestion}
-          questionAnswer={questionAnswer}
-          onAnswerSubmit={handleAnswerSubmit}
-        />
-
-        {/* 6. Блок 6: События пары и планы */}
+        {/* События пары и планы */}
         <PairEventsFeed
           isPaired={isPaired}
           feedItems={feedItems}

@@ -366,6 +366,8 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
         activeTest={activeTest}
         currentQuestionIndex={currentQuestionIndex}
         userAnswers={userAnswers}
+        partnerName={otherPartner?.name || 'Партнёр'}
+        partnerAnswers={currentPartnerId === 'partner1' ? activeTest?.partner2Answers : activeTest?.partner1Answers}
         onSelectOption={handleSelectOption}
         onNextQuestion={handleNextQuestion}
         onPrevQuestion={handlePrevQuestion}

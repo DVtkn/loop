@@ -1,4 +1,4 @@
-export type SoundEffectType = 'boot' | 'click' | 'feed' | 'play' | 'wash' | 'sleep' | 'purr' | 'fanfare';
+export type SoundEffectType = 'boot' | 'click' | 'feed' | 'play' | 'wash' | 'sleep' | 'purr' | 'fanfare' | 'pop' | 'swipe' | 'sparkle';
 
 /**
  * 8-Bit Web Audio Synthesizer for authentic retro handheld arcade sounds
@@ -102,6 +102,37 @@ export function play8BitAudio(type: SoundEffectType): void {
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
         osc.start(now);
         osc.stop(now + 0.5);
+        break;
+
+      case 'pop':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.06);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.start(now);
+        osc.stop(now + 0.06);
+        break;
+
+      case 'swipe':
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(540, now + 0.09);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+        osc.start(now);
+        osc.stop(now + 0.09);
+        break;
+
+      case 'sparkle':
+        osc.type = 'sine';
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+        });
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
         break;
     }
   } catch {

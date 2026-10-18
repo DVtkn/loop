@@ -1092,6 +1092,18 @@ async function acceptPair(cleanMe, cleanPartner) {
   const updatedPartner = await findUserByLogin(cleanPartner);
   if (updatedMe && updatedPartner) {
     const key = [cleanMe, cleanPartner].sort().join("_");
+    if (updatedMe.id && updatedPartner.id && isSqlConfigured() && db) {
+      try {
+        await db.insert(couples).values({
+          id: key,
+          user1Id: updatedMe.id,
+          user2Id: updatedPartner.id,
+          startDate: now.split("T")[0]
+        }).onConflictDoNothing();
+      } catch (e) {
+        logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0442\u0440\u043E\u043A\u0443 couples (\u043D\u0435 \u0431\u043B\u043E\u043A\u0435\u0440)", { key }, e);
+      }
+    }
     const existingData = await getCoupleData(key);
     if (!existingData || !existingData.coupleProfile) {
       const initData = {
@@ -2259,122 +2271,6 @@ authRouter.post("/reset-password", validateBody(resetPasswordSchema), async (req
 // src/server/modules/pairing/pairing.routes.ts
 import { Router as Router2 } from "express";
 
-// src/server/shared/middleware/requirePairOwnership.ts
-init_storageService();
-function getPairKey(login, partnerLogin) {
-  if (!partnerLogin) return login.toLowerCase().trim().replace(/^@/, "");
-  return [
-    login.toLowerCase().trim().replace(/^@/, ""),
-    partnerLogin.toLowerCase().trim().replace(/^@/, "")
-  ].sort().join("_");
-}
-function isUserInCouple(coupleId, userLogin) {
-  if (!coupleId || !userLogin) return false;
-  const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
-  const cleanCouple = coupleId.toLowerCase().trim();
-  if (cleanCouple === cleanUser) return true;
-  if (cleanCouple === `ai_${cleanUser}`) return true;
-  if (cleanCouple.startsWith(`${cleanUser}_`) || cleanCouple.endsWith(`_${cleanUser}`) || cleanCouple.includes(`_${cleanUser}_`)) {
-    return true;
-  }
-  return false;
-}
-async function getAllowedCoupleKeys(userLogin) {
-  const keys = /* @__PURE__ */ new Set([userLogin, `ai_${userLogin}`]);
-  try {
-    const user = await findUserByLogin(userLogin);
-    const rawPartner = user?.partnerLogin ? String(user.partnerLogin).toLowerCase().trim().replace(/^@/, "") : null;
-    if (rawPartner) {
-      keys.add(`${userLogin}_${rawPartner}`);
-      keys.add(`${rawPartner}_${userLogin}`);
-      keys.add(getPairKey(userLogin, rawPartner));
-    }
-  } catch {
-  }
-  return keys;
-}
-async function requirePairOwnership(req, res, next) {
-  const userLogin = req.user?.login;
-  if (!userLogin) {
-    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
-  }
-  let coupleId = null;
-  if (req.params?.coupleId || req.params?.key) {
-    const targetId = req.params.coupleId || req.params.key;
-    if (!isUserInCouple(targetId, userLogin)) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.coupleId/key)", {
-        userLogin,
-        targetCoupleId: targetId,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = targetId;
-  }
-  if (req.body?.coupleId) {
-    if (!isUserInCouple(req.body.coupleId, userLogin)) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.coupleId)", {
-        userLogin,
-        targetCoupleId: req.body.coupleId,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = req.body.coupleId;
-  }
-  if (req.params?.login1 && req.params?.login2) {
-    const l1 = req.params.login1.toLowerCase().trim().replace(/^@/, "");
-    const l2 = req.params.login2.toLowerCase().trim().replace(/^@/, "");
-    if (l1 !== userLogin && l2 !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login1/login2)", {
-        userLogin,
-        target: `${l1}_${l2}`,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(l1, l2);
-  }
-  if (req.body?.login1) {
-    const l1 = String(req.body.login1).toLowerCase().trim().replace(/^@/, "");
-    const l2 = req.body.login2 ? String(req.body.login2).toLowerCase().trim().replace(/^@/, "") : null;
-    if (l1 !== userLogin && l2 !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.login1/login2)", {
-        userLogin,
-        target: l2 ? `${l1}_${l2}` : l1,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(l1, l2);
-  }
-  if (req.params?.login) {
-    const paramLogin = req.params.login.toLowerCase().trim().replace(/^@/, "");
-    if (paramLogin !== userLogin) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login)", {
-        userLogin,
-        paramLogin,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    coupleId = getPairKey(userLogin, paramLogin);
-  }
-  if (coupleId) {
-    const allowed = await getAllowedCoupleKeys(userLogin);
-    if (!allowed.has(coupleId)) {
-      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: \u043A\u043B\u044E\u0447 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 \u0441\u043E\u044E\u0437\u043E\u043C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F)", {
-        userLogin,
-        targetCoupleId: coupleId,
-        ip: req.ip
-      });
-      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
-    }
-    req.couple = { id: coupleId };
-  }
-  next();
-}
-
 // src/server/shared/validators/pairing.validator.ts
 import { z as z2 } from "zod";
 var pairRequestSchema = z2.object({
@@ -2564,9 +2460,13 @@ pairingRouter.post("/disconnect", requireAuth, validateBody(pairDisconnectSchema
     next(err);
   }
 });
-pairingRouter.get("/status/:login", requireAuth, requirePairOwnership, async (req, res, next) => {
+pairingRouter.get("/status/:login", requireAuth, async (req, res, next) => {
   try {
     const login = String(req.params.login || "").toLowerCase().replace(/^@/, "");
+    const userLogin = req.user?.login;
+    if (login !== userLogin) {
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u0447\u0443\u0436\u043E\u043C\u0443 \u0441\u0442\u0430\u0442\u0443\u0441\u0443 \u043F\u0430\u0440\u044B", code: "FORBIDDEN" });
+    }
     const status = await getPairStatus(login);
     return res.json(status);
   } catch (err) {
@@ -2576,6 +2476,121 @@ pairingRouter.get("/status/:login", requireAuth, requirePairOwnership, async (re
 
 // src/server/modules/couple-data/couple.routes.ts
 import { Router as Router3 } from "express";
+
+// src/server/shared/middleware/requirePairOwnership.ts
+init_storageService();
+function getPairKey(login, partnerLogin) {
+  if (!partnerLogin) return login.toLowerCase().trim().replace(/^@/, "");
+  return [
+    login.toLowerCase().trim().replace(/^@/, ""),
+    partnerLogin.toLowerCase().trim().replace(/^@/, "")
+  ].sort().join("_");
+}
+function isUserInCouple(coupleId, userLogin) {
+  if (!coupleId || !userLogin) return false;
+  const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
+  const cleanCouple = coupleId.toLowerCase().trim();
+  if (cleanCouple === cleanUser) return true;
+  if (cleanCouple === `ai_${cleanUser}`) return true;
+  if (cleanCouple.startsWith(`${cleanUser}_`) || cleanCouple.endsWith(`_${cleanUser}`) || cleanCouple.includes(`_${cleanUser}_`)) {
+    return true;
+  }
+  return false;
+}
+async function getAllowedCoupleKeys(userLogin) {
+  const keys = /* @__PURE__ */ new Set([userLogin, `ai_${userLogin}`]);
+  try {
+    const user = await findUserByLogin(userLogin);
+    const rawPartner = user?.partnerLogin ? String(user.partnerLogin).toLowerCase().trim().replace(/^@/, "") : null;
+    if (rawPartner) {
+      keys.add(`${userLogin}_${rawPartner}`);
+      keys.add(`${rawPartner}_${userLogin}`);
+      keys.add(getPairKey(userLogin, rawPartner));
+    }
+  } catch {
+  }
+  return keys;
+}
+async function requirePairOwnership(req, res, next) {
+  const userLogin = req.user?.login;
+  if (!userLogin) {
+    return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+  }
+  let coupleId = null;
+  if (req.params?.coupleId || req.params?.key) {
+    const targetId = req.params.coupleId || req.params.key;
+    if (!isUserInCouple(targetId, userLogin)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.coupleId/key)", {
+        userLogin,
+        targetCoupleId: targetId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = targetId;
+  }
+  if (req.body?.coupleId) {
+    if (!isUserInCouple(req.body.coupleId, userLogin)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.coupleId)", {
+        userLogin,
+        targetCoupleId: req.body.coupleId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = req.body.coupleId;
+  }
+  if (req.params?.login1 && req.params?.login2) {
+    const l1 = req.params.login1.toLowerCase().trim().replace(/^@/, "");
+    const l2 = req.params.login2.toLowerCase().trim().replace(/^@/, "");
+    if (l1 !== userLogin && l2 !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login1/login2)", {
+        userLogin,
+        target: `${l1}_${l2}`,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = getPairKey(l1, l2);
+  }
+  if (req.body?.login1) {
+    const l1 = String(req.body.login1).toLowerCase().trim().replace(/^@/, "");
+    const l2 = req.body.login2 ? String(req.body.login2).toLowerCase().trim().replace(/^@/, "") : null;
+    if (l1 !== userLogin && l2 !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: body.login1/login2)", {
+        userLogin,
+        target: l2 ? `${l1}_${l2}` : l1,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    coupleId = getPairKey(l1, l2);
+  }
+  if (req.params?.login) {
+    const paramLogin = req.params.login.toLowerCase().trim().replace(/^@/, "");
+    if (paramLogin !== userLogin) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: params.login)", {
+        userLogin,
+        paramLogin,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+  }
+  if (coupleId) {
+    const allowed = await getAllowedCoupleKeys(userLogin);
+    if (!allowed.has(coupleId)) {
+      logger.security("\u041E\u0442\u043A\u0430\u0437 \u0432 \u0434\u043E\u0441\u0442\u0443\u043F\u0435 (IDOR: \u043A\u043B\u044E\u0447 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441 \u0441\u043E\u044E\u0437\u043E\u043C \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F)", {
+        userLogin,
+        targetCoupleId: coupleId,
+        ip: req.ip
+      });
+      return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430", code: "FORBIDDEN" });
+    }
+    req.couple = { id: coupleId };
+  }
+  next();
+}
 
 // src/server/shared/validators/couple.validator.ts
 import { z as z3 } from "zod";
@@ -3298,7 +3313,22 @@ async function getCoupleInfo(userLogin) {
       )
     )
   ).limit(1);
-  const coupleId = coupleRow.length ? coupleRow[0].id : pairKey;
+  let coupleId;
+  if (coupleRow.length) {
+    coupleId = coupleRow[0].id;
+  } else {
+    coupleId = pairKey;
+    try {
+      await db.insert(couples).values({
+        id: pairKey,
+        user1Id: userRow[0].id,
+        user2Id: partnerUser[0].id,
+        startDate: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+      }).onConflictDoNothing();
+    } catch (err) {
+      logger.warn("getCoupleInfo: failed to ensure couples row", { pairKey, err });
+    }
+  }
   return { coupleId, pairKey, userId: userRow[0].id };
 }
 function toIsoString(v) {
@@ -6109,7 +6139,7 @@ realtimeRouter.get("/events-poll", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u043F\u0440\u043E\u0441\u0430 \u0441\u043E\u0431\u044B\u0442\u0438\u0439" });
   }
 });
-realtimeRouter.post("/touch", requireAuth, validateBody(touchEventSchema), async (req, res, next) => {
+realtimeRouter.post(["/touch", "/touches"], requireAuth, validateBody(touchEventSchema), async (req, res, next) => {
   try {
     const result = await sendQuickTouch(req.body);
     return res.json(result);
@@ -6751,6 +6781,7 @@ app.use("/", apiRouter);
 app.use(errorHandler);
 var app_default = app;
 export {
+  app,
   callGroqChat,
   app_default as default,
   ensureDatabaseInitialized,

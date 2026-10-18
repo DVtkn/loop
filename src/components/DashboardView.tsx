@@ -13,6 +13,8 @@ import { SetStartDateModal } from './dashboard/SetStartDateModal.tsx';
 import { DailyHabitTracker } from './dashboard/DailyHabitTracker.tsx';
 import { WeeklyFeaturedTestCard } from './dashboard/WeeklyFeaturedTestCard.tsx';
 import { PetCard } from './PetCard.tsx';
+import { PairEventsFeed } from './dashboard/PairEventsFeed.tsx';
+import { ScheduleModal } from './ScheduleModal.tsx';
 
 interface DashboardViewProps {
   setActiveTab: (tab: NavigationTab) => void;
@@ -29,7 +31,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     addFeedItem,
     tests,
     dateInvites,
+    scheduleEvents,
     setUsSubTab,
+    setDatesSubTab,
     currentUser,
     sendTouchAction,
     triggerConfetti,
@@ -148,6 +152,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
   const [quickHugSent, setQuickHugSent] = useState<boolean>(false);
   const [showPartnerDetailModal, setShowPartnerDetailModal] = useState<boolean>(false);
   const [showStartDateModal, setShowStartDateModal] = useState<boolean>(false);
+  const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+
+  const todayDateStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const todayScheduleEvents = useMemo(() => {
+    return (scheduleEvents || []).filter((ev) => !ev.deleted && ev.date === todayDateStr);
+  }, [scheduleEvents, todayDateStr]);
+
+  const scheduleSummary = useMemo(() => {
+    if (todayScheduleEvents.length === 0) {
+      return {
+        badge: 'Свободно',
+        badgeClass: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10',
+        title: 'Наши планы',
+        subtitle: 'Вечер свободен у обоих ✨',
+      };
+    }
+
+    const n = todayScheduleEvents.length;
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    let plural = 'событий';
+    if (mod100 < 11 || mod100 > 14) {
+      if (mod10 === 1) plural = 'событие';
+      else if (mod10 >= 2 && mod10 <= 4) plural = 'события';
+    }
+
+    const hasEvening = todayScheduleEvents.some((e) => {
+      const startMin = e.startTime.split(':').map(Number);
+      const endMin = (e.endTime || '').split(':').map(Number);
+      return startMin[0] >= 18 || endMin[0] > 18;
+    });
+
+    return {
+      badge: `${n} ${plural}`,
+      badgeClass: 'text-sky-600 dark:text-sky-400 bg-sky-500/10',
+      title: 'Наши планы',
+      subtitle: hasEvening ? `Сегодня: ${n} ${plural}` : `Сегодня: ${n} ${plural} • Вечер свободен`,
+    };
+  }, [todayScheduleEvents]);
+
+  const upcomingDate = useMemo(() => {
+    return (dateInvites || []).find(
+      (d) => !d.completed && !d.review && (d.status === 'CONFIRMED' || d.status === 'PROPOSED' || d.status === 'PENDING')
+    );
+  }, [dateInvites]);
 
   const dailyQuestions = [
     'Что сегодня заставило тебя искренне улыбнуться?',
@@ -346,6 +396,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           }}
           onOpenTests={() => setActiveTab('tests')}
         />
+
+        {/* 6. Зона 6: События пары и планы */}
+        <PairEventsFeed
+          isPaired={isPaired}
+          feedItems={feedItems}
+          questionAnswer={questionAnswer}
+          scheduleSummary={scheduleSummary}
+          upcomingDate={upcomingDate}
+          onOpenSchedule={() => setShowScheduleModal(true)}
+          onOpenDates={() => {
+            setDatesSubTab?.('history');
+            setActiveTab('dates');
+          }}
+        />
       </div>
 
       {/* Модальные окна */}
@@ -369,6 +433,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
         onClose={() => setShowStartDateModal(false)}
         currentStartDate={coupleProfile?.startDate}
         onSave={(newStartDate) => updateCoupleProfile({ startDate: newStartDate })}
+      />
+
+      <ScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onOpenDateWheel={() => {
+          setShowScheduleModal(false);
+          setDatesSubTab?.('wheel');
+          setActiveTab('dates');
+        }}
       />
     </PageLayout>
   );

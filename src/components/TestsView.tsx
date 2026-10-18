@@ -222,6 +222,38 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
       }
     >
       <div className="space-y-5 pb-8">
+        {/* Flo-style Top Segmented Switcher */}
+        <div className="bg-[var(--surface-2)] p-1 rounded-2xl flex items-center gap-1 border border-[var(--divider)]/40 select-none max-w-md mx-auto">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('selection');
+              setSubMode('catalog');
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              subMode === 'catalog'
+                ? 'bg-[var(--surface-solid)] text-[var(--accent)] shadow-xs'
+                : 'text-[var(--text-2)] hover:text-[var(--text)]'
+            }`}
+          >
+            <span>Опросники ({tests.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic('selection');
+              setSubMode('report');
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              subMode === 'report'
+                ? 'bg-[var(--surface-solid)] text-[var(--accent)] shadow-xs'
+                : 'text-[var(--text-2)] hover:text-[var(--text)]'
+            }`}
+          >
+            <span>📊 Аналитика союза</span>
+          </button>
+        </div>
+
         {subMode === 'report' ? (
           <ReportView
             hideHeader

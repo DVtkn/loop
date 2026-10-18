@@ -25,13 +25,14 @@ import { RelationshipDynamics } from './RelationshipDynamics';
 import { CoupleRatingWidget } from './CoupleRatingWidget';
 import { PageLayout } from './ui/PageLayout';
 import { triggerHaptic } from '../utils/haptics';
+import { AnalyticsBreakdown } from './analytics/AnalyticsBreakdown';
 
 export interface ReportViewProps {
   onStartTest?: (testId: string) => void;
   hideHeader?: boolean;
   activeTab?: string;
   partnerProfile?: any;
-  initialSegment?: 'radar' | 'strengths' | 'dynamics' | 'rating';
+  initialSegment?: 'breakdown' | 'radar' | 'strengths' | 'dynamics' | 'rating';
 }
 
 export const ReportView: React.FC<ReportViewProps> = ({
@@ -39,7 +40,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
   hideHeader = false,
   activeTab,
   partnerProfile,
-  initialSegment = 'radar',
+  initialSegment,
 }) => {
   const {
     coupleProfile: contextCoupleProfile,
@@ -59,7 +60,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
     return contextCoupleProfile;
   }, [contextCoupleProfile, partnerProfile]);
 
-  const [activeSegment, setActiveSegment] = useState<'radar' | 'strengths' | 'dynamics' | 'rating'>(initialSegment);
+  const defaultSegment = initialSegment || (activeTab ? 'radar' : 'breakdown');
+  const [activeSegment, setActiveSegment] = useState<'breakdown' | 'radar' | 'strengths' | 'dynamics' | 'rating'>(defaultSegment);
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
   const [aiReportOverride, setAiReportOverride] = useState<Partial<DeepCoupleAnalysis> | null>(null);
   const [reminded, setReminded] = useState(false);
@@ -130,7 +132,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
   };
 
   const SECTIONS = [
-    { id: 'radar', label: 'Карта гармонии', icon: '✦' },
+    { id: 'breakdown', label: 'Сферы & Точки роста', icon: '🎯' },
+    { id: 'radar', label: 'Радар 6 сфер', icon: '✦' },
     { id: 'strengths', label: 'Суперсилы', icon: '♡' },
     { id: 'dynamics', label: 'Динамика', icon: '✧' },
     { id: 'rating', label: 'Рейтинг союза', icon: '★' },
@@ -230,6 +233,46 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
         {/* 3. Main Content Segments */}
         <div>
+          {activeSegment === 'breakdown' && (
+            <>
+              {!analysis.isCoupleReportReady ? (
+                <div className="p-8 text-center rounded-3xl bg-[var(--surface)] border border-[var(--divider)] space-y-3 shadow-2xs animate-fadeIn">
+                  <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-500/10 flex items-center justify-center text-rose-500 mx-auto text-xl shadow-2xs">
+                    ⏳
+                  </div>
+                  <h4 className="text-base font-semibold text-[var(--text)]">Аналитика союза формируется</h4>
+                  <p className="text-xs text-[var(--text-3)] max-w-xs mx-auto leading-relaxed">
+                    Для составления психологической аналитики союза необходимо, чтобы оба партнёра завершили опросники. Ваши ответы надёжно сохранены и защищены приватностью.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRemindPartner}
+                    disabled={reminded}
+                    className={`mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer shadow-2xs ${
+                      reminded
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                        : 'bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/25'
+                    }`}
+                  >
+                    {reminded ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Напоминание отправлено!</span>
+                      </>
+                    ) : (
+                      <>
+                        <BellRing className="w-3.5 h-3.5" />
+                        <span>Напомнить партнёру</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <AnalyticsBreakdown analysis={analysis} onStartTest={handleStartTest} />
+              )}
+            </>
+          )}
+
           {activeSegment === 'radar' && (
             <RelationshipRadar onStartTest={handleStartTest} activeTab={activeTab as any} />
           )}

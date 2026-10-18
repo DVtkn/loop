@@ -79,17 +79,17 @@ export const IOSInstallPrompt: React.FC<IOSInstallPromptProps> = ({ forceOpen = 
                   triggerHaptic('selection');
                   setShowFullModal(true);
                 }}
-                className="text-[11px] font-bold text-[var(--accent)] hover:underline px-1.5 py-0.5 cursor-pointer"
+                className="text-xs font-bold text-[var(--accent)] hover:underline px-2.5 py-1.5 min-h-[36px] flex items-center cursor-pointer"
               >
                 Инструкция
               </button>
               <button
                 type="button"
                 onClick={handleDismiss}
-                className="w-6 h-6 rounded-full hover:bg-[var(--surface-2)] text-[var(--text-3)] hover:text-[var(--text)] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                className="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full hover:bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center transition-colors shrink-0 cursor-pointer p-1 active:scale-95"
                 aria-label="Закрыть"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>

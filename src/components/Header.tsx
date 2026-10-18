@@ -45,24 +45,25 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
             <span className="font-extrabold text-base tracking-tight text-[var(--text)]">Loop</span>
           </div>
 
-          {/* Right Controls: Global XP Counter, User Avatar & Theme */}
-          <div className="flex items-center gap-2">
+          {/* Right Controls: Global XP Counter, User Avatar (desktop) & Theme */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               id="header-bell-btn"
               onClick={() => setShowActivity(true)}
-              className="relative w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] border border-[var(--divider)] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+              className="relative w-10 h-10 min-w-[40px] min-h-[40px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] border border-[var(--divider)] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
               title="Уведомления"
               aria-label="Открыть уведомления"
             >
               <Bell className="w-4 h-4" />
-              {unreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
+
             {/* Global XP / Level Pill */}
             {onOpenAchievements && (
               <button
                 id="header-xp-pill-btn"
                 onClick={onOpenAchievements}
-                className="px-2.5 py-1.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer group"
+                className="min-h-[40px] sm:min-h-[32px] px-3 sm:px-2.5 py-1.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer group"
                 title={`Уровень ${coupleLevelInfo.level}: ${coupleLevelInfo.levelName} • ${coupleXP} XP`}
               >
                 <div className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
@@ -77,18 +78,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
               </button>
             )}
 
-            {/* User Profile Pill / Pairing Status */}
+            {/* User Profile Pill - Shown on Desktop only; mobile already has dedicated tab in bottom navigation */}
             {currentUser && onOpenSettings && (
               <button
                 id="header-profile-btn"
                 onClick={onOpenSettings}
-                className="px-2.5 py-1.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center gap-2 transition-colors cursor-pointer"
+                className="hidden sm:flex px-2.5 py-1.5 min-h-[32px] rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] items-center gap-2 transition-colors cursor-pointer"
                 title="Перейти в личный кабинет"
               >
                 <div className="w-5 h-5 rounded-full bg-[var(--accent)] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
                   {currentUser.name ? currentUser.name[0].toUpperCase() : currentUser.login[0].toUpperCase()}
                 </div>
-                <span className="text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] hidden sm:inline">
+                <span className="text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)]">
                   {currentUser.name || `@${currentUser.login}`}
                 </span>
                 {isPaired && <Heart className="w-3 h-3 text-[var(--accent)] fill-[var(--accent)] shrink-0" />}
@@ -99,13 +100,13 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
             <button
               id="header-theme-btn"
               onClick={() => setTheme(theme === 'night' ? 'aurora' : 'night')}
-              className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] border border-[var(--divider)] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+              className="w-10 h-10 min-w-[40px] min-h-[40px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] border border-[var(--divider)] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
               title="Сменить тему"
             >
               {theme === 'night' ? (
-                <Moon className="w-3.5 h-3.5 text-[var(--accent)]" />
+                <Moon className="w-4 h-4 text-[var(--accent)]" />
               ) : (
-                <Sun className="w-3.5 h-3.5 text-amber-500" />
+                <Sun className="w-4 h-4 text-amber-500" />
               )}
             </button>
           </div>

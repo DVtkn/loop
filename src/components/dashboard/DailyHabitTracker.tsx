@@ -38,7 +38,7 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
     },
     {
       id: 'question',
-      label: 'Вопрос дня',
+      label: 'Вопрос',
       done: hasQuestionAnswered,
       icon: MessageCircle,
       action: onOpenQuestion,
@@ -116,7 +116,7 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
                 triggerHaptic('light');
                 h.action();
               }}
-              className={`py-2 px-2.5 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+              className={`min-h-[42px] py-2 px-2.5 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
                 h.done
                   ? h.bgDone
                   : 'bg-[var(--surface-solid)]/80 hover:bg-[var(--surface-2)] border-[var(--divider)] text-[var(--text-2)] hover:text-[var(--text)]'

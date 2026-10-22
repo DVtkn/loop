@@ -16,6 +16,8 @@ export interface UserPartner {
     label: string;
     note: string;
     updatedAt: string;
+    energyLevel?: number; // 0 - 100
+    careMode?: string;
   } | null;
   lastActiveAt?: string;
 }
@@ -325,6 +327,8 @@ export interface MoodHistoryItem {
   label: string;
   score: number; // 1-10
   note: string;
+  energyLevel?: number; // 0 - 100
+  careMode?: string;
 }
 
 export interface AIMessage {
@@ -354,6 +358,8 @@ export interface UserAccount {
     label: string;
     note: string;
     updatedAt: string;
+    energyLevel?: number;
+    careMode?: string;
   };
   lastActiveAt?: string;
   createdAt: string;
@@ -612,4 +618,32 @@ export interface PetNameConfirm {
 
 export interface PetSwitchRequest {
   species: PetSpecies;
+}
+
+// Partner Energy & Care Battery (Requirement R1)
+export type CareModePresetKey = 'full_energy' | 'adventure' | 'low_battery' | 'need_hugs';
+
+export interface CareModePreset {
+  key: CareModePresetKey;
+  label: string;
+  defaultEnergy: number;
+  icon: string;
+  description: string;
+}
+
+export interface CurrentMoodWithBattery {
+  emoji: string;
+  label: string;
+  note: string;
+  updatedAt: string;
+  energyLevel?: number; // 0 - 100
+  careMode?: string;
+}
+
+export interface ContextualCareSuggestion {
+  headline: string;
+  advice: string;
+  actionLabel: string;
+  actionIcon: string;
+  tier: 'emerald' | 'amber' | 'rose';
 }

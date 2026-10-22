@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Gamepad2, Flame, MessageCircle, Sparkles, ChevronRight } from 'lucide-react';
+import { Gamepad2, Flame, MessageCircle, Sparkles, ChevronRight, Dices } from 'lucide-react';
 import { PageLayout } from '../ui/PageLayout.tsx';
 import { StatTile } from '../ui/SystemBlocks.tsx';
 import { triggerHaptic } from '../../utils/haptics.ts';
 import { TRUTHS, DARES } from '../../data/truthDare.ts';
 import { DEEP_TALKS, SPICY_18, THIS_OR_THAT } from '../../data/gamesData.ts';
+import { HouseholdRoulette } from './HouseholdRoulette.tsx';
 
 interface GamesViewProps {
   currentPartnerName: string;
@@ -12,6 +13,7 @@ interface GamesViewProps {
   onBack: () => void;
   onAddCoupleXP: (xp: number, desc: string, type?: any) => void;
   onTriggerConfetti: () => void;
+  initialGame?: 'truth_dare' | 'deep_talks' | 'spicy' | 'this_or_that' | 'household_roulette' | null;
 }
 
 export const GamesView: React.FC<GamesViewProps> = ({
@@ -20,8 +22,9 @@ export const GamesView: React.FC<GamesViewProps> = ({
   onBack,
   onAddCoupleXP,
   onTriggerConfetti,
+  initialGame = null,
 }) => {
-  const [activeGame, setActiveGame] = useState<'truth_dare' | 'deep_talks' | 'spicy' | 'this_or_that' | null>(null);
+  const [activeGame, setActiveGame] = useState<'truth_dare' | 'deep_talks' | 'spicy' | 'this_or_that' | 'household_roulette' | null>(initialGame);
   const [tdCurrentPlayer, setTdCurrentPlayer] = useState<string>(currentPartnerName);
   const [tdAction, setTdAction] = useState<'truth' | 'dare' | null>(null);
   const [tdCardText, setTdCardText] = useState<string>('');
@@ -51,8 +54,20 @@ export const GamesView: React.FC<GamesViewProps> = ({
 
   return (
     <PageLayout
-      title={activeGame ? 'Игра для двоих' : 'Игры для свиданий'}
-      subtitle={activeGame ? 'Интерактивный раунд сближения' : 'Правда или Действие, глубокие темы и 18+'}
+      title={
+        activeGame === 'household_roulette'
+          ? 'Рулетка честного быта'
+          : activeGame
+          ? 'Игра для двоих'
+          : 'Игры для свиданий'
+      }
+      subtitle={
+        activeGame === 'household_roulette'
+          ? 'Честный жребий домашних дел и заботы'
+          : activeGame
+          ? 'Интерактивный раунд сближения'
+          : 'Правда или Действие, глубокие темы и 18+'
+      }
       onBack={() => {
         if (activeGame) {
           setActiveGame(null);
@@ -62,13 +77,21 @@ export const GamesView: React.FC<GamesViewProps> = ({
       }}
     >
       <div className="space-y-4 pb-8 animate-fadeIn">
-        {!activeGame ? (
+        {activeGame === 'household_roulette' ? (
+          <HouseholdRoulette
+            currentPartnerName={currentPartnerName}
+            partnerName={partnerName}
+            onBack={() => setActiveGame(null)}
+            onAddCoupleXP={onAddCoupleXP}
+            onTriggerConfetti={onTriggerConfetti}
+          />
+        ) : !activeGame ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <StatTile
                 icon={<Gamepad2 className="w-5 h-5" />}
-                value="4"
-                label="Формата игр"
+                value="5"
+                label="Форматов игр"
                 color="gamification"
               />
               <StatTile
@@ -170,6 +193,34 @@ export const GamesView: React.FC<GamesViewProps> = ({
                     </h4>
                     <p className="text-xs text-[var(--text-2)] mt-0.5">
                       Быстрые весёлые дилеммы: проверьте, совпадут ли ваши вкусы
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--text-2)] group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </div>
+
+              <div
+                onClick={() => {
+                  triggerHaptic('selection');
+                  setActiveGame('household_roulette');
+                }}
+                className="p-4 sm:p-5 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-2xs hover:border-indigo-500/40 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <Dices className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-[var(--text)] group-hover:text-indigo-500 transition-colors">
+                        Рулетка честного быта
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-500 dark:text-indigo-400">
+                        Новинка
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--text-2)] mt-0.5">
+                      Кто моет посуду, выбирает кино или готовит кофе — честный жребий
                     </p>
                   </div>
                 </div>

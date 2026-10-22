@@ -29,8 +29,19 @@ import {
   ChatMessage,
   TouchNotificationData,
   ScheduleEvent,
+  CareModePresetKey,
+  CareModePreset,
+  CurrentMoodWithBattery,
+  ContextualCareSuggestion,
 } from '../types.ts';
 import { getCoupleLevelInfo } from '../utils/rankingEngine.ts';
+
+export type {
+  CareModePresetKey,
+  CareModePreset,
+  CurrentMoodWithBattery,
+  ContextualCareSuggestion,
+};
 
 export interface FeedItem {
   id: string;
@@ -176,7 +187,14 @@ export interface CoupleContextType {
   addCoupleXP: (points: number, reason: string, category?: XPEntry['category']) => void;
   coupleLevelInfo: ReturnType<typeof getCoupleLevelInfo>;
   moodHistory: MoodHistoryItem[];
-  addMoodStatus: (emoji: string, label: string, severity: number, note?: string) => void;
+  addMoodStatus: (
+    emoji: string,
+    label: string,
+    severity: number,
+    note?: string,
+    energyLevel?: number,
+    careMode?: string
+  ) => void;
   aiMessages: AIMessage[];
   sendAIMessage: (text: string) => Promise<void>;
   partnerMessages: ChatMessage[];

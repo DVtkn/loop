@@ -12,6 +12,7 @@ import {
   Sun,
   Gamepad2,
   Compass,
+  Dices,
 } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext.tsx';
 import { Venue } from '../types.ts';
@@ -53,6 +54,7 @@ export const DatesView: React.FC = () => {
     if (datesSubTab === 'games') return 'games';
     return 'main';
   });
+  const [selectedGame, setSelectedGame] = useState<'truth_dare' | 'deep_talks' | 'spicy' | 'this_or_that' | 'household_roulette' | null>(null);
 
   // --- Invite Form State (Modal) ---
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
@@ -265,10 +267,12 @@ export const DatesView: React.FC = () => {
         partnerName={otherPartner.name}
         onBack={() => {
           setCurrentView('main');
+          setSelectedGame(null);
           setDatesSubTab('invite');
         }}
         onAddCoupleXP={addCoupleXP}
         onTriggerConfetti={triggerConfetti}
+        initialGame={selectedGame}
       />
     );
   }
@@ -328,12 +332,24 @@ export const DatesView: React.FC = () => {
           <ActionRow
             icon={<Gamepad2 className="w-5 h-5" />}
             title="Игры для свиданий"
-            value="4 формата для сближения"
+            value="5 форматов для сближения и быта"
             onClick={() => {
               triggerHaptic('selection');
+              setSelectedGame(null);
               setCurrentView('games');
             }}
             color="gamification"
+          />
+          <ActionRow
+            icon={<Dices className="w-5 h-5" />}
+            title="Рулетка честного быта"
+            value="Кто сегодня готовит кофе, моет посуду или выбирает кино"
+            onClick={() => {
+              triggerHaptic('selection');
+              setSelectedGame('household_roulette');
+              setCurrentView('games');
+            }}
+            color="dialogue"
           />
         </div>
 

@@ -21,4 +21,5 @@ data/db_store.json
 # локальное состояние агентов и логи
 .opencode/
 .playwright-mcp/
+.agents/
 *.log

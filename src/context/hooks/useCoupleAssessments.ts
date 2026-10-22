@@ -268,13 +268,28 @@ export function useCoupleAssessments({
   }, [currentUser?.login, getUserTestsStorageKey, setCoupleProfile]);
 
   const addMoodStatus = useCallback(
-    (emoji: string, label: string, severity: number, note?: string) => {
+    (
+      emoji: string,
+      label: string,
+      severity: number,
+      note?: string,
+      energyLevel?: number,
+      careMode?: string
+    ) => {
       const cleanNote = (note || '').trim();
+      const clampedEnergy =
+        typeof energyLevel === 'number' && !isNaN(energyLevel)
+          ? Math.max(0, Math.min(100, Math.round(energyLevel)))
+          : undefined;
+      const cleanCareMode = careMode?.trim() || undefined;
+
       const newMood = {
         emoji,
         label,
         note: cleanNote,
         updatedAt: new Date().toISOString(),
+        ...(clampedEnergy !== undefined ? { energyLevel: clampedEnergy } : {}),
+        ...(cleanCareMode ? { careMode: cleanCareMode } : {}),
       };
 
       if (currentUser) {
@@ -301,6 +316,8 @@ export function useCoupleAssessments({
         label,
         score: severity,
         note: cleanNote,
+        ...(clampedEnergy !== undefined ? { energyLevel: clampedEnergy } : {}),
+        ...(cleanCareMode ? { careMode: cleanCareMode } : {}),
       };
       setMoodHistory((prev) => {
         const updated = [newMoodEntry, ...prev.slice(0, 49)];

@@ -2,6 +2,11 @@ import React from 'react';
 import { X, Sparkles, MessageCircle, CalendarHeart } from 'lucide-react';
 import { ColoredAvatar, MoodBadge } from '../ColoredIcon.tsx';
 import { isMoodRecent, formatDaysTogetherDetailed } from './PartnerStatusCard.tsx';
+import {
+  getBatteryTier,
+  getContextualCareSuggestion,
+  findCarePresetByKey,
+} from '../../utils/careBatteryEngine.ts';
 
 export function formatMoodTime(dateStr?: string): string {
   if (!dateStr) return '';
@@ -86,7 +91,27 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const isMoodSet = !!(safeOtherPartner?.currentMood?.label && isMoodRecent(safeOtherPartner?.currentMood?.updatedAt));
+  const isMoodRecentStatus = isMoodRecent(safeOtherPartner?.currentMood?.updatedAt);
+  const isMoodSet = !!(safeOtherPartner?.currentMood?.label && isMoodRecentStatus);
+  const partnerEnergy =
+    isMoodRecentStatus && typeof safeOtherPartner?.currentMood?.energyLevel === 'number'
+      ? safeOtherPartner.currentMood.energyLevel
+      : undefined;
+  const partnerCarePreset =
+    isMoodRecentStatus && safeOtherPartner?.currentMood?.careMode
+      ? findCarePresetByKey(safeOtherPartner.currentMood.careMode)
+      : undefined;
+
+  const partnerBatteryTier = partnerEnergy !== undefined ? getBatteryTier(partnerEnergy) : null;
+  const careSuggestion =
+    partnerEnergy !== undefined
+      ? getContextualCareSuggestion(
+          partnerEnergy,
+          safeOtherPartner?.currentMood?.careMode,
+          partnerName
+        )
+      : null;
+
   const formattedDaysTogether = formatDaysTogetherDetailed(coupleStartDate);
 
   return (
@@ -160,7 +185,79 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({
           )}
         </div>
 
-        {/* Current State */}
+        {/* Батарейка энергии и режим заботы */}
+        {partnerBatteryTier && partnerEnergy !== undefined && (
+          <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">{partnerBatteryTier.icon}</span>
+                <span className="text-xs font-bold text-[var(--text)] uppercase tracking-wider">
+                  Батарейка энергии и заботы
+                </span>
+              </div>
+              <div className={`px-2.5 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${partnerBatteryTier.badgeClass}`}>
+                <span>{partnerEnergy}%</span>
+                <span className="opacity-70">•</span>
+                <span>{partnerBatteryTier.label}</span>
+              </div>
+            </div>
+
+            {/* Visual animated battery gauge bar */}
+            <div className="relative w-full h-3 rounded-full bg-[var(--surface-3)] overflow-hidden border border-[var(--divider)]/50">
+              <div
+                className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${partnerBatteryTier.gradientClass}`}
+                style={{ width: `${partnerEnergy}%` }}
+              />
+            </div>
+
+            {/* Care Mode Status */}
+            {partnerCarePreset && (
+              <div className="p-3 rounded-xl bg-[var(--surface-solid)] border border-[var(--divider)] flex items-start gap-2.5">
+                <span className="text-xl shrink-0 mt-0.5">{partnerCarePreset.icon}</span>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-[var(--text)]">
+                    Режим заботы: {partnerCarePreset.label}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-2)] mt-0.5 leading-relaxed">
+                    {partnerCarePreset.description}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Psychologist Care Advice & Quick Care Reaction Button */}
+            {careSuggestion && (
+              <div className="p-3 rounded-xl bg-[var(--surface-blush)] border border-[var(--surface-blush-border)] space-y-2.5">
+                <div className="text-[11px] font-bold text-[var(--accent)] flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Совет психолога: {careSuggestion.headline}</span>
+                </div>
+                <p className="text-xs text-[var(--text)] leading-relaxed font-normal">
+                  {careSuggestion.advice}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const actionText =
+                      careSuggestion.tier === 'rose'
+                        ? `Отправляю тебе тепло и заботу! 🍵 «${careSuggestion.headline}»`
+                        : careSuggestion.tier === 'amber'
+                        ? `Давай проведём уютный вечер вместе! ☕ «${careSuggestion.headline}»`
+                        : `Полон драйва вместе с тобой! 🚀 «${careSuggestion.headline}»`;
+                    onSendSpecificTap('care', actionText, careSuggestion.actionLabel);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-98 shadow-xs cursor-pointer"
+                >
+                  <span>{careSuggestion.actionIcon}</span>
+                  <span>{careSuggestion.actionLabel}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Current State / Mood */}
         {isMoodSet ? (
           <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-3">
             <div className="flex items-center justify-between">
@@ -197,22 +294,24 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({
               </div>
             )}
 
-            <div className="p-3 rounded-xl bg-[var(--surface-blush)] border border-[var(--surface-blush-border)]">
-              <div className="text-[11px] font-bold text-[var(--accent)] mb-1 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Взгляд психолога Совы</span>
+            {!partnerBatteryTier && (
+              <div className="p-3 rounded-xl bg-[var(--surface-blush)] border border-[var(--surface-blush-border)]">
+                <div className="text-[11px] font-bold text-[var(--accent)] mb-1 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Взгляд психолога Совы</span>
+                </div>
+                <p className="text-xs text-[var(--text)] leading-relaxed font-normal">
+                  {getMoodBriefDescription(
+                    safeOtherPartner.currentMood?.label || safeOtherPartner.currentMood?.emoji || 'inspire'
+                  )}
+                </p>
               </div>
-              <p className="text-xs text-[var(--text)] leading-relaxed font-normal">
-                {getMoodBriefDescription(
-                  safeOtherPartner.currentMood?.label || safeOtherPartner.currentMood?.emoji || 'inspire'
-                )}
-              </p>
-            </div>
+            )}
           </div>
-        ) : (
+        ) : !partnerBatteryTier ? (
           <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[var(--accent)]">Настроение партнёра</span>
+              <span className="text-xs font-bold text-[var(--accent)]">Состояние партнёра</span>
             </div>
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[var(--surface-solid)] border border-[var(--divider)] flex items-center justify-center text-xl shrink-0">
@@ -220,25 +319,25 @@ export const PartnerDetailModal: React.FC<PartnerDetailModalProps> = ({
               </div>
               <div>
                 <div className="text-base font-bold text-[var(--text)] leading-tight">
-                  Настроение не указано
+                  Заряд и настроение не указаны
                 </div>
                 <div className="text-xs text-[var(--text-2)] mt-0.5">
-                  Партнёр ещё не отмечал настроение сегодня
+                  Партнёр ещё не отмечал состояние сегодня
                 </div>
               </div>
             </div>
             <button
               type="button"
               onClick={() => {
-                onSendSpecificTap('thinking', 'Как твоё настроение сегодня? 💭', 'Спросить о настроении');
+                onSendSpecificTap('thinking', 'Как твоё настроение и заряд сегодня? 💭', 'Спросить о состоянии');
               }}
               className="w-full py-2.5 px-3 rounded-xl bg-[var(--surface-solid)] hover:bg-[var(--surface-3)] border border-[var(--divider)] text-xs font-semibold text-[var(--text)] flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
-              <span>Спросить о настроении</span>
+              <span>Спросить о состоянии</span>
             </button>
           </div>
-        )}
+        ) : null}
 
         {/* Quick Actions */}
         <div className="space-y-2">

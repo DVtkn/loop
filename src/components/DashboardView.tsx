@@ -17,6 +17,7 @@ import { WeeklyFeaturedTestCard } from './dashboard/WeeklyFeaturedTestCard.tsx';
 import { PetCard } from './PetCard.tsx';
 import { PairEventsFeed } from './dashboard/PairEventsFeed.tsx';
 import { ScheduleModal } from './ScheduleModal.tsx';
+import { MoodPickerModal } from './dashboard/MoodPickerModal.tsx';
 
 interface DashboardViewProps {
   setActiveTab: (tab: NavigationTab) => void;
@@ -42,6 +43,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
     xpHistory,
     pulseHistory,
     moodHistory,
+    addMoodStatus,
     loveTaps,
   } = useCouple();
 
@@ -155,6 +157,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
   const [showPartnerDetailModal, setShowPartnerDetailModal] = useState<boolean>(false);
   const [showStartDateModal, setShowStartDateModal] = useState<boolean>(false);
   const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const [showMoodPickerModal, setShowMoodPickerModal] = useState<boolean>(false);
 
   // Subtle Web Push opt-in banner for couples
   const [showPushBanner, setShowPushBanner] = useState<boolean>(() => {
@@ -369,6 +372,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           onOpenDetails={() => setShowPartnerDetailModal(true)}
           onGoToProfile={() => setActiveTab('profile')}
           onSetStartDate={() => setShowStartDateModal(true)}
+          onOpenMyStatus={() => setShowMoodPickerModal(true)}
         />
 
         {/* Мягкий баннер включения системных push-уведомлений для пары */}
@@ -516,6 +520,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           setDatesSubTab?.('wheel');
           setActiveTab('dates');
         }}
+      />
+
+      <MoodPickerModal
+        isOpen={showMoodPickerModal}
+        onClose={() => setShowMoodPickerModal(false)}
+        onSubmitMood={(key, label, note, energyLevel, careMode) => {
+          addMoodStatus(key, label, 8, note, energyLevel, careMode);
+          triggerHaptic();
+          triggerConfetti();
+        }}
+        initialMoodKey={currentPartner?.currentMood?.emoji || 'calm'}
+        initialMoodLabel={currentPartner?.currentMood?.label || 'Спокойствие'}
+        initialNote={currentPartner?.currentMood?.note || ''}
+        initialEnergyLevel={currentPartner?.currentMood?.energyLevel ?? 80}
+        initialCareMode={currentPartner?.currentMood?.careMode || 'adventure'}
       />
     </PageLayout>
   );

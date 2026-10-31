@@ -8,7 +8,7 @@ import { PetAvatarLiving } from './pet/PetAvatarLiving.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
 import { play8BitAudio } from '../utils/audio8Bit.ts';
 import { dispatchInAppNotification } from '../utils/pushManager.ts';
-import { safeGetStorage } from '../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
 import {
   PET_SPECIES_DETAILS,
   STATE_PET_QUOTES,
@@ -37,7 +37,9 @@ function getStatColor(value: number): string {
 
 export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const token = getToken();
-  const [petState, setPetState] = useState<CouplePetState | null>(null);
+  const [petState, setPetState] = useState<CouplePetState | null>(() => {
+    return safeGetStorage<CouplePetState | null>('loop_local_pet', null);
+  });
   const [showConsole, setShowConsole] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +50,15 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const [floatingHeart, setFloatingHeart] = useState<{ id: number; text: string } | null>(null);
 
   const loadPetState = async () => {
+    const cachedLocal = safeGetStorage<CouplePetState | null>('loop_local_pet', null);
+    if (cachedLocal && cachedLocal.isOnboardingCompleted) {
+      setPetState(cachedLocal);
+    }
+
     if (!token) {
-      setNeedsAuth(true);
+      if (!cachedLocal || !cachedLocal.isOnboardingCompleted) {
+        setNeedsAuth(true);
+      }
       setError(null);
       return;
     }
@@ -58,10 +67,21 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       setError(null);
       setNeedsAuth(false);
       const state = await getPetStateApi(token);
-      setPetState(state);
+      const actualState = (state as any)?.state || state;
+      if (actualState && actualState.isOnboardingCompleted) {
+        setPetState(actualState);
+        safeSetStorage('loop_local_pet', actualState);
+      } else if (cachedLocal && cachedLocal.isOnboardingCompleted) {
+        setPetState(cachedLocal);
+      } else {
+        setPetState(null);
+      }
     } catch (e: any) {
       const msg = e.message || 'Ошибка загрузки питомца';
-      if (msg.includes('Сессия истекла') || msg.includes('401') || msg.includes('токен недействителен')) {
+      if (cachedLocal && cachedLocal.isOnboardingCompleted) {
+        setPetState(cachedLocal);
+        setError(null);
+      } else if (msg.includes('Сессия истекла') || msg.includes('401') || msg.includes('токен недействителен')) {
         setNeedsAuth(true);
         setError(null);
       } else if (msg.includes('не состоите в паре') || msg.includes('403')) {
@@ -217,8 +237,16 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
             isOpen={showConsole}
             onClose={() => setShowConsole(false)}
             initialPetState={petState && petState.isOnboardingCompleted ? petState : undefined}
-            onPetCreated={(newPet) => setPetState(newPet)}
-            onPetUpdated={(updatedPet) => setPetState(updatedPet)}
+            onPetCreated={(newPet) => {
+              const actual = (newPet as any)?.state || newPet;
+              setPetState(actual);
+              safeSetStorage('loop_local_pet', actual);
+            }}
+            onPetUpdated={(updatedPet) => {
+              const actual = (updatedPet as any)?.state || updatedPet;
+              setPetState(actual);
+              safeSetStorage('loop_local_pet', actual);
+            }}
           />
         )}
       </>
@@ -462,8 +490,16 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
           isOpen={showConsole}
           onClose={() => setShowConsole(false)}
           initialPetState={petState && petState.isOnboardingCompleted ? petState : undefined}
-          onPetCreated={(newPet) => setPetState(newPet)}
-          onPetUpdated={(updatedPet) => setPetState(updatedPet)}
+          onPetCreated={(newPet) => {
+            const actual = (newPet as any)?.state || newPet;
+            setPetState(actual);
+            safeSetStorage('loop_local_pet', actual);
+          }}
+          onPetUpdated={(updatedPet) => {
+            const actual = (updatedPet as any)?.state || updatedPet;
+            setPetState(actual);
+            safeSetStorage('loop_local_pet', actual);
+          }}
         />
       )}
     </>

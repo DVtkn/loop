@@ -3571,11 +3571,25 @@ async function createPet(userLogin, species, name) {
     throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
   }
   const existingPet = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
-  if (existingPet.length > 0) {
-    throw { status: 400, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u043F\u0430\u0440\u044B \u0443\u0436\u0435 \u0441\u043E\u0437\u0434\u0430\u043D" };
-  }
   const now = /* @__PURE__ */ new Date();
   const nowISO = now.toISOString();
+  if (existingPet.length > 0) {
+    await db.update(couplePets).set({
+      name: name.trim(),
+      species,
+      isOnboardingCompleted: true,
+      updatedAt: nowISO
+    }).where(eq9(couplePets.pairKey, coupleInfo.pairKey));
+    const updatedRows = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
+    const updatedPet = normalizePetRow(updatedRows[0]);
+    return {
+      success: true,
+      state: updatedPet,
+      message: `\u{1F389} ${name.trim()} \u0442\u0435\u043F\u0435\u0440\u044C \u0441 \u0432\u0430\u043C\u0438!`,
+      levelUp: false,
+      expGained: 25
+    };
+  }
   const petId = crypto.randomUUID();
   const newPet = {
     id: petId,

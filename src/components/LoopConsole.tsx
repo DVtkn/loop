@@ -272,10 +272,11 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
 
     try {
       if (token) {
-        const result = await birthPetApi({ species: selectedSpecies, name: trimmed }, token);
-        setPet(result);
-        safeSetStorage('loop_local_pet', result);
-        if (onPetCreated) onPetCreated(result);
+        const rawResult = await birthPetApi({ species: selectedSpecies, name: trimmed }, token);
+        const actualPet = (rawResult as any)?.state || rawResult;
+        setPet(actualPet);
+        safeSetStorage('loop_local_pet', actualPet);
+        if (onPetCreated) onPetCreated(actualPet);
       } else {
         setPet(localPet);
         safeSetStorage('loop_local_pet', localPet);

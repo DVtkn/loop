@@ -279,12 +279,37 @@ export async function createPet(
     .from(couplePets)
     .where(eq(couplePets.pairKey, coupleInfo.pairKey))
     .limit(1);
-  if (existingPet.length > 0) {
-    throw { status: 400, message: "Питомец для этой пары уже создан" };
-  }
 
   const now = new Date();
   const nowISO = now.toISOString();
+
+  if (existingPet.length > 0) {
+    // If pet exists, update it to complete onboarding and ensure correct name & species
+    await db
+      .update(couplePets)
+      .set({
+        name: name.trim(),
+        species: species as any,
+        isOnboardingCompleted: true,
+        updatedAt: nowISO,
+      })
+      .where(eq(couplePets.pairKey, coupleInfo.pairKey));
+
+    const updatedRows = await db
+      .select()
+      .from(couplePets)
+      .where(eq(couplePets.pairKey, coupleInfo.pairKey))
+      .limit(1);
+
+    const updatedPet = normalizePetRow(updatedRows[0] as Record<string, unknown>);
+    return {
+      success: true,
+      state: updatedPet,
+      message: `🎉 ${name.trim()} теперь с вами!`,
+      levelUp: false,
+      expGained: 25,
+    };
+  }
   
   const petId = crypto.randomUUID();
   

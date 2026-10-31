@@ -36,7 +36,8 @@ export async function getPetStateApi(token: string): Promise<CouplePetState> {
 }
 
 export async function birthPetApi(data: PetBirthRequest, token: string): Promise<CouplePetState> {
-  return fetchWithAuth("/birth", { method: "POST", body: JSON.stringify(data) }, token);
+  const res = await fetchWithAuth("/birth", { method: "POST", body: JSON.stringify(data) }, token);
+  return (res as any)?.state || res;
 }
 
 export async function performPetActionApi(

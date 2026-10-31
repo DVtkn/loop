@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Sun, Moon, Bell, Award, Flame, User, Heart, Sparkles, X } from 'lucide-react';
 import { useCouple } from '../context/CoupleContext';
 import { LoopLogo } from './LoopLogo';
+import { NotificationsModal } from './NotificationsModal';
 
 interface HeaderProps {
   onOpenAchievements?: () => void;
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
     coupleXP,
     coupleLevelInfo,
     feedItems,
+    clearFeed,
   } = useCouple() as any;
 
   const partner1 = coupleProfile.partner1;
@@ -123,35 +125,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
       </div>
     </header>
     {showActivity && (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowActivity(false)} />
-        <div className="relative w-full sm:max-w-md max-h-[70vh] sm:max-h-[60vh] bg-[var(--surface)] rounded-t-3xl sm:rounded-3xl border border-[var(--divider)] shadow-2xl flex flex-col animate-slideUp overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-[var(--divider)]">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center"><Bell className="w-4 h-4" /></div>
-              <h3 className="font-bold text-[var(--text)]">Уведомления</h3>
-              {feedItems.length > 0 && <span className="text-xs bg-[var(--surface-2)] border border-[var(--divider)] px-2 py-0.5 rounded-full">{feedItems.length}</span>}
-            </div>
-            <button onClick={() => setShowActivity(false)} className="w-8 h-8 rounded-full bg-[var(--surface-2)] flex items-center justify-center"><X className="w-4 h-4" /></button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {feedItems.length === 0 ? (
-              <div className="py-12 text-center text-sm text-[var(--text-2)]">Пока нет уведомлений — отправьте объятие или пройдите тест ❤️</div>
-            ) : (
-              feedItems.slice(0, 20).map((it: any) => (
-                <div key={it.id} className="p-3 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)]">
-                  <div className="text-xs font-bold text-[var(--text)]">{it.title}</div>
-                  <div className="text-[11px] text-[var(--text-2)] mt-0.5">{it.subtitle}</div>
-                  <div className="text-[10px] text-[var(--text-3)] mt-1">{it.timeAgo || ''}</div>
-                </div>
-              ))
-            )}
-          </div>
-          <div className="p-3 border-t border-[var(--divider)]">
-            <button onClick={() => setShowActivity(false)} className="w-full py-3 rounded-xl bg-[var(--accent)] text-white font-bold text-sm">Закрыть</button>
-          </div>
-        </div>
-      </div>
+      <NotificationsModal
+        isOpen={showActivity}
+        onClose={() => setShowActivity(false)}
+        feedItems={Array.isArray(feedItems) ? feedItems : []}
+        onClearAll={clearFeed}
+      />
     )}
     </>
   );

@@ -170,7 +170,7 @@ const MainLayout: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative z-0">
         {!isChatTab && (
-          <div className="shrink-0 z-10">
+          <div className="shrink-0 z-10 md:hidden">
             <Header 
               onOpenAchievements={() => setShowAchievementsModal(true)}
               onOpenSettings={() => setActiveTab('profile')}

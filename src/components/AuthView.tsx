@@ -16,7 +16,17 @@ import { useCouple } from '../context/CoupleContext';
 
 export const AuthView: React.FC = () => {
   const { authLogin, authRegister, authResetPassword } = useCouple();
-  const [showLanding, setShowLanding] = useState(false);
+  const [showLanding, setShowLanding] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const hasToken = localStorage.getItem('loop_auth_token');
+      const hasUser = localStorage.getItem('loop_user_login');
+      const hasSeen = localStorage.getItem('loop_seen_landing');
+      return !hasToken && !hasUser && hasSeen !== 'true';
+    } catch {
+      return false;
+    }
+  });
 
   const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [login, setLogin] = useState<string>('');
@@ -77,7 +87,12 @@ export const AuthView: React.FC = () => {
   if (showLanding) {
     return (
       <div className="h-full w-full overflow-y-auto bg-[var(--bg)] selection:bg-[var(--accent)]/20 selection:text-[var(--accent)]">
-        <LandingView onEnterApp={() => setShowLanding(false)} />
+        <LandingView onEnterApp={() => {
+          try {
+            localStorage.setItem('loop_seen_landing', 'true');
+          } catch {}
+          setShowLanding(false);
+        }} />
       </div>
     );
   }
@@ -92,6 +107,18 @@ export const AuthView: React.FC = () => {
         {/* Glow Header Accent */}
         <div className="absolute -top-16 -right-16 w-40 h-40 bg-[var(--accent)] opacity-15 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-40 h-40 bg-[var(--accent-2)] opacity-15 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Top Header Row with About App Link */}
+        <div className="flex items-center justify-between mb-4 relative z-10">
+          <button
+            type="button"
+            onClick={() => setShowLanding(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--accent)] transition-colors py-1.5 px-3 rounded-full bg-[var(--surface-2)] border border-[var(--divider)] shadow-2xs cursor-pointer active:scale-95"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[var(--accent)]" />
+            <span>О приложении</span>
+          </button>
+        </div>
 
         {/* Brand Icon & Name */}
         <div className="text-center mb-6">

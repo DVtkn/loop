@@ -39,72 +39,72 @@
   --font-main: var(--font-manrope);
 }
 
-/* Flo & Couple Joy Light Theme - Warm Milky Cream (#FFFDFB) & Soft Peach Rose (#FF5E74) */
+/* Modern Premium Warm Palette (Flo, Paired & Apple Health aesthetics) */
 :root, [data-theme="aurora"] {
-  --bg: #FFFDFB;
-  --bg-subtle: #F8F5EE;
-  --surface: rgba(255, 255, 255, 0.95);
+  --bg: #FAF9F6;
+  --bg-subtle: #F3F1ED;
+  --surface: rgba(255, 255, 255, 0.88);
   --surface-solid: #FFFFFF;
-  --surface-2: #FBF8F3;
-  --surface-3: #F2EDE4;
+  --surface-2: #F6F4EF;
+  --surface-3: #ECE8E0;
   --surface-blush: #FFF1F3;
-  --surface-blush-border: rgba(255, 94, 116, 0.18);
-  --text: #1E1A1B;
-  --text-2: #6E6768;
-  --text-3: #9F9799;
-  --divider: rgba(255, 94, 116, 0.08);
-  --divider-subtle: rgba(30, 26, 27, 0.04);
-  --accent: #FF5E74;
-  --accent-rgb: 255, 94, 116;
-  --accent-hover: #E84D63;
-  --accent-dark: #CE364D;
-  --accent-light: rgba(255, 94, 116, 0.09);
-  --accent-blush: #FFF0F2;
-  --accent-glow: rgba(255, 94, 116, 0.20);
-  --accent-2: #FF758C;
-  --accent-3: #2FB86F;
-  --accent-blue: #4A90E2;
-  --accent-orange: #FF8F3D;
-  --tabbar-bg: rgba(255, 253, 251, 0.92);
-  --header-bg: rgba(255, 253, 251, 0.90);
-  --card-shadow: 0 12px 34px -8px rgba(255, 94, 116, 0.08), 0 4px 16px -2px rgba(30, 26, 27, 0.03);
-  --card-shadow-hover: 0 18px 42px -6px rgba(255, 94, 116, 0.15), 0 6px 20px -2px rgba(30, 26, 27, 0.04);
-  --card-border: rgba(255, 94, 116, 0.14);
+  --surface-blush-border: rgba(244, 63, 94, 0.12);
+  --text: #1C1917;
+  --text-2: #57534E;
+  --text-3: #A8A29E;
+  --divider: rgba(28, 25, 23, 0.05);
+  --divider-subtle: rgba(28, 25, 23, 0.03);
+  --accent: #F43F5E;
+  --accent-rgb: 244, 63, 94;
+  --accent-hover: #E11D48;
+  --accent-dark: #BE123C;
+  --accent-light: rgba(244, 63, 94, 0.08);
+  --accent-blush: #FFF1F3;
+  --accent-glow: rgba(244, 63, 94, 0.14);
+  --accent-2: #FB7185;
+  --accent-3: #10B981;
+  --accent-blue: #3B82F6;
+  --accent-orange: #F97316;
+  --tabbar-bg: rgba(250, 249, 246, 0.85);
+  --header-bg: rgba(250, 249, 246, 0.85);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 8px 24px -4px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.03), 0 16px 36px -4px rgba(0, 0, 0, 0.06);
+  --card-border: rgba(0, 0, 0, 0.05);
   --card-highlight: none;
   --btn-highlight: none;
   --mesh-opacity: 0.90;
 }
 
-/* Flo & Couple Joy Dark Theme - Midnight Velvet & Soft Warm Rose Glow */
+/* Midnight Velvet & Warm Romantic Rose Glow (Dark Theme) */
 [data-theme="night"], .dark {
-  --bg: #0F0E12;
-  --bg-subtle: #16151B;
-  --surface: rgba(26, 24, 30, 0.85);
-  --surface-solid: #19171E;
-  --surface-2: rgba(36, 33, 42, 0.75);
-  --surface-3: rgba(49, 45, 56, 0.85);
-  --surface-blush: rgba(255, 94, 116, 0.12);
-  --surface-blush-border: rgba(255, 94, 116, 0.28);
-  --text: #FDFBFC;
-  --text-2: #A8A1A3;
-  --text-3: #726C6E;
-  --divider: rgba(255, 255, 255, 0.08);
+  --bg: #0C0A09;
+  --bg-subtle: #141210;
+  --surface: rgba(26, 23, 22, 0.85);
+  --surface-solid: #191615;
+  --surface-2: rgba(38, 34, 32, 0.75);
+  --surface-3: rgba(54, 49, 46, 0.85);
+  --surface-blush: rgba(244, 63, 94, 0.12);
+  --surface-blush-border: rgba(244, 63, 94, 0.22);
+  --text: #FAF8F5;
+  --text-2: #A8A29E;
+  --text-3: #78716C;
+  --divider: rgba(255, 255, 255, 0.07);
   --divider-subtle: rgba(255, 255, 255, 0.04);
-  --accent: #FF5E74;
-  --accent-rgb: 255, 94, 116;
-  --accent-hover: #FF758C;
-  --accent-dark: #E84D63;
-  --accent-light: rgba(255, 94, 116, 0.15);
-  --accent-blush: rgba(255, 94, 116, 0.14);
-  --accent-glow: rgba(255, 94, 116, 0.26);
-  --accent-2: #FF758C;
-  --accent-3: #30D158;
-  --accent-blue: #4A90E2;
-  --accent-orange: #FF8F3D;
-  --tabbar-bg: rgba(19, 17, 23, 0.92);
-  --header-bg: rgba(15, 14, 18, 0.90);
-  --card-shadow: 0 10px 32px -4px rgba(0, 0, 0, 0.45), 0 2px 8px -2px rgba(0, 0, 0, 0.25);
-  --card-shadow-hover: 0 16px 40px -4px rgba(255, 94, 116, 0.16), 0 4px 12px -2px rgba(0, 0, 0, 0.30);
+  --accent: #FB7185;
+  --accent-rgb: 251, 113, 133;
+  --accent-hover: #FDA4AF;
+  --accent-dark: #F43F5E;
+  --accent-light: rgba(251, 113, 133, 0.14);
+  --accent-blush: rgba(251, 113, 133, 0.12);
+  --accent-glow: rgba(251, 113, 133, 0.20);
+  --accent-2: #F43F5E;
+  --accent-3: #34D399;
+  --accent-blue: #60A5FA;
+  --accent-orange: #FB923C;
+  --tabbar-bg: rgba(12, 10, 9, 0.88);
+  --header-bg: rgba(12, 10, 9, 0.88);
+  --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --card-shadow-hover: 0 8px 30px -2px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
   --card-border: rgba(255, 255, 255, 0.08);
   --card-highlight: none;
   --btn-highlight: none;
@@ -493,23 +493,39 @@ body.in-chat-view .bottom-nav {
 }
 
 .hug-btn-primary {
-  background: linear-gradient(135deg, #FF3B4E 0%, #E8293D 100%);
+  background: linear-gradient(135deg, #F43F5E 0%, #E11D48 100%);
   color: #FFFFFF;
   border-radius: 9999px;
-  box-shadow: 0 4px 18px -2px rgba(255, 59, 78, 0.28), 0 2px 6px rgba(255, 59, 78, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.2s ease;
+  box-shadow: 0 4px 20px -2px rgba(244, 63, 94, 0.30), 0 2px 6px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 .hug-btn-primary:hover {
   transform: translateY(-1px) scale(1.01);
-  box-shadow: 0 6px 24px -2px rgba(255, 59, 78, 0.35), 0 2px 8px rgba(255, 59, 78, 0.18);
-  filter: brightness(1.02);
+  box-shadow: 0 8px 24px -2px rgba(244, 63, 94, 0.38), 0 2px 8px rgba(0, 0, 0, 0.06);
+  filter: brightness(1.03);
 }
 
 .hug-btn-primary:active {
-  transform: scale(0.96);
-  box-shadow: 0 2px 8px rgba(255, 59, 78, 0.2);
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.25);
+}
+
+.touch-pill-action {
+  background: var(--surface-solid);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.touch-pill-action:hover {
+  transform: translateY(-1px);
+  background: var(--surface-2);
+}
+
+.touch-pill-action:active {
+  transform: scale(0.94);
 }
 
 @keyframes heartbeat {

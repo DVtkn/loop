@@ -308,6 +308,27 @@ export const HugButtonWithMenu: React.FC<HugButtonWithMenuProps> = ({
         )}
       </motion.button>
 
+      {/* Quick Emotional Touch Pills (1-tap micro gestures for mobile) */}
+      <div className="grid grid-cols-3 gap-2 mt-2 select-none">
+        {EMOTIONAL_SIGNALS.filter(s => s.id !== 'hug').slice(0, 3).map((sig) => {
+          const Icon = sig.icon;
+          return (
+            <button
+              key={sig.id}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectSignal(sig);
+              }}
+              className="touch-pill-action py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] active:scale-95 transition-all cursor-pointer shadow-2xs"
+            >
+              <Icon className={`w-3.5 h-3.5 ${sig.color}`} />
+              <span className="truncate">{sig.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Onboarding hint */}
       <AnimatePresence>
         {showLongPressHint && !showRadialMenu && (

@@ -433,46 +433,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ setActiveTab }) =>
           }}
         />
 
-        {/* 2. Зона 2: Главный ритуал дня (Вопрос дня для двоих) */}
-        <DailyQuestionTeaser
-          currentDailyQuestion={currentDailyQuestion}
-          questionAnswer={questionAnswer}
-          partnerAnswer={partnerDailyAnswer}
-          partnerName={partnerName}
-          onAnswerSubmit={handleAnswerSubmit}
-          onSendReaction={handleDailyQuestionReaction}
-        />
+        {/* 2. Bento Grid: Вопрос Дня и Живой Питомец Пары */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-stretch">
+          <DailyQuestionTeaser
+            currentDailyQuestion={currentDailyQuestion}
+            questionAnswer={questionAnswer}
+            partnerAnswer={partnerDailyAnswer}
+            partnerName={partnerName}
+            onAnswerSubmit={handleAnswerSubmit}
+            onSendReaction={handleDailyQuestionReaction}
+          />
 
-        {/* 3. Зона 3: Психологическое познание друг друга (Тест недели) */}
-        <WeeklyFeaturedTestCard
-          tests={tests || []}
-          currentPartnerId={currentPartnerId}
-          partnerName={partnerName}
-          onOpenTest={() => setActiveTab('tests')}
-          onOpenAllTests={() => setActiveTab('tests')}
-          onOpenPassport={() => {
-            setUsSubTab('passport');
-            setActiveTab('us');
-          }}
-        />
-
-        {/* 4. Зона 4: Живой тамагочи союза */}
-        <div id="block-living-pet">
-          <PetCard isPaired={isPaired} />
+          <div id="block-living-pet" className="flex flex-col">
+            <PetCard isPaired={isPaired} />
+          </div>
         </div>
 
-        {/* 5. Зона 5: Аналитика и инструменты союза */}
-        <CompatibilityAndStreak
-          hasCompatibilityData={hasCompatibilityData}
-          compatibilityPercent={compatibilityPercent}
-          compatibilityStatus={compatibilityStatus}
-          streakDaysCount={streakDaysCount}
-          onOpenPassport={() => {
-            setUsSubTab('passport');
-            setActiveTab('us');
-          }}
-          onOpenTests={() => setActiveTab('tests')}
-        />
+        {/* 3. Bento Grid: Психологический Тест Недели и Совместимость */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 items-stretch">
+          <WeeklyFeaturedTestCard
+            tests={tests || []}
+            currentPartnerId={currentPartnerId}
+            partnerName={partnerName}
+            onOpenTest={() => setActiveTab('tests')}
+            onOpenAllTests={() => setActiveTab('tests')}
+            onOpenPassport={() => {
+              setUsSubTab('passport');
+              setActiveTab('us');
+            }}
+          />
+
+          <CompatibilityAndStreak
+            hasCompatibilityData={hasCompatibilityData}
+            compatibilityPercent={compatibilityPercent}
+            compatibilityStatus={compatibilityStatus}
+            streakDaysCount={streakDaysCount}
+            onOpenPassport={() => {
+              setUsSubTab('passport');
+              setActiveTab('us');
+            }}
+            onOpenTests={() => setActiveTab('tests')}
+          />
+        </div>
 
         {/* 6. Зона 6: События пары и планы */}
         <PairEventsFeed

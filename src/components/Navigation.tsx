@@ -196,7 +196,23 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
 
         {/* Sidebar Footer: Couple Stats */}
-        <div className="p-4 border-t border-[var(--divider)]">
+        <div className="p-4 border-t border-[var(--divider)] space-y-2.5">
+          {onOpenAchievements && (
+            <button
+              type="button"
+              onClick={onOpenAchievements}
+              className="w-full p-2.5 rounded-xl bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center justify-between transition-all cursor-pointer group active:scale-98 shadow-2xs"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold text-[var(--text)]">Награды & Уровень</span>
+              </div>
+              <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--surface-blush)] px-2 py-0.5 rounded-full">
+                🏆 {achievements?.filter(a => a.unlocked)?.length || 0}
+              </span>
+            </button>
+          )}
+
           <div className="p-3 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] flex items-center justify-between shadow-2xs">
             <div className="flex items-center gap-2.5">
               <div className="flex -space-x-2 overflow-hidden">
@@ -223,10 +239,10 @@ export const Navigation: React.FC<NavigationProps> = ({
       {variant !== 'sidebar' && (
       <nav 
         aria-label="Основная навигация"
-        className="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 select-none bg-[var(--surface-solid)]/90 dark:bg-[var(--surface-solid)]/95 backdrop-blur-xl border-t border-[var(--divider)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
+        className="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 select-none bg-[var(--surface-solid)]/85 dark:bg-[var(--surface-solid)]/90 backdrop-blur-2xl border-t border-[var(--divider)] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))]"
       >
-        <div className="max-w-md mx-auto px-2">
-          <div className="grid grid-cols-5 h-[50px] items-center">
+        <div className="max-w-md mx-auto px-3">
+          <div className="grid grid-cols-5 h-[52px] items-center">
             {navItems.map((item) => {
               const active = isTabActive(item.id);
               const Icon = item.icon;
@@ -235,19 +251,27 @@ export const Navigation: React.FC<NavigationProps> = ({
                   key={item.id}
                   id={`mobile-tab-${item.id}`}
                   onClick={() => handleTabClick(item.id)}
-                  className={`relative flex flex-col items-center justify-center h-full py-1 transition-all active:scale-95 cursor-pointer ${
-                    active ? 'text-[var(--accent)]' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+                  className={`relative flex flex-col items-center justify-center h-full py-1 transition-all active:scale-90 cursor-pointer ${
+                    active ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
                   }`}
                 >
+                  {/* Subtle animated active pill background */}
+                  {active && (
+                    <motion.div
+                      layoutId="mobileActiveTab"
+                      className="absolute inset-x-1 inset-y-1 rounded-2xl bg-[var(--surface-blush)]/70 dark:bg-[var(--surface-blush)]/25 -z-10"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
                   <div className="relative">
-                    <Icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.3]' : 'stroke-[1.7]'}`} />
+                    <Icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.4] scale-105' : 'stroke-[1.8]'}`} />
                     {item.badge !== undefined && item.badge > 0 && (
                       <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 px-1 rounded-full bg-[var(--accent)] text-white text-[9px] font-bold flex items-center justify-center shadow-xs leading-none">
                         {item.badge > 99 ? '99+' : item.badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[11px] mt-0.5 tracking-tight ${active ? 'font-semibold text-[var(--accent)]' : 'font-normal text-[var(--text-3)]'}`}>
+                  <span className={`text-[11px] mt-0.5 tracking-tight leading-none ${active ? 'font-semibold text-[var(--accent)]' : 'font-medium text-[var(--text-3)]'}`}>
                     {item.label}
                   </span>
                 </button>

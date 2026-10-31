@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, UserPlus, CalendarHeart } from 'lucide-react';
+import { ChevronRight, UserPlus, CalendarHeart, Heart, Sparkles, Battery } from 'lucide-react';
 import { ColoredAvatar } from '../ColoredIcon.tsx';
 import {
   getBatteryTier,
@@ -274,8 +274,8 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
             </div>
 
             {/* Connected Love Bridge Icon */}
-            <div className="relative -mx-2 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-solid)] shadow-xs border border-[var(--accent)]/20">
-              <span className="text-[11px] leading-none animate-pulse">💖</span>
+            <div className="relative -mx-2 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-solid)] shadow-xs border border-[var(--accent)]/20 text-[var(--accent)]">
+              <Heart className="w-3.5 h-3.5 fill-[var(--accent)] animate-pulse" />
             </div>
 
             {/* Partner Avatar with Online Indicator */}
@@ -361,11 +361,11 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
                 e.stopPropagation();
                 onOpenMyStatus();
               }}
-              className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--text-2)] hover:text-[var(--text)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] px-2.5 py-1.5 rounded-xl border border-[var(--divider)] transition-all cursor-pointer active:scale-95"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] px-2.5 py-1.5 rounded-xl border border-[var(--divider)] transition-all cursor-pointer active:scale-95 shadow-2xs"
               title="Указать мой заряд и настроение"
             >
               <span>{myEnergy !== undefined ? myBatteryTier?.icon : '🔋'}</span>
-              <span>{myEnergy !== undefined ? `${myEnergy}%` : 'Мой заряд'}</span>
+              <span>{myEnergy !== undefined ? `${myEnergy}%` : 'Указать мой заряд'}</span>
             </button>
           )}
 
@@ -403,24 +403,6 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
             <span>{careSuggestion.actionLabel}</span>
             <span>→</span>
           </span>
-        </div>
-      )}
-
-      {/* Mobile-only My Status Trigger row if not set */}
-      {onOpenMyStatus && myEnergy === undefined && (
-        <div className="flex md:hidden items-center justify-between pt-2 mt-2 border-t border-[var(--divider)]/60 text-xs text-[var(--text-2)] z-10">
-          <span className="text-[11px]">Поделитесь своим уровнем энергии:</span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenMyStatus();
-            }}
-            className="text-[11px] font-bold text-[var(--accent)] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>🔋 Указать мой заряд</span>
-            <span>→</span>
-          </button>
         </div>
       )}
     </section>

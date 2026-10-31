@@ -180,15 +180,16 @@ export const PhotoArchive: React.FC = () => {
       />
 
       {/* Top Header Card */}
-      <div className="p-4 sm:p-5 rounded-3xl bg-[var(--surface)] border border-[var(--divider)] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-              <Camera className="w-4 h-4" />
-            </div>
-            <h2 className="text-base sm:text-lg font-bold text-[var(--text)]">Фотоархив пары</h2>
+      <div className="p-5 sm:p-6 rounded-[32px] bg-gradient-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/30 to-amber-500/8 border border-[var(--card-border)] shadow-[var(--card-shadow)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative overflow-hidden">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-linear-to-r from-amber-500/15 to-orange-500/10 text-amber-700 dark:text-amber-300 font-bold text-xs border border-amber-500/20 shadow-2xs">
+            <Camera className="w-3.5 h-3.5 text-amber-500" />
+            <span>Фотоархив пары</span>
           </div>
-          <p className="text-xs text-[var(--text-2)] leading-relaxed max-w-md">
+          <h2 className="text-lg sm:text-xl font-black text-[var(--text)] tracking-tight">
+            Альбом ваших совместных моментов
+          </h2>
+          <p className="text-xs text-[var(--text-2)] font-medium max-w-md">
             Защищённое хранилище памятных снимков. Доступно только вам и вашему партнёру.
           </p>
         </div>
@@ -196,7 +197,7 @@ export const PhotoArchive: React.FC = () => {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-[var(--accent)] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs hover:opacity-95 active:scale-95 transition-all cursor-pointer"
+          className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-[var(--accent)] to-pink-500 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-xs hover:opacity-95 active:scale-95 transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Добавить фото</span>

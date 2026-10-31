@@ -64,58 +64,60 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
       <div className="bg-[var(--surface)] rounded-3xl p-6 max-w-md w-full shadow-2xl border border-[var(--divider)] space-y-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--divider)]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--accent)]/15 text-[var(--accent)] flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-[var(--text)]">
+              <h3 className="text-base font-extrabold text-[var(--text)] tracking-tight">
                 Приглашение на свидание
               </h3>
-              <p className="text-[11px] text-[var(--text-2)]">Для {partnerName}</p>
+              <p className="text-xs text-[var(--text-2)]">Для любимого человека: {partnerName}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="p-1 text-[var(--text-2)] hover:text-[var(--text)] rounded-lg cursor-pointer"
+            className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Закрыть"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {inviteSentSuccess ? (
           <div className="py-8 text-center space-y-3">
-            <div className="w-14 h-14 mx-auto rounded-3xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8" />
+            <div className="w-16 h-16 mx-auto rounded-3xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+              <CheckCircle2 className="w-9 h-9" />
             </div>
-            <h4 className="text-base font-bold text-[var(--text)]">
-              Приглашение успешно отправлено!
+            <h4 className="text-lg font-bold text-[var(--text)]">
+              Приглашение отправлено!
             </h4>
-            <p className="text-xs text-[var(--text-2)]">
-              Партнёр получит уведомление и сможет согласовать время
+            <p className="text-xs text-[var(--text-2)] max-w-xs mx-auto leading-relaxed">
+              {partnerName} получит красивый билет в приложении и сможет согласовать удобное время 💕
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
             <div>
-              <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
-                Текст приглашения *
+              <label className="text-xs font-bold text-[var(--text)] block mb-1.5">
+                Тёплые слова & повод *
               </label>
               <textarea
                 required
                 rows={3}
                 value={inviteNote}
                 onChange={(e) => setInviteNote(e.target.value)}
-                className="w-full p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-none"
+                placeholder="Напишите, почему вы хотите провести этот вечер вместе..."
+                className="w-full p-3.5 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] resize-none transition-all leading-relaxed"
               />
             </div>
 
             {venues.length > 0 && (
               <div>
-                <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
-                  Выбрать из списка сохранённых мест:
+                <label className="text-xs font-bold text-[var(--text)] block mb-1.5">
+                  Выбрать из ваших любимых мест
                 </label>
                 <select
                   value={selectedVenueId}
@@ -123,9 +125,9 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
                     setSelectedVenueId(e.target.value);
                     if (e.target.value) setCustomLocationName('');
                   }}
-                  className="w-full p-2.5 rounded-xl bg-[var(--surface-2)] text-xs border border-[var(--divider)] text-[var(--text)] focus:outline-none"
+                  className="w-full p-3 rounded-2xl bg-[var(--surface-2)] text-xs border border-[var(--divider)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
                 >
-                  <option value="">-- Выбрать место пары или ввести своё --</option>
+                  <option value="">-- Выберите сохранённое заведение --</option>
                   {venues.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name} ({v.priceLevel})
@@ -136,8 +138,8 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
             )}
 
             <div>
-              <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
-                Или укажите своё место
+              <label className="text-xs font-bold text-[var(--text)] block mb-1.5">
+                {venues.length > 0 ? 'Или другое место' : 'Место свидания'}
               </label>
               <input
                 type="text"
@@ -146,26 +148,26 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
                   setCustomLocationName(e.target.value);
                   setSelectedVenueId('');
                 }}
-                placeholder="Например: Панорамная крыша или парк"
-                className="w-full p-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                placeholder="Например: Панорамная крыша, парк у озера или дома при свечах"
+                className="w-full p-3 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] transition-all"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <div>
-                <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
+                <label className="text-xs font-bold text-[var(--text)] block mb-1.5">
                   Желаемый день
                 </label>
                 <input
                   type="text"
                   value={inviteDate}
                   onChange={(e) => setInviteDate(e.target.value)}
-                  placeholder="Пятница или 14 февраля"
-                  className="w-full p-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  placeholder="В эту пятницу"
+                  className="w-full p-3 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] transition-all"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-[var(--text-2)] block mb-1">
+                <label className="text-xs font-bold text-[var(--text)] block mb-1.5">
                   Время
                 </label>
                 <input
@@ -173,17 +175,17 @@ export const InviteBuilderModal: React.FC<InviteBuilderModalProps> = ({
                   value={inviteTime}
                   onChange={(e) => setInviteTime(e.target.value)}
                   placeholder="19:30"
-                  className="w-full p-2.5 rounded-xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  className="w-full p-3 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] text-xs text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30 focus:border-[var(--accent)] transition-all"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-bold text-xs shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              className="w-full py-3.5 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-extrabold text-xs shadow-md shadow-[var(--accent)]/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>Отправить приглашение {partnerName}</span>
+              <Send className="w-4 h-4" />
+              <span>Отправить романтический инвайт</span>
             </button>
           </form>
         )}

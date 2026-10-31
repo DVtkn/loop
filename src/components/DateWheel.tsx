@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, RotateCw, Heart, ArrowRight } from 'lucide-react';
 import { triggerHaptic } from '../utils/haptics';
 
+export type DateVibe = 'all' | 'romantic' | 'dinner' | 'home' | 'city' | 'relax' | 'fun';
+
 export interface DateIdea {
   id: string;
   title: string;
@@ -11,6 +13,9 @@ export interface DateIdea {
   color: string;
   description: string;
   inviteText: string;
+  vibe: 'romantic' | 'dinner' | 'home' | 'city' | 'relax' | 'fun';
+  duration: string;
+  psychTip: string;
 }
 
 export const DATE_IDEAS: DateIdea[] = [
@@ -20,8 +25,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🍷',
     category: 'Ресторан',
     color: '#F43F5E',
-    description: 'Уютный столик при свечах в любимом заведении или новом месте',
+    description: 'Уютный столик при свечах в любимом заведении или новом атмосферном месте.',
     inviteText: 'Приглашаю тебя на романтический ужин при свечах в красивом ресторане',
+    vibe: 'dinner',
+    duration: '2-3 часа',
+    psychTip: 'Смена обстановки и неспешная трапеза повышают уровень окситоцина и возвращают романтический интерес.',
   },
   {
     id: 'sunset',
@@ -29,8 +37,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🌅',
     category: 'Панорама',
     color: '#F59E0B',
-    description: 'Встретить золотой час с видом на город, взяв с собой горячий чай',
+    description: 'Встретить золотой час с видом на город, взяв с собой горячий чай и тёплый плед.',
     inviteText: 'Хочу встретить с тобой закат на панорамной крыше с чаем и пледом',
+    vibe: 'city',
+    duration: '1.5-2 часа',
+    psychTip: 'Любование закатом вместе синхронизирует биоритмы и мгновенно переключает с рабочей суеты на нежность.',
   },
   {
     id: 'cinema',
@@ -38,8 +49,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🎬',
     category: 'Кино',
     color: '#8B5CF6',
-    description: 'Любимый фильм, попкорн или камерный зал на последних рядах',
+    description: 'Любимый фильм, попкорн или камерный зал на последних рядах только для вас.',
     inviteText: 'Давай выберем классный фильм и проведём вечер в кино под тёплым пледом',
+    vibe: 'home',
+    duration: '2 часа',
+    psychTip: 'Тактильная близость во время совместного просмотра и обсуждение сюжета сближают без давления.',
   },
   {
     id: 'walk',
@@ -47,8 +61,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '☕',
     category: 'Кофейня',
     color: '#10B981',
-    description: 'Неспешный разговор по тихим улочкам с любимым напитком в руках',
+    description: 'Неспешный разговор по тихим улочкам с любимым ароматным напитком в руках.',
     inviteText: 'Пойдём гулять по вечернему городу с горячим кофе и неспешными разговорами',
+    vibe: 'city',
+    duration: '1-1.5 часа',
+    psychTip: 'Прогулка плечом к плечу облегчает искренние разговоры: взгляд направлен вперёд, снимая напряжение.',
   },
   {
     id: 'cooking',
@@ -56,8 +73,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🍕',
     category: 'Дома',
     color: '#EC4899',
-    description: 'Приготовить вместе домашнюю пасту, пиццу или изысканный десерт',
+    description: 'Приготовить вместе домашнюю пасту, пиццу с необычными топингами или десерт.',
     inviteText: 'Предлагаю устроить уютный вечер дома: приготовим вместе что-нибудь вкусное!',
+    vibe: 'home',
+    duration: '1.5-2 часа',
+    psychTip: 'Слаженная игра на кухне и разделение задач формируют ощущение сплоченной и надежной команды.',
   },
   {
     id: 'spa',
@@ -65,8 +85,11 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🫧',
     category: 'Релакс',
     color: '#06B6D4',
-    description: 'Бассейн, массаж, сауна и полная перезагрузка вдвоём',
+    description: 'Бассейн, аромасауна, массаж и полная чувственная перезагрузка вдвоём.',
     inviteText: 'Предлагаю устроить расслабляющий день в СПА только для нас двоих',
+    vibe: 'relax',
+    duration: '2-4 часа',
+    psychTip: 'Телесное расслабление снижает кортизол и помогает заново почувствовать притяжение друг к другу.',
   },
   {
     id: 'art',
@@ -74,31 +97,88 @@ export const DATE_IDEAS: DateIdea[] = [
     emoji: '🎨',
     category: 'Впечатления',
     color: '#6366F1',
-    description: 'Гончарное дело, рисование вином или кулинарный воркшоп',
+    description: 'Гончарный круг, рисование вином, кулинарный воркшоп или роспись керамики.',
     inviteText: 'Давай сходим на необычный творческий мастер-класс и создадим что-то вместе!',
+    vibe: 'fun',
+    duration: '2-3 часа',
+    psychTip: 'Новые общие навыки вызывают яркий выброс дофамина, обновляя эмоциональные якоря отношений.',
   },
   {
     id: 'surprise',
-    title: 'Сюрприз для двоих',
+    title: 'Свидание-сюрприз',
     emoji: '✨',
     category: 'Секрет',
     color: '#E11D48',
-    description: 'Один партнёр выбирает маршрут, а второй узнаёт всё только на месте',
+    description: 'Один партнёр держит маршрут в тайне, а второй наслаждается интригой до самого финала.',
     inviteText: 'Я подготовил(а) для тебя свидание-сюрприз. Локация останется тайной до самого начала!',
+    vibe: 'romantic',
+    duration: 'Весь вечер',
+    psychTip: 'Сладкое предвкушение и взаимное доверие разжигают романтическую искру и детский азарт.',
+  },
+  {
+    id: 'spa_home',
+    title: 'Ванна при свечах',
+    emoji: '🛁',
+    category: 'Релакс',
+    color: '#14B8A6',
+    description: 'Теплая пенная ванна, расслабляющий плейлист, свечи и массаж после тяжелой недели.',
+    inviteText: 'Давай устроим расслабляющий вечер дома: ванна при свечах, музыка и массаж только для нас.',
+    vibe: 'relax',
+    duration: '1.5 часа',
+    psychTip: 'Бескорыстная забота о комфорте партнера закладывает глубочайшее ощущение эмоционального дома.',
+  },
+  {
+    id: 'night_drive',
+    title: 'Огни ночного города',
+    emoji: '🚗',
+    category: 'Город',
+    color: '#3B82F6',
+    description: 'Любимый плейлист, пустые ночные мосты и откровенный разговор без посторонних.',
+    inviteText: 'Поедем кататься по ночному городу под наш любимый трек-лист и огни фонарей?',
+    vibe: 'city',
+    duration: '1.5-2 часа',
+    psychTip: 'Уютное замкнутое пространство и движение в темноте располагают к самым сокровенным признаниям.',
+  },
+  {
+    id: 'picnic',
+    title: 'Пикник на траве',
+    emoji: '🧺',
+    category: 'Природа',
+    color: '#10B981',
+    description: 'Плед, свежие ягоды, любимый сыр и теплый ветерок в уютном парке или у озера.',
+    inviteText: 'Приглашаю тебя на уютный пикник: возьмём плед, фрукты и просто отдохнём на природе вдвоём.',
+    vibe: 'romantic',
+    duration: '2-3 часа',
+    psychTip: 'Контакт с природой освобождает от ментального шума и дарит чувство безмятежной легкости.',
+  },
+  {
+    id: 'tasting',
+    title: 'Дегустация вкусов',
+    emoji: '🧀',
+    category: 'Ресторан',
+    color: '#F59E0B',
+    description: 'Сырная, винная или шоколадная дегустация, новые гастрономические открытия.',
+    inviteText: 'Предлагаю устроить вечер дегустации: откроем новые вкусы и отлично проведём вечер!',
+    vibe: 'dinner',
+    duration: '2 часа',
+    psychTip: 'Внимание к тонким оттенкам вкуса активизирует сенсорное восприятие и настраивает на чувственность.',
   },
 ];
 
+export const WHEEL_IDEAS = DATE_IDEAS.slice(0, 8);
+
 interface DateWheelProps {
   onSelectIdea: (idea: DateIdea) => void;
+  compact?: boolean;
 }
 
-export const DateWheel: React.FC<DateWheelProps> = ({ onSelectIdea }) => {
+export const DateWheel: React.FC<DateWheelProps> = ({ onSelectIdea, compact = false }) => {
   const [rotation, setRotation] = useState<number>(0);
   const [isSpinning, setIsSpinning] = useState<boolean>(false);
   const [selectedIdea, setSelectedIdea] = useState<DateIdea | null>(null);
   const currentRotationRef = useRef<number>(0);
 
-  const numSlices = DATE_IDEAS.length;
+  const numSlices = WHEEL_IDEAS.length;
   const sliceAngle = 360 / numSlices;
 
   const handleSpin = () => {
@@ -110,7 +190,7 @@ export const DateWheel: React.FC<DateWheelProps> = ({ onSelectIdea }) => {
 
     // Pick random target index
     const randomIndex = Math.floor(Math.random() * numSlices);
-    const targetIdea = DATE_IDEAS[randomIndex];
+    const targetIdea = WHEEL_IDEAS[randomIndex];
 
     // Pointer is at the top (270 degrees in standard circle coords or angle 0 at top).
     // Let's set top pointer at angle 0.
@@ -182,7 +262,7 @@ export const DateWheel: React.FC<DateWheelProps> = ({ onSelectIdea }) => {
             }}
           >
             <svg viewBox="-1 -1 2 2" className="w-full h-full -rotate-90 rounded-full">
-              {DATE_IDEAS.map((slice, i) => {
+              {WHEEL_IDEAS.map((slice, i) => {
                 const startAngle = i / numSlices;
                 const endAngle = (i + 1) / numSlices;
                 const [startX, startY] = getCoordinatesForPercent(startAngle);
@@ -213,7 +293,7 @@ export const DateWheel: React.FC<DateWheelProps> = ({ onSelectIdea }) => {
 
             {/* Labels and Emojis Layer inside wheel */}
             <div className="absolute inset-0 pointer-events-none">
-              {DATE_IDEAS.map((slice, i) => {
+              {WHEEL_IDEAS.map((slice, i) => {
                 const angle = i * sliceAngle + sliceAngle / 2;
                 return (
                   <div

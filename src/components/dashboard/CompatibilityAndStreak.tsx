@@ -40,8 +40,8 @@ export const CompatibilityAndStreak: React.FC<CompatibilityAndStreakProps> = ({
         {/* Превью совместимости */}
         <motion.button
           type="button"
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -1.5 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => {
             triggerHaptic('light');
             if (hasCompatibilityData) {
@@ -50,60 +50,66 @@ export const CompatibilityAndStreak: React.FC<CompatibilityAndStreakProps> = ({
               onOpenTests();
             }
           }}
-          className="p-3.5 sm:p-4 rounded-[24px] bg-[var(--surface-solid)] border border-[var(--card-border)] hover:border-[var(--accent)]/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex items-center justify-between gap-2 transition-all cursor-pointer text-left group select-none"
+          className="p-3.5 sm:p-4 rounded-[24px] bg-gradient-to-br from-[var(--surface-solid)] to-purple-500/5 dark:to-purple-950/20 border border-purple-500/15 hover:border-purple-500/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex items-center justify-between gap-2 transition-all cursor-pointer text-left group select-none relative overflow-hidden"
           title={hasCompatibilityData ? 'Перейти в Паспорт пары' : 'Пройти первый тест для расчёта совместимости'}
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="w-9 h-9 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold text-[var(--text)] leading-tight flex items-center gap-1">
-                <span>{hasCompatibilityData ? `${compatibilityPercent}%` : null}</span>
-                <span className="text-[10px] text-[var(--text-3)] font-normal hidden sm:inline">
+              <div className="text-xs sm:text-sm font-black text-[var(--text)] leading-tight flex items-center gap-1">
+                <span className={hasCompatibilityData ? 'text-purple-600 dark:text-purple-400' : ''}>
+                  {hasCompatibilityData ? `${compatibilityPercent}%` : null}
+                </span>
+                <span className="text-[10px] text-[var(--text-3)] font-semibold hidden sm:inline">
                   {hasCompatibilityData ? '• Паспорт' : '• Тесты'}
                 </span>
               </div>
-              <div className="text-[11px] text-[var(--text-2)] font-medium leading-snug mt-0.5 whitespace-nowrap">
+              <div className="text-[11px] text-[var(--text-2)] font-bold leading-snug mt-0.5 whitespace-nowrap">
                 {hasCompatibilityData ? compatibilityStatus : 'Пройти тест'}
               </div>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-3)] group-hover:text-[var(--accent)] group-hover:translate-x-0.5 transition-all shrink-0" />
+          <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-purple-500 group-hover:translate-x-0.5 transition-all shrink-0" />
         </motion.button>
 
         {/* Стрик активности пары */}
         <motion.button
           type="button"
-          whileHover={{ y: -1 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -1.5 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => {
             triggerHaptic('selection');
             setShowStreakModal(true);
           }}
-          className="p-3.5 sm:p-4 rounded-[24px] bg-[var(--surface-solid)] border border-[var(--card-border)] hover:border-amber-500/40 shadow-[var(--card-shadow)] flex items-center justify-between gap-2 transition-all text-left select-none cursor-pointer group"
+          className="p-3.5 sm:p-4 rounded-[24px] bg-gradient-to-br from-[var(--surface-solid)] to-amber-500/5 dark:to-amber-950/20 border border-amber-500/15 hover:border-amber-500/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex items-center justify-between gap-2 transition-all text-left select-none cursor-pointer group relative overflow-hidden"
           title="Узнать о стрике пары"
         >
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
             <div
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${currentTier.bg} ${currentTier.color}`}
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 shadow-xs ${
+                streakDaysCount > 0
+                  ? 'bg-gradient-to-tr from-amber-500 to-orange-500 text-white'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
+              }`}
             >
-              <Flame className={`w-4 h-4 ${streakDaysCount > 0 ? 'fill-current' : ''}`} />
+              <Flame className={`w-4 h-4 ${streakDaysCount > 0 ? 'fill-white animate-pulse' : ''}`} />
             </div>
             <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold text-[var(--text)] leading-tight flex items-center gap-1">
-                <span>
+              <div className="text-xs sm:text-sm font-black text-[var(--text)] leading-tight flex items-center gap-1">
+                <span className={streakDaysCount > 0 ? 'text-amber-600 dark:text-amber-400' : ''}>
                   {streakDaysCount > 0
                     ? `${streakDaysCount} ${formatRussianPlural(streakDaysCount, 'день', 'дня', 'дней')}`
                     : '0 дней'}
                 </span>
               </div>
-              <div className="text-[11px] text-[var(--text-2)] font-medium leading-snug mt-0.5 whitespace-nowrap truncate">
+              <div className="text-[11px] text-[var(--text-2)] font-bold leading-snug mt-0.5 whitespace-nowrap truncate">
                 {currentTier.label}
               </div>
             </div>
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-3)] group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all shrink-0" />
+          <ChevronRight className="w-4 h-4 text-[var(--text-3)] group-hover:text-amber-500 group-hover:translate-x-0.5 transition-all shrink-0" />
         </motion.button>
       </section>
 

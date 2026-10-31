@@ -239,10 +239,10 @@ export const Navigation: React.FC<NavigationProps> = ({
       {variant !== 'sidebar' && (
       <nav 
         aria-label="Основная навигация"
-        className="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 select-none bg-[var(--surface-solid)]/85 dark:bg-[var(--surface-solid)]/90 backdrop-blur-2xl border-t border-[var(--divider)] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))]"
+        className="bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-40 select-none bg-[var(--surface-solid)]/90 dark:bg-[var(--surface-solid)]/95 backdrop-blur-2xl border-t border-[var(--divider)] shadow-[0_-4px_20px_rgba(0,0,0,0.03)] pb-[max(0.6rem,env(safe-area-inset-bottom,0px))]"
       >
         <div className="max-w-md mx-auto px-3">
-          <div className="grid grid-cols-5 h-[52px] items-center">
+          <div className="grid grid-cols-5 h-[54px] items-center">
             {navItems.map((item) => {
               const active = isTabActive(item.id);
               const Icon = item.icon;
@@ -252,26 +252,26 @@ export const Navigation: React.FC<NavigationProps> = ({
                   id={`mobile-tab-${item.id}`}
                   onClick={() => handleTabClick(item.id)}
                   className={`relative flex flex-col items-center justify-center h-full py-1 transition-all active:scale-90 cursor-pointer ${
-                    active ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+                    active ? 'text-[var(--accent)] font-bold' : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
                   }`}
                 >
-                  {/* Subtle animated active pill background */}
+                  {/* Radiant active pill background */}
                   {active && (
                     <motion.div
                       layoutId="mobileActiveTab"
-                      className="absolute inset-x-1 inset-y-1 rounded-2xl bg-[var(--surface-blush)]/70 dark:bg-[var(--surface-blush)]/25 -z-10"
+                      className="absolute inset-x-1 inset-y-1 rounded-2xl bg-gradient-to-tr from-[var(--surface-blush)] via-[var(--surface-blush)]/90 to-rose-100/60 dark:from-[var(--surface-blush)] dark:to-rose-950/30 border border-[var(--accent)]/20 shadow-2xs -z-10"
                       transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                     />
                   )}
                   <div className="relative">
-                    <Icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.4] scale-105' : 'stroke-[1.8]'}`} />
+                    <Icon className={`w-5 h-5 transition-transform ${active ? 'stroke-[2.5] scale-110 drop-shadow-[0_2px_8px_rgba(255,46,99,0.35)]' : 'stroke-[1.8]'}`} />
                     {item.badge !== undefined && item.badge > 0 && (
-                      <span className="absolute -top-1 -right-2 min-w-[14px] h-3.5 px-1 rounded-full bg-[var(--accent)] text-white text-[9px] font-bold flex items-center justify-center shadow-xs leading-none">
+                      <span className="absolute -top-1.5 -right-2.5 min-w-[15px] h-4 px-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs leading-none animate-pulse">
                         {item.badge > 99 ? '99+' : item.badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[11px] mt-0.5 tracking-tight leading-none ${active ? 'font-semibold text-[var(--accent)]' : 'font-medium text-[var(--text-3)]'}`}>
+                  <span className={`text-[11px] mt-0.5 tracking-tight leading-none ${active ? 'font-black text-[var(--accent)] scale-102' : 'font-medium text-[var(--text-3)]'}`}>
                     {item.label}
                   </span>
                 </button>

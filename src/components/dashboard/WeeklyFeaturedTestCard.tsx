@@ -57,30 +57,30 @@ export const WeeklyFeaturedTestCard: React.FC<WeeklyFeaturedTestCardProps> = ({
     <section
       id="block-weekly-featured-test"
       onClick={handleClick}
-      className="p-4 sm:p-5 rounded-[24px] bg-linear-to-br from-[var(--surface-solid)] via-purple-50/25 to-rose-50/30 dark:from-[var(--surface-solid)] dark:via-zinc-900/60 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
+      className="p-4 sm:p-5 rounded-[28px] bg-gradient-to-br from-[var(--surface-solid)] via-purple-500/6 to-rose-500/10 dark:from-[var(--surface-solid)] dark:via-purple-950/20 dark:to-rose-950/20 border border-purple-500/15 hover:border-purple-500/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
     >
       {/* Background Soft Purple-Rose Ambient Glow */}
-      <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/8 dark:bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-bl from-purple-500/15 via-rose-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
 
       {/* Header Badge */}
       <div className="flex items-center justify-between z-10">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--surface-solid)]/90 backdrop-blur-xs text-purple-600 dark:text-purple-400 font-bold text-xs shadow-2xs border border-purple-500/15">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/15 to-pink-500/12 text-purple-600 dark:text-purple-400 font-black text-xs shadow-2xs border border-purple-500/25">
           <HeartHandshake className="w-3.5 h-3.5" />
           <span>Тест недели для двоих</span>
         </div>
 
-        <div className="flex items-center gap-1 text-xs text-[var(--text-3)] font-medium">
-          <Clock className="w-3 h-3" />
+        <div className="flex items-center gap-1 text-xs text-[var(--text-3)] font-bold bg-[var(--surface-2)] px-2.5 py-0.5 rounded-full border border-[var(--divider)]">
+          <Clock className="w-3 h-3 text-purple-500" />
           <span>~{estimatedMin} мин</span>
         </div>
       </div>
 
       {/* Test Title & Description */}
       <div className="z-10 space-y-1">
-        <h3 className="text-base sm:text-lg font-bold text-[var(--text)] tracking-tight leading-snug group-hover:text-[var(--accent)] transition-colors">
+        <h3 className="text-base sm:text-lg font-black text-[var(--text)] tracking-tight leading-snug group-hover:text-[var(--accent)] transition-colors">
           {activeTest.title}
         </h3>
-        <p className="text-xs text-[var(--text-2)] line-clamp-1 leading-relaxed">
+        <p className="text-xs text-[var(--text-2)] line-clamp-1 leading-relaxed font-medium">
           {activeTest.subtitle || activeTest.description}
         </p>
       </div>
@@ -152,7 +152,7 @@ export const WeeklyFeaturedTestCard: React.FC<WeeklyFeaturedTestCardProps> = ({
 
       {/* Bottom CTA Button */}
       <div className="pt-0.5 z-10">
-        <div className="w-full py-2.5 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-purple-600 text-[var(--text)] group-hover:text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-xs border border-[var(--divider)] group-hover:border-purple-600 transition-all">
+        <div className="w-full py-3 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-gradient-to-r group-hover:from-purple-600 group-hover:to-pink-600 text-[var(--text)] group-hover:text-white font-black text-xs sm:text-sm flex items-center justify-between shadow-2xs group-hover:shadow-md border border-[var(--divider)] group-hover:border-transparent transition-all">
           <span className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-500 group-hover:text-white transition-colors" />
             <span>

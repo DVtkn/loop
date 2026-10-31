@@ -243,10 +243,10 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
     <section
       id="block-1-partner-status"
       onClick={onOpenDetails}
-      className="p-4 sm:p-5 rounded-[28px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3 transition-all cursor-pointer group select-none relative overflow-hidden"
+      className="p-4 sm:p-5 rounded-[28px] bg-gradient-to-br from-[var(--surface-solid)] via-[var(--surface-solid)] to-[var(--surface-blush)]/50 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3 transition-all cursor-pointer group select-none relative overflow-hidden"
     >
-      {/* Background Soft Glow */}
-      <div className="absolute top-0 right-0 w-36 h-36 bg-[var(--accent)]/8 rounded-full blur-2xl pointer-events-none" />
+      {/* Background Radiant Romance Glow */}
+      <div className="absolute top-0 right-0 w-44 h-44 bg-gradient-to-bl from-[var(--accent)]/15 via-rose-400/8 to-transparent rounded-full blur-2xl pointer-events-none" />
 
       {/* Row 1: Header with Avatars, Names, Online Status and Chevron */}
       <div className="flex items-center justify-between gap-3 w-full z-10">
@@ -267,15 +267,15 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
               <ColoredAvatar avatar={myPartner?.avatar || 'heart'} name={myName} size="md" />
               {myBatteryTier && (
                 <span
-                  className={`absolute -top-1 -left-1 px-1 py-0.2 rounded-full text-[9px] font-black border ring-1 ring-[var(--surface-solid)] ${myBatteryTier.badgeClass}`}
+                  className={`absolute -top-1 -left-1 px-1.5 py-0.5 rounded-full text-[9px] font-black border ring-1 ring-[var(--surface-solid)] shadow-2xs ${myBatteryTier.badgeClass}`}
                 >
                   {myBatteryTier.icon}
                 </span>
               )}
             </div>
 
-            {/* Connected Love Bridge Icon */}
-            <div className="relative -mx-2 z-20 flex items-center justify-center w-6 h-6 rounded-full bg-[var(--surface-solid)] shadow-xs border border-[var(--accent)]/20 text-[var(--accent)]">
+            {/* Connected Love Bridge Icon with Radiant Glow */}
+            <div className="relative -mx-2 z-20 flex items-center justify-center w-7 h-7 rounded-full bg-[var(--surface-solid)] shadow-xs border border-[var(--accent)]/30 text-[var(--accent)] shadow-[0_0_12px_rgba(255,46,99,0.25)]">
               <Heart className="w-3.5 h-3.5 fill-[var(--accent)] animate-pulse" />
             </div>
 
@@ -284,7 +284,7 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
               <ColoredAvatar avatar={safeOtherPartner.avatar || 'heart'} name={partnerName} size="md" />
               <span
                 className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-[var(--surface-solid)] ${
-                  partnerStatusInfo.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
+                  partnerStatusInfo.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse' : 'bg-zinc-400'
                 }`}
               />
             </div>
@@ -293,22 +293,25 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
           {/* Partner Name & Online Indicator */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="font-extrabold text-base sm:text-lg text-[var(--text)] tracking-tight truncate">
+              <span className="font-black text-base sm:text-lg text-[var(--text)] tracking-tight truncate">
                 {partnerName}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold shrink-0">
+              <span className="inline-flex items-center gap-1 text-xs font-bold shrink-0">
                 <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${partnerStatusInfo.isOnline ? 'bg-emerald-500' : 'bg-zinc-400'}`}
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    partnerStatusInfo.isOnline ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)]' : 'bg-zinc-400'
+                  }`}
                 />
-                <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-3)]'}>
+                <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-[var(--text-3)]'}>
                   {partnerStatusInfo.statusText}
                 </span>
               </span>
             </div>
 
             {formattedDays ? (
-              <p className="text-xs text-[var(--text-2)] font-medium mt-0.5">
-                {formattedDays}
+              <p className="text-xs text-[var(--text-2)] font-semibold mt-0.5 flex items-center gap-1">
+                <span className="text-[var(--accent)]">✨</span>
+                <span>{formattedDays}</span>
               </p>
             ) : (
               <button
@@ -317,7 +320,7 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
                   e.stopPropagation();
                   onSetStartDate?.();
                 }}
-                className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline font-medium cursor-pointer mt-0.5"
+                className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline font-bold cursor-pointer mt-0.5"
               >
                 <CalendarHeart className="w-3 h-3" />
                 <span>Указать дату союза</span>
@@ -329,12 +332,12 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
         {/* Right Action: Chevron and Streak */}
         <div className="flex items-center gap-2 shrink-0 z-10">
           {streakDaysCount > 0 && (
-            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20 shadow-2xs">
-              <span>🔥</span>
+            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/15 to-orange-500/15 text-amber-600 dark:text-amber-400 font-black text-xs border border-amber-500/30 shadow-2xs">
+              <span className="animate-pulse">🔥</span>
               <span>{streakDaysCount} дн.</span>
             </div>
           )}
-          <div className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-3)] group-hover:text-[var(--accent)] group-hover:bg-[var(--surface-blush)] flex items-center justify-center transition-all">
+          <div className="w-8 h-8 rounded-full bg-[var(--surface-2)] text-[var(--text-3)] group-hover:text-white group-hover:bg-[var(--accent)] flex items-center justify-center transition-all shadow-2xs">
             <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
           </div>
         </div>

@@ -39,10 +39,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-13 sm:h-14">
           
-          {/* Left: Brand */}
+          {/* Left: Brand with Romance Heartbeat Indicator */}
           <div className="flex items-center gap-2">
             <LoopLogo size="sm" />
-            <span className="font-extrabold text-base tracking-tight text-[var(--text)]">Loop</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-base sm:text-lg tracking-tight text-[var(--text)]">
+                Loop
+              </span>
+              <span className="inline-flex w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse shadow-[0_0_8px_var(--accent)]" />
+            </div>
           </div>
 
           {/* Right Controls: Global XP Counter, User Avatar (desktop) & Theme */}
@@ -50,12 +55,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
             <button
               id="header-bell-btn"
               onClick={() => setShowActivity(true)}
-              className="relative w-10 h-10 min-w-[40px] min-h-[40px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] border border-[var(--divider)] flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+              className="relative w-10 h-10 min-w-[40px] min-h-[40px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center justify-center active:scale-92 transition-all cursor-pointer shadow-2xs"
               title="Уведомления"
               aria-label="Открыть уведомления"
             >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              <Bell className="w-4 h-4 transition-transform active:rotate-12" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs animate-bounce">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </button>
 
             {/* Global XP / Level Pill */}
@@ -63,16 +72,16 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAchievements, onOpenSettin
               <button
                 id="header-xp-pill-btn"
                 onClick={onOpenAchievements}
-                className="min-h-[40px] sm:min-h-[32px] px-3 sm:px-2.5 py-1.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-3)] border border-[var(--divider)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer group"
+                className="min-h-[40px] sm:min-h-[32px] px-3 sm:px-2.5 py-1.5 rounded-full bg-[var(--surface-solid)] hover:bg-[var(--surface-2)] border border-amber-500/25 dark:border-amber-400/30 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer group shadow-2xs hover:shadow-xs"
                 title={`Уровень ${coupleLevelInfo.level}: ${coupleLevelInfo.levelName} • ${coupleXP} XP`}
               >
-                <div className="w-5 h-5 rounded-full bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                  <Sparkles className="w-3 h-3 group-hover:rotate-12 transition-transform" />
                 </div>
-                <span className="text-xs font-bold text-[var(--text)]">
-                  {coupleXP} <span className="text-[10px] text-[var(--text-3)] font-medium">XP</span>
+                <span className="text-xs font-black text-[var(--text)] tracking-tight">
+                  {coupleXP} <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">XP</span>
                 </span>
-                <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--surface-blush)] px-1.5 py-0.2 rounded-full hidden sm:inline">
+                <span className="text-[10px] font-extrabold text-[var(--accent)] bg-[var(--surface-blush)] px-2 py-0.5 rounded-full border border-[var(--accent)]/15 hidden sm:inline">
                   Ур. {coupleLevelInfo.level}
                 </span>
               </button>

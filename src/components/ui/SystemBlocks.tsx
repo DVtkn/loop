@@ -208,19 +208,19 @@ export const StatTile: React.FC<StatTileProps> = ({
   const token = getSemanticToken(color);
 
   return (
-    <div className="flex flex-col p-4 rounded-2xl bg-[var(--surface)] border border-[var(--divider)] relative">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex flex-col p-4 sm:p-5 rounded-[24px] bg-gradient-to-br from-[var(--surface-solid)] via-[var(--surface-solid)] to-[var(--surface-blush)]/35 border border-[var(--card-border)] shadow-2xs hover:shadow-xs relative overflow-hidden transition-all">
+      <div className="flex items-center justify-between mb-2.5">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: `${token.text}18`, color: token.text }}
+          className="w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs"
+          style={{ background: token.gradient, color: '#ffffff', boxShadow: `0 4px 12px -2px ${token.glow}` }}
         >
-          {icon}
+          {iconWithWhite(icon)}
         </div>
       </div>
-      <div className="text-2xl sm:text-3xl font-extrabold text-[var(--text)] leading-none tracking-tight">
+      <div className="text-2xl sm:text-3xl font-black text-[var(--text)] leading-none tracking-tight">
         {value}
       </div>
-      <div className="text-xs text-[var(--text-2)] font-medium mt-1 line-clamp-2">
+      <div className="text-xs text-[var(--text-2)] font-bold mt-1.5 line-clamp-2">
         {label}
       </div>
     </div>

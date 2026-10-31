@@ -34,7 +34,7 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
       icon: Heart,
       action: onSendHug,
       color: 'text-rose-500',
-      bgDone: 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400',
+      bgDone: 'bg-gradient-to-r from-rose-500/18 to-pink-500/15 border-rose-500/35 text-rose-700 dark:text-rose-300 font-black shadow-xs',
     },
     {
       id: 'question',
@@ -43,7 +43,7 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
       icon: MessageCircle,
       action: onOpenQuestion,
       color: 'text-amber-500',
-      bgDone: 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400',
+      bgDone: 'bg-gradient-to-r from-amber-500/18 to-yellow-500/15 border-amber-500/35 text-amber-700 dark:text-amber-300 font-black shadow-xs',
     },
     {
       id: 'pet',
@@ -52,7 +52,7 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
       icon: Sparkles,
       action: onOpenPet,
       color: 'text-emerald-500',
-      bgDone: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+      bgDone: 'bg-gradient-to-r from-emerald-500/18 to-teal-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-300 font-black shadow-xs',
     },
   ];
 
@@ -85,9 +85,9 @@ export const DailyHabitTracker: React.FC<DailyHabitTrackerProps> = ({
             </span>
           ) : (
             <div className="flex items-center gap-1.5">
-              <div className="w-16 sm:w-20 h-2 rounded-full bg-[var(--surface-2)] border border-[var(--divider)] overflow-hidden">
+              <div className="w-16 sm:w-20 h-2.5 rounded-full bg-[var(--surface-3)] p-0.5 border border-[var(--divider)] overflow-hidden">
                 <div
-                  className="h-full bg-linear-to-r from-[var(--accent)] to-amber-400 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-[var(--accent)] via-pink-500 to-amber-400 rounded-full transition-all duration-500 shadow-2xs"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>

@@ -80,35 +80,35 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
       <section
         id="block-daily-question"
         onClick={handleOpen}
-        className="p-4 sm:p-5 rounded-[24px] bg-linear-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/30 to-amber-50/30 dark:from-[var(--surface-solid)] dark:via-[var(--surface-blush)]/20 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3 transition-all cursor-pointer group select-none relative overflow-hidden"
+        className="p-4 sm:p-5 rounded-[28px] bg-gradient-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/40 to-amber-500/10 dark:from-[var(--surface-solid)] dark:via-[var(--surface-blush)]/20 dark:to-amber-950/20 border border-[var(--card-border)] hover:border-[var(--accent)]/40 shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
       >
         {/* Soft Background Warm Glow */}
-        <div className="absolute -top-12 -right-12 w-36 h-36 bg-[var(--accent)]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 -right-12 w-44 h-44 bg-gradient-to-bl from-[var(--accent)]/20 via-amber-400/15 to-transparent rounded-full blur-2xl pointer-events-none" />
 
         {/* Card Header Badge */}
         <div className="flex items-center justify-between z-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--surface-solid)]/90 backdrop-blur-xs text-[var(--accent)] font-bold text-xs shadow-2xs border border-[var(--accent)]/15">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-rose-500/12 to-amber-500/12 text-[var(--accent)] font-black text-xs shadow-2xs border border-[var(--accent)]/20">
+            <Sparkles className="w-3.5 h-3.5 animate-pulse text-amber-500" />
             <span>Главный ритуал дня</span>
           </div>
 
           {bothAnswered ? (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-full border border-purple-500/20">
+            <span className="inline-flex items-center gap-1 text-xs font-black text-purple-600 dark:text-purple-400 bg-purple-500/15 px-3 py-1 rounded-full border border-purple-500/30 shadow-2xs">
               <Unlock className="w-3.5 h-3.5" />
               <span>Оба ответили 🎉</span>
             </span>
           ) : hasMyAnswer ? (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+            <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30 shadow-2xs">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Вы ответили</span>
             </span>
           ) : hasPartnerAnswer ? (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-500/15 px-2.5 py-1 rounded-full border border-rose-500/25 animate-pulse">
+            <span className="inline-flex items-center gap-1 text-xs font-black text-white bg-gradient-to-r from-rose-500 to-pink-500 px-3 py-1 rounded-full shadow-xs animate-pulse">
               <Lock className="w-3.5 h-3.5" />
               <span>{partnerName} ответил(а)!</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/12 px-2.5 py-1 rounded-full border border-amber-500/25">
               <Lock className="w-3.5 h-3.5" />
               <span>Ответ скрыт</span>
             </span>
@@ -117,44 +117,44 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
 
         {/* Question Text */}
         <div className="z-10 space-y-1.5">
-          <p className="text-base sm:text-lg font-bold text-[var(--text)] tracking-tight leading-snug">
+          <p className="text-base sm:text-lg font-black text-[var(--text)] tracking-tight leading-snug">
             «{currentDailyQuestion}»
           </p>
 
           {bothAnswered ? (
-            <div className="flex items-center gap-2 text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-500/10 p-2.5 rounded-2xl border border-purple-500/20">
-              <span>🔓</span>
+            <div className="flex items-center gap-2 text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-500/12 p-3 rounded-2xl border border-purple-500/25 shadow-2xs">
+              <span className="text-base">🔓</span>
               <span>Ответы раскрыты! Нажмите, чтобы прочитать и обсудить.</span>
             </div>
           ) : hasMyAnswer ? (
-            <div className="text-xs text-[var(--text-2)] bg-[var(--surface-solid)]/80 p-2.5 rounded-2xl border border-[var(--divider)]/50 space-y-1">
-              <div className="line-clamp-1 italic">Ваш ответ: «{questionAnswer}»</div>
-              <div className="text-[11px] text-[var(--text-3)] flex items-center gap-1 font-medium">
+            <div className="text-xs text-[var(--text-2)] bg-[var(--surface-solid)]/90 p-3 rounded-2xl border border-[var(--divider)] space-y-1 shadow-2xs">
+              <div className="line-clamp-1 italic font-medium">Ваш ответ: «{questionAnswer}»</div>
+              <div className="text-[11px] text-[var(--text-3)] flex items-center gap-1.5 font-bold">
                 <Clock className="w-3 h-3 text-amber-500" />
                 <span>Ожидаем ответ {partnerName} для взаимного открытия</span>
               </div>
             </div>
           ) : hasPartnerAnswer ? (
-            <div className="p-3 rounded-2xl bg-linear-to-r from-rose-500/10 to-amber-500/10 border border-rose-500/20 space-y-1 backdrop-blur-xs">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-500/15 via-pink-500/10 to-amber-500/10 border border-rose-500/25 space-y-1 backdrop-blur-xs shadow-2xs">
+              <div className="flex items-center gap-1.5 text-xs font-black text-rose-600 dark:text-rose-400">
                 <Lock className="w-3.5 h-3.5" />
                 <span>Ответ {partnerName} заблокирован</span>
               </div>
-              <p className="text-xs text-[var(--text-2)]">
+              <p className="text-xs text-[var(--text-2)] font-medium">
                 Напишите свой ответ, чтобы мгновенно снять замок и прочитать ответ партнёра!
               </p>
             </div>
           ) : (
-            <p className="text-xs text-[var(--text-2)] flex items-center gap-1 font-medium">
-              <span>💡</span>
+            <p className="text-xs text-[var(--text-2)] flex items-center gap-1.5 font-semibold">
+              <span className="text-amber-500">💡</span>
               <span>Узнайте, что думает любимый человек сегодня</span>
             </p>
           )}
         </div>
 
         {/* Bottom CTA Button */}
-        <div className="pt-1 z-10">
-          <div className="w-full py-2.5 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-[var(--accent)] text-[var(--text)] group-hover:text-white font-bold text-xs sm:text-sm flex items-center justify-between shadow-xs border border-[var(--divider)] group-hover:border-[var(--accent)] transition-all">
+        <div className="pt-0.5 z-10">
+          <div className="w-full py-3 px-4 rounded-2xl bg-[var(--surface-solid)] group-hover:bg-gradient-to-r group-hover:from-[var(--accent)] group-hover:to-pink-500 text-[var(--text)] group-hover:text-white font-extrabold text-xs sm:text-sm flex items-center justify-between shadow-2xs group-hover:shadow-md border border-[var(--divider)] group-hover:border-transparent transition-all">
             <span className="flex items-center gap-2">
               <Heart className="w-4 h-4 text-[var(--accent)] group-hover:text-white transition-colors" />
               <span>

@@ -30,9 +30,9 @@ function getToken(): string | null {
 }
 
 function getStatColor(value: number): string {
-  if (value >= 70) return 'bg-emerald-400';
-  if (value >= 40) return 'bg-amber-400';
-  return 'bg-rose-400';
+  if (value >= 70) return 'bg-gradient-to-r from-emerald-400 to-teal-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]';
+  if (value >= 40) return 'bg-gradient-to-r from-amber-400 to-yellow-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]';
+  return 'bg-gradient-to-r from-rose-500 to-pink-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]';
 }
 
 export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
@@ -473,11 +473,11 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
 function StatBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] font-semibold text-[var(--text-2)] w-14 shrink-0">{label}</span>
-      <div className="flex-1 h-2 bg-[var(--surface-3)] rounded-full overflow-hidden">
+      <span className="text-[11px] font-bold text-[var(--text-2)] w-14 shrink-0">{label}</span>
+      <div className="flex-1 h-2.5 bg-[var(--surface-3)]/80 dark:bg-black/30 rounded-full overflow-hidden p-0.5">
         <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
       </div>
-      <span className="text-[11px] font-bold text-[var(--text-3)] w-7 text-right">{value}%</span>
+      <span className="text-[11px] font-black text-[var(--text-2)] w-8 text-right">{value}%</span>
     </div>
   );
 }

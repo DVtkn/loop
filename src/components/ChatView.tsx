@@ -216,15 +216,15 @@ export const ChatView: React.FC = () => {
         </div>
 
         {/* Mode Segment Switcher */}
-        <div className="grid grid-cols-2 gap-1 mt-2 p-1 bg-[var(--surface-2)] rounded-xl border border-[var(--divider)]">
+        <div className="grid grid-cols-2 gap-1.5 mt-2 p-1 bg-[var(--surface-2)] rounded-2xl border border-[var(--divider)] shadow-2xs">
           <button
             type="button"
             id="chat-mode-solo"
             onClick={() => setOwlMode('solo')}
-            className={`py-1.5 px-2 rounded-lg text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2.5 rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               owlMode === 'solo'
-                ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
-                : 'text-[var(--text-2)] hover:text-[var(--text)] font-medium'
+                ? 'bg-[var(--surface-solid)] text-[var(--accent)] shadow-xs font-bold border border-[var(--accent)]/15 scale-101'
+                : 'text-[var(--text-2)] hover:text-[var(--text)] font-semibold'
             }`}
           >
             <User className="w-4 h-4" />
@@ -234,10 +234,10 @@ export const ChatView: React.FC = () => {
             type="button"
             id="chat-mode-together"
             onClick={() => setOwlMode('together')}
-            className={`py-1.5 px-2 rounded-lg text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2.5 rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               owlMode === 'together'
-                ? 'bg-[var(--surface)] text-[var(--text)] shadow-xs font-semibold'
-                : 'text-[var(--text-2)] hover:text-[var(--text)] font-medium'
+                ? 'bg-[var(--surface-solid)] text-[var(--accent)] shadow-xs font-bold border border-[var(--accent)]/15 scale-101'
+                : 'text-[var(--text-2)] hover:text-[var(--text)] font-semibold'
             }`}
           >
             <Users className="w-4 h-4" />

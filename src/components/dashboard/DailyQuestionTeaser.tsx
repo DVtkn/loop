@@ -191,9 +191,11 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
                 </div>
               </div>
               <button
+                id="close-question-modal-btn"
+                aria-label="Закрыть окно вопроса дня"
                 type="button"
                 onClick={handleClose}
-                className="w-9 h-9 rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center active:scale-95 transition-all shrink-0 cursor-pointer"
+                className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-[var(--surface-2)] text-[var(--text-2)] hover:text-[var(--text)] flex items-center justify-center active:scale-95 transition-all shrink-0 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

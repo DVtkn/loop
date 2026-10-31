@@ -80,7 +80,7 @@ export const DailyQuestionTeaser: React.FC<DailyQuestionTeaserProps> = ({
       <section
         id="block-daily-question"
         onClick={handleOpen}
-        className="p-5 sm:p-6 rounded-[32px] bg-linear-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/30 to-amber-50/30 dark:from-[var(--surface-solid)] dark:via-[var(--surface-blush)]/20 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
+        className="p-4 sm:p-5 rounded-[24px] bg-linear-to-br from-[var(--surface-solid)] via-[var(--surface-blush)]/30 to-amber-50/30 dark:from-[var(--surface-solid)] dark:via-[var(--surface-blush)]/20 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3 transition-all cursor-pointer group select-none relative overflow-hidden"
       >
         {/* Soft Background Warm Glow */}
         <div className="absolute -top-12 -right-12 w-36 h-36 bg-[var(--accent)]/10 rounded-full blur-3xl pointer-events-none" />

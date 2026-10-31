@@ -251,22 +251,22 @@ export const HugButtonWithMenu: React.FC<HugButtonWithMenuProps> = ({
         }`}
         title="Тап — обнять. Удержание (~380мс) или три точки — выбор знака внимания"
       >
-        <div className="flex items-center gap-3.5 relative z-10 min-w-0">
+        <div className="flex items-center gap-3 relative z-10 min-w-0">
           <div
-            className={`w-11 h-11 rounded-full flex items-center justify-center shadow-inner shrink-0 text-white transition-all ${
+            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0 text-white transition-all ${
               quickHugSent ? 'bg-white/25' : 'bg-white/20 animate-heartbeat'
             }`}
           >
-            {quickHugSent ? <CheckCircle2 className="w-6 h-6 text-white" /> : <Heart className="w-5 h-5 fill-white text-white" />}
+            {quickHugSent ? <CheckCircle2 className="w-5 h-5 text-white" /> : <Heart className="w-5 h-5 fill-white text-white" />}
           </div>
           <div className="text-left min-w-0">
-            <div className="text-base sm:text-lg font-bold tracking-tight text-white leading-tight">
-              {quickHugSent ? 'Объятие доставлено!' : 'Обнять'}
+            <div className="text-base font-bold tracking-tight text-white leading-tight truncate">
+              {quickHugSent ? 'Объятие доставлено!' : `Обнять ${partnerName}`}
             </div>
-            <div className="text-xs font-medium text-white/90 leading-tight mt-0.5">
+            <div className="text-xs font-medium text-white/80 leading-tight mt-0.5 truncate">
               {quickHugSent
-                ? `${partnerName} чувствует ваше тепло прямо сейчас ❤️`
-                : `Отправить нежное прикосновение для ${partnerName}`}
+                ? 'Партнёр чувствует ваше тепло ❤️'
+                : 'Мгновенное нежное касание'}
             </div>
           </div>
         </div>
@@ -310,23 +310,30 @@ export const HugButtonWithMenu: React.FC<HugButtonWithMenuProps> = ({
 
       {/* Quick Emotional Touch Pills (1-tap micro gestures for mobile) */}
       <div className="grid grid-cols-3 gap-2 mt-2 select-none">
-        {EMOTIONAL_SIGNALS.filter(s => s.id !== 'hug').slice(0, 3).map((sig) => {
-          const Icon = sig.icon;
-          return (
-            <button
-              key={sig.id}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectSignal(sig);
-              }}
-              className="touch-pill-action py-2 px-2.5 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] active:scale-95 transition-all cursor-pointer shadow-2xs"
-            >
-              <Icon className={`w-3.5 h-3.5 ${sig.color}`} />
-              <span className="truncate">{sig.label}</span>
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => handleSelectSignal(EMOTIONAL_SIGNALS.find(s => s.id === 'miss') || EMOTIONAL_SIGNALS[2])}
+          className="touch-pill-action py-2.5 px-2 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] active:scale-95 transition-all cursor-pointer shadow-2xs"
+        >
+          <Mail className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+          <span className="truncate">Скучаю</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSelectSignal(EMOTIONAL_SIGNALS.find(s => s.id === 'kiss') || EMOTIONAL_SIGNALS[3])}
+          className="touch-pill-action py-2.5 px-2 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] active:scale-95 transition-all cursor-pointer shadow-2xs"
+        >
+          <Flame className="w-3.5 h-3.5 text-red-500 shrink-0" />
+          <span className="truncate">Поцелуй</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSelectSignal(EMOTIONAL_SIGNALS.find(s => s.id === 'thinking') || EMOTIONAL_SIGNALS[1])}
+          className="touch-pill-action py-2.5 px-2 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] active:scale-95 transition-all cursor-pointer shadow-2xs"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="truncate">Думаю</span>
+        </button>
       </div>
 
       {/* Onboarding hint */}

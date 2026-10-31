@@ -57,7 +57,7 @@ export const WeeklyFeaturedTestCard: React.FC<WeeklyFeaturedTestCardProps> = ({
     <section
       id="block-weekly-featured-test"
       onClick={handleClick}
-      className="p-5 sm:p-6 rounded-[32px] bg-linear-to-br from-[var(--surface-solid)] via-purple-50/25 to-rose-50/30 dark:from-[var(--surface-solid)] dark:via-zinc-900/60 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-4 transition-all cursor-pointer group select-none relative overflow-hidden"
+      className="p-4 sm:p-5 rounded-[24px] bg-linear-to-br from-[var(--surface-solid)] via-purple-50/25 to-rose-50/30 dark:from-[var(--surface-solid)] dark:via-zinc-900/60 dark:to-zinc-900/40 border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3.5 transition-all cursor-pointer group select-none relative overflow-hidden"
     >
       {/* Background Soft Purple-Rose Ambient Glow */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/8 dark:bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />

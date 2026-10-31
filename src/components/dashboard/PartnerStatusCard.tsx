@@ -243,18 +243,19 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
     <section
       id="block-1-partner-status"
       onClick={onOpenDetails}
-      className="p-4 sm:p-5 rounded-[28px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col justify-between transition-all cursor-pointer group select-none relative overflow-hidden"
+      className="p-4 sm:p-5 rounded-[28px] bg-[var(--surface-solid)] border border-[var(--card-border)] shadow-[var(--card-shadow)] hover:shadow-[var(--card-shadow-hover)] flex flex-col gap-3 transition-all cursor-pointer group select-none relative overflow-hidden"
     >
       {/* Background Soft Glow */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent)]/6 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-36 h-36 bg-[var(--accent)]/8 rounded-full blur-2xl pointer-events-none" />
 
-      <div className="flex items-center justify-between gap-3.5 w-full z-10">
-        <div className="flex items-center gap-3.5 min-w-0">
+      {/* Row 1: Header with Avatars, Names, Online Status and Chevron */}
+      <div className="flex items-center justify-between gap-3 w-full z-10">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Couple Joy: Twin Connected Avatars with Pulse Link */}
           <div className="flex items-center shrink-0 relative">
             {/* My Avatar (clickable to set my status) */}
             <div
-              className="relative z-10 cursor-pointer"
+              className="relative z-10 cursor-pointer active:scale-95 transition-transform"
               onClick={(e) => {
                 if (onOpenMyStatus) {
                   e.stopPropagation();
@@ -289,88 +290,46 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
             </div>
           </div>
 
-          {/* Partner Info & Together Timer */}
-          <div className="min-w-0 flex-1 space-y-1">
-            {/* Line 1: Partner Name + Online Status */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-sm sm:text-base text-[var(--text)] leading-tight">{partnerName}</span>
-              <span className="text-[var(--text-3)] text-xs font-normal">•</span>
-              <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-semibold">
+          {/* Partner Name & Online Indicator */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base sm:text-lg text-[var(--text)] tracking-tight truncate">
+                {partnerName}
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold shrink-0">
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${partnerStatusInfo.isOnline ? 'bg-emerald-500' : 'bg-zinc-400'}`}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${partnerStatusInfo.isOnline ? 'bg-emerald-500' : 'bg-zinc-400'}`}
                 />
-                <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-2)]'}>
+                <span className={partnerStatusInfo.isOnline ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--text-3)]'}>
                   {partnerStatusInfo.statusText}
                 </span>
               </span>
             </div>
 
-            {/* Line 2: Partner Energy Battery Gauge / Mood / Days */}
-            <div className="text-xs text-[var(--text-2)] flex items-center gap-1.5 flex-wrap">
-              {partnerBatteryTier && partnerEnergy !== undefined ? (
-                <span
-                  className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border shadow-2xs ${partnerBatteryTier.badgeClass}`}
-                >
-                  <span>{partnerBatteryTier.icon}</span>
-                  <span>{partnerEnergy}%</span>
-                  <span className="opacity-75 font-medium">{partnerBatteryTier.label}</span>
-                </span>
-              ) : null}
-
-              {partnerCarePreset ? (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--text-2)] bg-[var(--surface-2)] px-2 py-0.5 rounded-full border border-[var(--divider)]">
-                  <span>{partnerCarePreset.icon}</span>
-                  <span>{partnerCarePreset.label}</span>
-                </span>
-              ) : null}
-
-              {isPartnerMoodSet ? (
-                <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text)] font-medium bg-[var(--surface-2)] px-2 py-0.5 rounded-full border border-[var(--divider)]">
-                  <span>{safeOtherPartner.currentMood.emoji || '✨'}</span>
-                  <span className="text-[var(--accent)] font-semibold">{safeOtherPartner.currentMood.label}</span>
-                </span>
-              ) : null}
-
-              {formattedDays ? (
-                <span className="text-[11px] sm:text-xs text-[var(--text-2)] font-medium">
-                  {formattedDays}
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSetStartDate?.();
-                  }}
-                  className="inline-flex items-center gap-1 text-[11px] text-[var(--accent)] hover:underline font-medium cursor-pointer"
-                >
-                  <CalendarHeart className="w-3 h-3" />
-                  <span>Дата начала</span>
-                </button>
-              )}
-            </div>
+            {formattedDays ? (
+              <p className="text-xs text-[var(--text-2)] font-medium mt-0.5">
+                {formattedDays}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetStartDate?.();
+                }}
+                className="inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline font-medium cursor-pointer mt-0.5"
+              >
+                <CalendarHeart className="w-3 h-3" />
+                <span>Указать дату союза</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Right Side: Quick My Status + Streak Flame badge or Arrow */}
+        {/* Right Action: Chevron and Streak */}
         <div className="flex items-center gap-2 shrink-0 z-10">
-          {onOpenMyStatus && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenMyStatus();
-              }}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-2)] hover:text-[var(--text)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] px-2.5 py-1.5 rounded-xl border border-[var(--divider)] transition-all cursor-pointer active:scale-95 shadow-2xs"
-              title="Указать мой заряд и настроение"
-            >
-              <span>{myEnergy !== undefined ? myBatteryTier?.icon : '🔋'}</span>
-              <span>{myEnergy !== undefined ? `${myEnergy}%` : 'Указать мой заряд'}</span>
-            </button>
-          )}
-
           {streakDaysCount > 0 && (
-            <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20 shadow-2xs">
+            <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold text-xs border border-amber-500/20 shadow-2xs">
               <span>🔥</span>
               <span>{streakDaysCount} дн.</span>
             </div>
@@ -381,10 +340,52 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
         </div>
       </div>
 
+      {/* Row 2: Tactile Status Chips for Mobile First (Never Collides) */}
+      <div className="flex items-center gap-2 flex-wrap z-10 pt-1">
+        {onOpenMyStatus && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenMyStatus();
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text)] bg-[var(--surface-2)] hover:bg-[var(--surface-3)] px-3 py-1.5 rounded-full border border-[var(--divider)] transition-all cursor-pointer active:scale-95 shadow-2xs"
+            title="Указать мой заряд и настроение"
+          >
+            <span>{myEnergy !== undefined ? myBatteryTier?.icon : '🔋'}</span>
+            <span>{myEnergy !== undefined ? `Мой заряд: ${myEnergy}%` : 'Указать мой заряд'}</span>
+          </button>
+        )}
+
+        {partnerBatteryTier && partnerEnergy !== undefined && (
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full border shadow-2xs ${partnerBatteryTier.badgeClass}`}
+          >
+            <span>{partnerBatteryTier.icon}</span>
+            <span>{partnerEnergy}%</span>
+            <span className="opacity-80 font-medium">{partnerBatteryTier.label}</span>
+          </span>
+        )}
+
+        {partnerCarePreset && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-2)] bg-[var(--surface-2)] px-2.5 py-1.5 rounded-full border border-[var(--divider)]">
+            <span>{partnerCarePreset.icon}</span>
+            <span>{partnerCarePreset.label}</span>
+          </span>
+        )}
+
+        {isPartnerMoodSet && (
+          <span className="inline-flex items-center gap-1 text-xs text-[var(--text)] font-medium bg-[var(--surface-2)] px-2.5 py-1.5 rounded-full border border-[var(--divider)]">
+            <span>{safeOtherPartner.currentMood.emoji || '✨'}</span>
+            <span className="text-[var(--accent)] font-semibold">{safeOtherPartner.currentMood.label}</span>
+          </span>
+        )}
+      </div>
+
       {/* Contextual Care Advice Banner */}
       {careSuggestion && (
         <div
-          className={`w-full mt-2.5 p-2.5 sm:p-3 rounded-2xl flex items-center justify-between gap-2.5 text-xs border transition-all z-10 ${
+          className={`w-full p-2.5 sm:p-3 rounded-2xl flex items-center justify-between gap-2.5 text-xs border transition-all z-10 ${
             careSuggestion.tier === 'rose'
               ? 'bg-rose-500/10 border-rose-500/25 text-rose-800 dark:text-rose-200'
               : careSuggestion.tier === 'amber'
@@ -399,7 +400,7 @@ export const PartnerStatusCard: React.FC<PartnerStatusCardProps> = ({
               <span className="opacity-90">{careSuggestion.advice}</span>
             </div>
           </div>
-          <span className="text-[11px] font-bold shrink-0 opacity-90 hidden sm:inline-flex items-center gap-1">
+          <span className="text-xs font-bold shrink-0 opacity-90 hidden sm:inline-flex items-center gap-1">
             <span>{careSuggestion.actionLabel}</span>
             <span>→</span>
           </span>

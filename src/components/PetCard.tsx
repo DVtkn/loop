@@ -429,28 +429,28 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
           </div>
         ) : (
           /* Empty Onboarding State */
-          <div className="flex items-center gap-4 my-2 z-10">
-            <div className="w-16 h-16 rounded-3xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-4xl shadow-sm shrink-0">
-              🥚
+          <div className="flex items-center gap-3.5 my-1 z-10">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--surface-blush)] border border-[var(--accent)]/20 flex items-center justify-center text-3xl shadow-xs shrink-0">
+              🐾
             </div>
-            <div className="space-y-1">
-              <h3 className="font-black text-base text-[var(--text)]">Оживите виртуального питомца союза</h3>
-              <p className="text-xs text-[var(--text-2)] leading-relaxed">
-                Выберите яйцо щенка или котёнка, придумайте имя и ухаживайте вместе в консоли 90-х
+            <div className="space-y-1 min-w-0 flex-1">
+              <h3 className="font-bold text-base text-[var(--text)] leading-tight">Общий питомец пары</h3>
+              <p className="text-xs text-[var(--text-2)] font-medium leading-relaxed">
+                Выберите щенка или котёнка, придумайте имя и заботьтесь вместе каждый день
               </p>
             </div>
           </div>
         )}
 
-        {/* Bottom Console Launcher Pill */}
+        {/* Action Button */}
         <div className="pt-2 border-t border-[var(--divider)] flex items-center justify-between text-xs text-[var(--text-2)] z-10">
           <span className="font-semibold flex items-center gap-1.5 text-[var(--text-3)]">
-            <Gamepad2 className="w-3.5 h-3.5" />
-            <span>Ретро-консоль LOOP.exe</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <span>Совместный друг союза</span>
           </span>
 
           <span className="text-[var(--accent)] font-bold group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
-            <span>Открыть аркаду</span>
+            <span>{hasPet ? 'Комната питомца' : 'Выбрать малыша'}</span>
             <span>→</span>
           </span>
         </div>

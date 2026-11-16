@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   UserAccount,
   PartnerId,
@@ -14,7 +14,7 @@ import {
   getFreshTests,
   getFreshChallenges,
 } from '../../data/questionBank.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 import { getPartnerStatusDetails } from '../../components/dashboard/PartnerStatusCard.tsx';
 
 interface UseCoupleProfileParams {
@@ -46,13 +46,25 @@ export function useCoupleProfile({
   setQuestionAnswer,
   setMoodHistory,
 }: UseCoupleProfileParams) {
+  const profileStorageKey = getUserStorageKey('together_couple_profile', currentUser?.login);
+  const loadedKeyRef = useRef<string>(profileStorageKey);
+
   const [coupleProfile, setCoupleProfile] = useState<CoupleProfile>(() => {
-    return safeGetStorage('together_couple_profile', initialCoupleProfile);
+    return safeGetStorage(profileStorageKey, initialCoupleProfile);
   });
 
   useEffect(() => {
-    safeSetStorage('together_couple_profile', coupleProfile);
-  }, [coupleProfile]);
+    if (loadedKeyRef.current !== profileStorageKey) {
+      loadedKeyRef.current = profileStorageKey;
+      if (!currentUser?.login) {
+        setCoupleProfile(initialCoupleProfile);
+      } else {
+        setCoupleProfile(safeGetStorage(profileStorageKey, initialCoupleProfile));
+      }
+      return;
+    }
+    safeSetStorage(profileStorageKey, coupleProfile);
+  }, [coupleProfile, profileStorageKey, currentUser?.login]);
 
   // Determine current partner ID dynamically
   const currentPartnerId = useMemo<PartnerId>(() => {
@@ -224,7 +236,7 @@ export function useCoupleProfile({
 
       const freshProfile = createFreshCoupleProfile(p1, p2, date);
       setCoupleProfile(freshProfile);
-      safeSetStorage('together_couple_profile', freshProfile);
+      safeSetStorage(profileStorageKey, freshProfile);
 
       setTests(getFreshTests());
       setChallenges(getFreshChallenges());
@@ -237,7 +249,7 @@ export function useCoupleProfile({
       setIsOnboarded(true);
       triggerConfetti();
     },
-    [setDateInvites, setIsOnboarded, setQuestionAnswer, setSmallCravings, setWishlist, triggerConfetti, setTests, setChallenges, setPulseHistory]
+    [profileStorageKey, setDateInvites, setIsOnboarded, setQuestionAnswer, setSmallCravings, setWishlist, triggerConfetti, setTests, setChallenges, setPulseHistory]
   );
 
   const joinCoupleByCode = useCallback(
@@ -252,7 +264,7 @@ export function useCoupleProfile({
             name: trimmedName,
           },
         };
-        safeSetStorage('together_couple_profile', updated);
+        safeSetStorage(profileStorageKey, updated);
         return updated;
       });
 
@@ -290,10 +302,10 @@ export function useCoupleProfile({
           name: p2Name.trim() || prev.partner2.name,
         },
       };
-      safeSetStorage('together_couple_profile', updated);
+      safeSetStorage(profileStorageKey, updated);
       return updated;
     });
-  }, []);
+  }, [profileStorageKey]);
 
   return {
     coupleProfile,

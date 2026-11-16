@@ -24,7 +24,7 @@ export const RelationshipDynamics: React.FC<DynamicsProps> = ({ coupleId }) => {
         const res = await apiFetch(`/api/analytics/trends/${coupleId}?period=${period}`);
         if (res.ok) {
           const json = await res.json();
-          setData(json.data || []);
+          setData(Array.isArray(json) ? json : json.data || []);
         }
       } catch (err) {
         console.error("Failed to fetch trends", err);
@@ -36,7 +36,7 @@ export const RelationshipDynamics: React.FC<DynamicsProps> = ({ coupleId }) => {
         const iRes = await apiFetch(`/api/analytics/insights/${coupleId}`);
         if (iRes.ok) {
           const iJson = await iRes.json();
-          setInsights(iJson.data || []);
+          setInsights(Array.isArray(iJson) ? iJson : iJson.insights || iJson.data || []);
         }
       } catch (e) { console.error(e); }
     };
@@ -157,6 +157,7 @@ export const RelationshipDynamics: React.FC<DynamicsProps> = ({ coupleId }) => {
               try {
                 const res = await apiFetch('/api/analytics/insights/generate', {
                   method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
                     coupleId, 
                     p1Name: coupleProfile?.partner1.name || 'Партнёр 1', 
@@ -164,9 +165,25 @@ export const RelationshipDynamics: React.FC<DynamicsProps> = ({ coupleId }) => {
                   })
                 });
                 if (res.ok) {
+                  const genJson = await res.json();
                   const newInsightRes = await apiFetch(`/api/analytics/insights/${coupleId}`);
                   const newInsightJson = await newInsightRes.json();
-                  setInsights(newInsightJson.data || []);
+                  const fetched = Array.isArray(newInsightJson)
+                    ? newInsightJson
+                    : newInsightJson.insights || newInsightJson.data || [];
+                  if (fetched.length > 0) {
+                    setInsights(fetched);
+                  } else if (genJson?.insight?.content) {
+                    setInsights([{
+                      id: `local-${Date.now()}`,
+                      coupleId,
+                      type: genJson.insight.type || 'weekly',
+                      content: genJson.insight.content,
+                      periodStart: genJson.insight.periodStart || '',
+                      periodEnd: genJson.insight.periodEnd || '',
+                      createdAt: new Date().toISOString(),
+                    }]);
+                  }
                 }
               } finally {
                 setIsGenerating(false);

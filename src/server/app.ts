@@ -45,12 +45,6 @@ export async function initDatabase() {
       return;
     }
 
-    // Fast-path: если таблицы уже инициализированы, пропускаем повторный 30-кратный DDL-цикл
-    const check = await pool.query("SELECT to_regclass('public.users') as ex");
-    if (check.rows[0]?.ex) {
-      return;
-    }
-
     const statements = [
       `CREATE TABLE IF NOT EXISTS users (
         id text PRIMARY KEY,
@@ -58,31 +52,63 @@ export async function initDatabase() {
         password_hash text NOT NULL,
         name text NOT NULL,
         gender text,
-        avatar_emoji text NOT NULL DEFAULT '✨',
+        avatar_emoji text NOT NULL DEFAULT 'sparkles',
         partner_login text,
-        created_at text NOT NULL,
-        updated_at text NOT NULL,
-        data_version integer NOT NULL DEFAULT 1
+        invite_code text,
+        invite_code_expires text,
+        paired_at text,
+        start_date text,
+        city text,
+        love_language text,
+        attachment_style text,
+        current_mood jsonb,
+        last_active_at text,
+        created_at text NOT NULL
       )`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code_expires text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS paired_at text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS start_date text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS city text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS love_language text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS attachment_style text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS current_mood jsonb`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at text`,
       `CREATE INDEX IF NOT EXISTS users_login_idx ON users(login)`,
+      `CREATE INDEX IF NOT EXISTS users_partner_login_idx ON users(partner_login)`,
       `CREATE INDEX IF NOT EXISTS users_lower_login_idx ON users(LOWER(login))`,
       `CREATE INDEX IF NOT EXISTS users_lower_partner_idx ON users(LOWER(partner_login))`,
       `CREATE TABLE IF NOT EXISTS pair_requests (
         id text PRIMARY KEY,
         from_login text NOT NULL,
+        from_name text NOT NULL DEFAULT '',
+        from_avatar text NOT NULL DEFAULT 'sparkles',
         to_login text NOT NULL,
-        status text NOT NULL DEFAULT 'pending',
-        created_at text NOT NULL,
-        updated_at text NOT NULL
+        status text NOT NULL DEFAULT 'PENDING',
+        created_at text NOT NULL
       )`,
+      `ALTER TABLE pair_requests ADD COLUMN IF NOT EXISTS from_name text NOT NULL DEFAULT ''`,
+      `ALTER TABLE pair_requests ADD COLUMN IF NOT EXISTS from_avatar text NOT NULL DEFAULT 'sparkles'`,
+      `CREATE INDEX IF NOT EXISTS pair_requests_from_to_idx ON pair_requests(from_login, to_login)`,
       `CREATE INDEX IF NOT EXISTS pair_requests_to_login_idx ON pair_requests(to_login)`,
-      `CREATE INDEX IF NOT EXISTS pair_requests_from_login_idx ON pair_requests(from_login)`,
+      `CREATE INDEX IF NOT EXISTS pair_requests_status_idx ON pair_requests(status)`,
       `CREATE TABLE IF NOT EXISTS couple_data (
         id text PRIMARY KEY,
         data jsonb NOT NULL,
         last_updated_at text NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS couple_data_id_idx ON couple_data(id)`,
+      `CREATE TABLE IF NOT EXISTS couples (
+        id text PRIMARY KEY,
+        user1_id text REFERENCES users(id) ON DELETE CASCADE,
+        user2_id text REFERENCES users(id) ON DELETE CASCADE,
+        status text NOT NULL DEFAULT 'active',
+        xp_points integer NOT NULL DEFAULT 0,
+        current_level integer NOT NULL DEFAULT 1,
+        streak_days integer NOT NULL DEFAULT 0,
+        start_date text,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
       `CREATE TABLE IF NOT EXISTS chat_messages (
         id text PRIMARY KEY,
         couple_id text NOT NULL,
@@ -93,6 +119,95 @@ export async function initDatabase() {
         created_at text NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS chat_messages_couple_created_idx ON chat_messages(couple_id, created_at)`,
+      `CREATE INDEX IF NOT EXISTS chat_messages_sender_login_idx ON chat_messages(sender_login)`,
+      `CREATE TABLE IF NOT EXISTS relationship_metrics (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        metric_date text NOT NULL,
+        radar_scores jsonb NOT NULL,
+        mood_average real,
+        mood_entries_count integer DEFAULT 0,
+        interaction_count integer DEFAULT 0,
+        quiz_completed boolean DEFAULT false,
+        streak_days integer DEFAULT 0,
+        created_at text NOT NULL,
+        CONSTRAINT relationship_metrics_couple_date_unq UNIQUE (couple_id, metric_date)
+      )`,
+      `CREATE TABLE IF NOT EXISTS ai_insights (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        type text NOT NULL,
+        content jsonb NOT NULL,
+        period_start text NOT NULL,
+        period_end text NOT NULL,
+        created_at text NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS ai_insights_couple_created_idx ON ai_insights(couple_id, created_at)`,
+      `CREATE TABLE IF NOT EXISTS photos (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        uploader_login text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        image_bytes bytea NOT NULL,
+        mime_type text NOT NULL,
+        caption text,
+        width integer,
+        height integer,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS photos_couple_id_idx ON photos(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS photos_created_at_idx ON photos(created_at)`,
+      `CREATE TABLE IF NOT EXISTS date_events (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        title text NOT NULL,
+        description text,
+        location text,
+        event_date text NOT NULL,
+        status text NOT NULL DEFAULT 'planned',
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS date_events_couple_id_idx ON date_events(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS care_notes (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        author_login text NOT NULL,
+        target_login text NOT NULL,
+        content text NOT NULL,
+        category text NOT NULL DEFAULT 'general',
+        is_completed boolean NOT NULL DEFAULT false,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS care_notes_couple_id_idx ON care_notes(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS time_capsules (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        author_login text NOT NULL,
+        title text NOT NULL,
+        content text NOT NULL,
+        open_at text NOT NULL,
+        is_opened boolean NOT NULL DEFAULT false,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS time_capsules_couple_id_idx ON time_capsules(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id text PRIMARY KEY,
+        user_login text NOT NULL,
+        couple_id text,
+        subscription jsonb NOT NULL,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_login)`,
+      `CREATE TABLE IF NOT EXISTS couple_events (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        target_login text NOT NULL,
+        sender_login text NOT NULL,
+        event_type text NOT NULL,
+        payload jsonb NOT NULL,
+        created_at text NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS couple_events_target_idx ON couple_events(target_login, created_at)`,
+      `CREATE INDEX IF NOT EXISTS couple_events_couple_idx ON couple_events(couple_id, created_at)`,
       `CREATE TABLE IF NOT EXISTS test_sessions (
         id text PRIMARY KEY,
         test_id text NOT NULL,
@@ -103,13 +218,15 @@ export async function initDatabase() {
         created_at timestamp with time zone NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS test_sessions_couple_id_idx ON test_sessions(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS test_sessions_test_id_idx ON test_sessions(test_id)`,
+      `CREATE INDEX IF NOT EXISTS test_sessions_status_idx ON test_sessions(status)`,
       `CREATE TABLE IF NOT EXISTS test_answers (
         id text PRIMARY KEY,
         session_id text NOT NULL,
         user_id text NOT NULL,
         question_id text NOT NULL,
         scale_id text,
-        selected_value numeric(8, 2) NOT NULL,
+        selected_value text NOT NULL,
         weight numeric(5, 2) NOT NULL DEFAULT 1.00,
         reaction_time_ms integer,
         toggle_count integer NOT NULL DEFAULT 0,
@@ -118,8 +235,10 @@ export async function initDatabase() {
         created_at timestamp with time zone NOT NULL DEFAULT now(),
         CONSTRAINT uniq_user_session_question UNIQUE (session_id, user_id, question_id)
       )`,
+      `ALTER TABLE test_answers ALTER COLUMN selected_value TYPE text USING selected_value::text`,
       `CREATE INDEX IF NOT EXISTS test_answers_session_idx ON test_answers(session_id)`,
       `CREATE INDEX IF NOT EXISTS test_answers_user_idx ON test_answers(user_id)`,
+      `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS scale_id text`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS reaction_time_ms integer`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS toggle_count integer NOT NULL DEFAULT 0`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS target_type varchar(24) NOT NULL DEFAULT 'self'`,
@@ -128,11 +247,13 @@ export async function initDatabase() {
         user_id text PRIMARY KEY,
         couple_id text NOT NULL,
         session_id text NOT NULL,
-        e_safety numeric(5, 2) NOT NULL,
-        a_autonomy numeric(5, 2) NOT NULL,
-        c_closeness numeric(5, 2) NOT NULL,
-        r_repair numeric(5, 2) NOT NULL,
-        v_future numeric(5, 2) NOT NULL,
+        trait_scores jsonb,
+        dominant_vectors jsonb,
+        e_safety numeric(5, 2) NOT NULL DEFAULT 50.00,
+        a_autonomy numeric(5, 2) NOT NULL DEFAULT 50.00,
+        c_closeness numeric(5, 2) NOT NULL DEFAULT 50.00,
+        r_repair numeric(5, 2) NOT NULL DEFAULT 50.00,
+        v_future numeric(5, 2) NOT NULL DEFAULT 50.00,
         consistency_score numeric(5, 2),
         raw_responses jsonb,
         updated_at timestamp with time zone NOT NULL DEFAULT now()
@@ -149,7 +270,9 @@ export async function initDatabase() {
         radar_communication numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_intimacy numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_values numeric(5, 2) NOT NULL DEFAULT 50.00,
+        radar_lifestyle numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_metrics jsonb,
+        personality_types jsonb,
         archetype_title text NOT NULL,
         archetype_description text NOT NULL,
         lead_spheres jsonb NOT NULL,
@@ -164,7 +287,9 @@ export async function initDatabase() {
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_communication numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_intimacy numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_values numeric(5, 2)`,
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_lifestyle numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_metrics jsonb`,
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS personality_types jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS archetype_title text`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS archetype_description text`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS lead_spheres jsonb`,
@@ -172,7 +297,45 @@ export async function initDatabase() {
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS growth_zones jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS blind_spots jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS calculated_at timestamp with time zone DEFAULT now()`,
-      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now()`
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now()`,
+      `CREATE TABLE IF NOT EXISTS test_drafts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        test_id varchar(64) NOT NULL,
+        current_question_index integer NOT NULL DEFAULT 0,
+        answers jsonb NOT NULL,
+        updated_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS user_test_draft_idx ON test_drafts(user_id, test_id)`,
+      `CREATE TABLE IF NOT EXISTS couple_pets (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        couple_id text NOT NULL UNIQUE REFERENCES couples(id) ON DELETE CASCADE,
+        pair_key varchar(120) NOT NULL UNIQUE,
+        species varchar(20) NOT NULL DEFAULT 'dog',
+        name varchar(50) NOT NULL DEFAULT 'Бусинка',
+        name_status varchar(20) NOT NULL DEFAULT 'confirmed',
+        name_proposed_by text REFERENCES users(id),
+        is_onboarding_completed boolean NOT NULL DEFAULT false,
+        hunger integer NOT NULL DEFAULT 85,
+        joy integer NOT NULL DEFAULT 90,
+        energy integer NOT NULL DEFAULT 65,
+        cleanliness integer NOT NULL DEFAULT 80,
+        mood varchar(20) NOT NULL DEFAULT 'happy',
+        level integer NOT NULL DEFAULT 1,
+        experience integer NOT NULL DEFAULT 0,
+        weight_kg numeric(4, 2) NOT NULL DEFAULT 1.20,
+        last_fed_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_played_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_rested_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_washed_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_interaction_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_action_by text REFERENCES users(id),
+        created_at timestamp with time zone NOT NULL DEFAULT now(),
+        updated_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_created_idx ON couple_pets(created_at)`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_couple_id_idx ON couple_pets(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_pair_key_idx ON couple_pets(pair_key)`
     ];
     for (const stmt of statements) {
       try {
@@ -267,6 +430,9 @@ app.use(
         ]);
         if (allowed.has(host)) return callback(null, true);
         if (/^loop-[a-z0-9-]+-vtkn1\.vercel\.app$/.test(host)) return callback(null, true);
+        if (host.endsWith(".run.app") || host === "aistudio.google.com" || host.endsWith(".aistudio.google.com")) {
+          return callback(null, true);
+        }
         return callback(null, false);
       } catch {
         return callback(null, false);
@@ -300,7 +466,7 @@ apiRouter.get("/health", async (req, res) => {
       dbStatus = "error";
       const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
       logger.error("Health check DB ping failed:", { error: errorObj });
-      dbErrorDetail = errorObj;
+      dbErrorDetail = config.nodeEnv === "production" ? "database_connection_failed" : (err instanceof Error ? err.message : String(err));
     }
   }
 

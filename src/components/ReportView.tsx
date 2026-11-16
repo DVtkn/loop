@@ -43,11 +43,13 @@ export const ReportView: React.FC<ReportViewProps> = ({
   initialSegment,
 }) => {
   const {
+    currentUser,
     coupleProfile: contextCoupleProfile,
     pulseHistory,
     tests,
     triggerConfetti,
     setActiveTab,
+    sendTouchAction,
   } = useCouple();
 
   const coupleProfile = useMemo(() => {
@@ -60,6 +62,13 @@ export const ReportView: React.FC<ReportViewProps> = ({
     return contextCoupleProfile;
   }, [contextCoupleProfile, partnerProfile]);
 
+  const canonicalCoupleId = useMemo(() => {
+    const myLogin = (currentUser?.login || coupleProfile.partner1.login || '').toLowerCase().trim().replace(/^@/, '');
+    const pLogin = (currentUser?.partnerLogin || coupleProfile.partner2.login || '').toLowerCase().trim().replace(/^@/, '');
+    if (myLogin && pLogin) return [myLogin, pLogin].sort().join('_');
+    return myLogin || coupleProfile.id;
+  }, [currentUser?.login, currentUser?.partnerLogin, coupleProfile.partner1.login, coupleProfile.partner2.login, coupleProfile.id]);
+
   const defaultSegment = initialSegment || (activeTab ? 'radar' : 'breakdown');
   const [activeSegment, setActiveSegment] = useState<'breakdown' | 'radar' | 'strengths' | 'dynamics' | 'rating'>(defaultSegment);
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
@@ -68,6 +77,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
   const handleRemindPartner = () => {
     triggerHaptic('success');
+    sendTouchAction?.('thinking', {
+      title: 'Напоминание о тестах',
+      customNote: 'Загляни в тесты совместимости в Loop — ждём твои ответы ✨',
+    });
     setReminded(true);
     setTimeout(() => setReminded(false), 3000);
   };
@@ -314,7 +327,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <RelationshipDynamics coupleId={coupleProfile.id} />
+                <RelationshipDynamics coupleId={canonicalCoupleId} />
               )}
             </>
           )}

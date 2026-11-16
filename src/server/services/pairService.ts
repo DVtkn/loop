@@ -13,22 +13,33 @@ export async function acceptPair(cleanMe: string, cleanPartner: string) {
   const now = new Date().toISOString();
 
   // Защита от навязывания пары: принимаем только подтверждённый запрос
+  let hasVerifiedRequest = false;
   if (isSqlConfigured() && db) {
-    const pending = await db
-      .select()
-      .from(pairRequests)
-      .where(and(eq(pairRequests.fromLogin, cleanPartner), eq(pairRequests.toLogin, cleanMe)));
-    if (pending.length === 0) {
-      throw { status: 403, message: "Нет подтверждённого запроса на соединение" };
+    try {
+      const pending = await db
+        .select()
+        .from(pairRequests)
+        .where(and(eq(pairRequests.fromLogin, cleanPartner), eq(pairRequests.toLogin, cleanMe)));
+      if (pending.length > 0) {
+        hasVerifiedRequest = true;
+      }
+    } catch (err: unknown) {
+      if (isProd()) {
+        logger.error('CRITICAL: Pair request lookup failed in production.', err);
+        throw new DatabaseUnavailableError();
+      }
     }
-  } else {
+  }
+
+  if (!hasVerifiedRequest && !isProd()) {
     const storeForCheck = readEmergencyFile();
-    const hasRequest = (storeForCheck.pairRequests || []).some(
+    hasVerifiedRequest = (storeForCheck.pairRequests || []).some(
       (r) => r.fromLogin === cleanPartner && r.toLogin === cleanMe
     );
-    if (!hasRequest) {
-      throw { status: 403, message: "Нет подтверждённого запроса на соединение" };
-    }
+  }
+
+  if (!hasVerifiedRequest) {
+    throw { status: 403, message: "Нет подтверждённого запроса на соединение" };
   }
 
   if (isProd()) {

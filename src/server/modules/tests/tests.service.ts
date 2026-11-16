@@ -8,6 +8,28 @@ import { DatabaseUnavailableError } from "../../shared/errors/index.ts";
 import { calculatePsychProfile } from "./psychometrics.calc.ts";
 import { calculateCoupleMatrix } from "./couple-matrix.calc.ts";
 import { calculateCoupleRadarMatrix, CoupleRadarResult } from "./report.matrix.ts";
+import { readEmergencyFile, writeEmergencyFile, findUserByLogin } from "../../services/storageService.ts";
+
+const isProd = () => process.env.NODE_ENV === "production";
+
+export function normalizeDraftAnswersMap(
+  raw: Record<string, unknown> | Array<{ questionId: string; value: unknown }> | null | undefined
+): Record<string, unknown> {
+  if (!raw) return {};
+  if (Array.isArray(raw)) {
+    const out: Record<string, unknown> = {};
+    for (const item of raw) {
+      if (item && typeof item.questionId === "string") {
+        out[item.questionId] = item.value;
+      }
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    return raw as Record<string, unknown>;
+  }
+  return {};
+}
 
 /** Единый реестр всех тестов — источник правды (SSOT). */
 export { TESTS_REGISTRY, getSphereByTestId, TEST_REGISTRY_ENTRIES };
@@ -25,14 +47,25 @@ export const EXPECTED_QUESTIONS = Object.fromEntries(
  */
 export async function resolveTestCoupleId(userLogin: string): Promise<string> {
   const clean = (s: string) => s.toLowerCase().trim().replace(/^@/, "");
-  if (!isSqlConfigured() || !db) return clean(userLogin);
-  const [u] = await db
-    .select({ login: users.login, partnerLogin: users.partnerLogin })
-    .from(users)
-    .where(eq(users.login, userLogin));
-  if (!u) return clean(userLogin);
-  if (!u.partnerLogin) return clean(u.login);
-  return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+  const cleanLogin = clean(userLogin);
+  if (!cleanLogin) return "";
+  if (isSqlConfigured() && db) {
+    try {
+      const [u] = await db
+        .select({ login: users.login, partnerLogin: users.partnerLogin })
+        .from(users)
+        .where(eq(users.login, cleanLogin));
+      if (u) {
+        if (!u.partnerLogin) return clean(u.login);
+        return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+      }
+    } catch {
+      if (isProd()) throw new DatabaseUnavailableError();
+    }
+  }
+  const fallbackUser = await findUserByLogin(cleanLogin);
+  if (!fallbackUser?.partnerLogin) return cleanLogin;
+  return [cleanLogin, clean(fallbackUser.partnerLogin)].sort().join("_");
 }
 
 export interface TestDefinition {
@@ -114,7 +147,11 @@ export async function atomicSubmitTestAnswers(
       }
       const sessionId = session[0].id;
 
-      // 4. Пакетная вставка ответов (с метаданными шкалы и сырым payload)
+      // 4. Очистка возможных незавершённых ответов в текущей сессии + пакетная вставка
+      await tx.delete(testAnswers).where(
+        and(eq(testAnswers.sessionId, sessionId), eq(testAnswers.userId, userId))
+      );
+
       const answerRecords = answers.map((a) => ({
         id: crypto.randomUUID(),
         sessionId,
@@ -135,8 +172,8 @@ export async function atomicSubmitTestAnswers(
         and(eq(testDrafts.userId, userId), eq(testDrafts.testId, testId))
       );
 
-// 6. Пересчёт психопрофиля пользователя (24 шкалы)
-       await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
+      // 6. Пересчёт психопрофиля пользователя (24 шкалы)
+      await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
 
       // 7. Помечаем сессию завершённой (до триггера, иначе последний сабмит не засчитается)
       await tx.update(testSessions)
@@ -157,8 +194,124 @@ export async function atomicSubmitTestAnswers(
     });
   }
 
-  // Dev fallback
-  return { status: "recorded_locally", testId, message: "Dev mode: no DB" };
+  // Dev / Test fallback (без SQL)
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+  const store = readEmergencyFile();
+  if (!store.testSessions) store.testSessions = [];
+  if (!store.testAnswers) store.testAnswers = [];
+  if (!store.userPsychProfiles) store.userPsychProfiles = {};
+  if (!store.coupleReports) store.coupleReports = {};
+  if (!store.testDrafts) store.testDrafts = {};
+
+  const sessionId = crypto.randomUUID();
+  const nowIso = new Date().toISOString();
+  store.testSessions.push({
+    id: sessionId,
+    testId,
+    coupleId,
+    testClass: "couple",
+    status: "completed",
+    completedAt: nowIso,
+  });
+
+  // Заменяем предыдущие ответы этого же пользователя на этот тест в этой паре
+  const existingSessionIds = new Set(
+    store.testSessions.filter((s) => s.coupleId === coupleId && s.testId === testId).map((s) => s.id)
+  );
+  store.testAnswers = store.testAnswers.filter(
+    (a) => !(a.userId === cleanLogin && existingSessionIds.has(a.sessionId))
+  );
+  for (const a of answers) {
+    store.testAnswers.push({
+      id: crypto.randomUUID(),
+      sessionId,
+      userId: cleanLogin,
+      questionId: a.questionId,
+      selectedValue: String(a.value),
+      scaleId: a.scaleId ?? null,
+      weight: "1.00",
+      reactionTimeMs: a.reactionTimeMs ?? null,
+      toggleCount: a.toggleCount ?? 0,
+      targetType: a.targetType ?? "self",
+      rawPayload: a.rawPayload ?? null,
+    });
+  }
+
+  delete store.testDrafts[`${cleanLogin}:${testId}`];
+
+  const myCoupleSessions = new Set(
+    store.testSessions.filter((s) => s.coupleId === coupleId && s.status === "completed").map((s) => s.id)
+  );
+  const myAllAnswers = store.testAnswers.filter((a) => a.userId === cleanLogin && myCoupleSessions.has(a.sessionId));
+  const profile = calculatePsychProfile(myAllAnswers);
+  store.userPsychProfiles[cleanLogin] = {
+    userId: cleanLogin,
+    coupleId,
+    sessionId,
+    traitScores: profile.traitScores,
+    dominantVectors: profile.dominantVectors,
+    eSafety: String(profile.eSafety),
+    aAutonomy: String(profile.aAutonomy),
+    cCloseness: String(profile.cCloseness),
+    rRepair: String(profile.rRepair),
+    vFuture: String(profile.vFuture),
+    consistencyScore: String(profile.consistencyScore),
+    updatedAt: nowIso,
+  };
+
+  let harmonyState: { state: "PARTNER_PENDING" | "BOTH_COMPLETED" | "REPORT_GENERATED"; radar?: any } = {
+    state: "PARTNER_PENDING",
+  };
+  const coupleUser = await findUserByLogin(cleanLogin);
+  const partnerLogin = coupleUser?.partnerLogin?.toLowerCase().trim().replace(/^@/, "");
+  if (partnerLogin) {
+    const myCompletedIds = new Set(
+      store.testSessions
+        .filter((s) => s.coupleId === coupleId && s.status === "completed")
+        .filter((s) => store.testAnswers!.some((a) => a.sessionId === s.id && a.userId === cleanLogin))
+        .map((s) => s.testId)
+    );
+    const partnerCompletedIds = new Set(
+      store.testSessions
+        .filter((s) => s.coupleId === coupleId && s.status === "completed")
+        .filter((s) => store.testAnswers!.some((a) => a.sessionId === s.id && a.userId === partnerLogin))
+        .map((s) => s.testId)
+    );
+    const p1Done = CATALOG_TEST_IDS.every((id) => myCompletedIds.has(id));
+    const p2Done = CATALOG_TEST_IDS.every((id) => partnerCompletedIds.has(id));
+    if (p1Done && p2Done) {
+      const p1Scales = store.userPsychProfiles[cleanLogin]?.traitScores;
+      const p2Scales = store.userPsychProfiles[partnerLogin]?.traitScores;
+      if (p1Scales?.s1 != null && p2Scales?.s1 != null) {
+        const matrixResult = calculateCoupleMatrix(p1Scales, p2Scales);
+        store.coupleReports[coupleId] = {
+          id: crypto.randomUUID(),
+          coupleId,
+          radarMetrics: matrixResult.radar,
+          archetypeTitle: matrixResult.archetype.title,
+          archetypeDescription: matrixResult.archetype.description,
+          leadSpheres: matrixResult.archetype.leadSpheres,
+          synergyPoints: matrixResult.synergyPoints,
+          growthZones: matrixResult.growthZones,
+          blindSpots: matrixResult.destructivePatternsDetected,
+          calculatedAt: nowIso,
+        };
+        harmonyState = { state: "REPORT_GENERATED", radar: matrixResult.radar };
+      } else {
+        harmonyState = { state: "BOTH_COMPLETED" };
+      }
+    }
+  }
+
+  writeEmergencyFile(store);
+  return {
+    status: "completed",
+    testId,
+    userId: cleanLogin,
+    sessionId,
+    answersCount: answers.length,
+    harmonyState,
+  };
 }
 
 /** Инкрементальная отправка ответа (для режима вопрос-за-вопросом) */
@@ -264,10 +417,24 @@ export async function saveTestDraft(
   userLogin: string,
   testId: string,
   currentQuestionIndex: number,
-  answers: Array<{ questionId: string; value: any }>
+  answers: Record<string, unknown> | Array<{ questionId: string; value: any }>
 ) {
+  const normalizedAnswers = normalizeDraftAnswersMap(answers);
+
   if (!isSqlConfigured() || !db) {
-    return { status: "saved_locally", message: "Dev mode: no DB" };
+    if (isProd()) throw new DatabaseUnavailableError();
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    if (!store.testDrafts) store.testDrafts = {};
+    store.testDrafts[`${cleanLogin}:${testId}`] = {
+      userId: cleanLogin,
+      testId,
+      currentQuestionIndex,
+      answers: normalizedAnswers,
+      updatedAt: new Date().toISOString(),
+    };
+    writeEmergencyFile(store);
+    return { status: "saved", testId, currentQuestionIndex };
   }
 
   const [u] = await db.select().from(users).where(eq(users.login, userLogin));
@@ -277,12 +444,12 @@ export async function saveTestDraft(
     userId,
     testId,
     currentQuestionIndex,
-    answers,
+    answers: normalizedAnswers,
   }).onConflictDoUpdate({
     target: [testDrafts.userId, testDrafts.testId],
     set: {
       currentQuestionIndex,
-      answers,
+      answers: normalizedAnswers,
       updatedAt: new Date(),
     },
   });
@@ -293,7 +460,12 @@ export async function saveTestDraft(
 /** Получить черновик теста */
 export async function getTestDraft(userLogin: string, testId: string) {
   if (!isSqlConfigured() || !db) {
-    return null;
+    if (isProd()) return null;
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    const draft = store.testDrafts?.[`${cleanLogin}:${testId}`];
+    if (!draft) return null;
+    return { ...draft, answers: normalizeDraftAnswersMap(draft.answers) };
   }
 
   const [u] = await db.select().from(users).where(eq(users.login, userLogin));
@@ -305,13 +477,24 @@ export async function getTestDraft(userLogin: string, testId: string) {
     .where(and(eq(testDrafts.userId, userId), eq(testDrafts.testId, testId)))
     .limit(1);
 
-  return draft ?? null;
+  if (!draft) return null;
+  return {
+    ...draft,
+    answers: normalizeDraftAnswersMap(draft.answers as any),
+  };
 }
 
 /** Удалить черновик теста */
 export async function clearTestDraft(userLogin: string, testId: string) {
   if (!isSqlConfigured() || !db) {
-    return { status: "cleared_locally", message: "Dev mode: no DB" };
+    if (isProd()) throw new DatabaseUnavailableError();
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    if (store.testDrafts) {
+      delete store.testDrafts[`${cleanLogin}:${testId}`];
+      writeEmergencyFile(store);
+    }
+    return { status: "cleared", testId };
   }
 
   const [u] = await db.select().from(users).where(eq(users.login, userLogin));
@@ -326,11 +509,39 @@ export async function clearTestDraft(userLogin: string, testId: string) {
 
 /** Получить статусы тестов для пользователя */
 export async function getTestsStatusForUser(userLogin: string) {
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
   if (!isSqlConfigured() || !db) {
+    if (isProd()) {
+      return CATALOG_TEST_IDS.map((testId) => ({
+        testId,
+        isCompletedByMe: false,
+        isCompletedByPartner: false,
+      }));
+    }
+    const store = readEmergencyFile();
+    const u = await findUserByLogin(cleanLogin);
+    const partnerLogin = u?.partnerLogin?.toLowerCase().trim().replace(/^@/, "");
+    const coupleId = await resolveTestCoupleId(cleanLogin);
+    const sessions = (store.testSessions || []).filter(
+      (s) => s.status === "completed" && s.coupleId === coupleId
+    );
+    const answers = store.testAnswers || [];
+    const mySet = new Set(
+      sessions
+        .filter((s) => answers.some((a) => a.sessionId === s.id && a.userId === cleanLogin))
+        .map((s) => s.testId)
+    );
+    const partnerSet = new Set(
+      partnerLogin
+        ? sessions
+            .filter((s) => answers.some((a) => a.sessionId === s.id && a.userId === partnerLogin))
+            .map((s) => s.testId)
+        : []
+    );
     return CATALOG_TEST_IDS.map((testId) => ({
       testId,
-      isCompletedByMe: false,
-      isCompletedByPartner: false,
+      isCompletedByMe: mySet.has(testId),
+      isCompletedByPartner: partnerSet.has(testId),
     }));
   }
 

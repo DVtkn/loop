@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, or } from "drizzle-orm";
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { aiInsights, coupleReports, userPsychProfiles, couples, users, testSessions, testAnswers } from "../../db/schema.ts";
 import { recordDailyMetrics, getTrends } from "../../services/analytics.ts";
@@ -95,38 +95,43 @@ export async function getDetailedCoupleAnalytics(
     .limit(1);
 
 
-  // 3. Fetch completed sessions by me
-  let completedTestsCount = 0;
+  // 3. Identify currentUser & partnerUser via targeted queries (no full table scan)
+  let currentUser: typeof users.$inferSelect | undefined;
   if (currentUserIdOrLogin) {
-    const allUsers = await db.select().from(users);
-    const currentUser = allUsers.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
-    
-    if (currentUser) {
-      const userCompletedSessions = await db
-        .select({ testId: testSessions.testId })
-        .from(testSessions)
-        .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
-        .where(eq(testAnswers.userId, currentUser.id))
-        .groupBy(testSessions.testId);
-      
-      completedTestsCount = userCompletedSessions.length;
-    }
+    const cleanTarget = currentUserIdOrLogin.toLowerCase().trim().replace(/^@/, "");
+    const [found] = await db
+      .select()
+      .from(users)
+      .where(or(eq(users.id, currentUserIdOrLogin), eq(users.login, cleanTarget)))
+      .limit(1);
+    currentUser = found;
   }
 
+  let completedTestsCount = 0;
+  if (currentUser) {
+    const userCompletedSessions = await db
+      .select({ testId: testSessions.testId })
+      .from(testSessions)
+      .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
+      .where(eq(testAnswers.userId, currentUser.id))
+      .groupBy(testSessions.testId);
+    completedTestsCount = userCompletedSessions.length;
+  }
 
-  // 4. Identify partner names
-  const allUsers = await db.select().from(users);
-  let currentUser = allUsers.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
-  let partnerUser: typeof currentUser | undefined;
-
+  // 4. Identify partner names from targeted user IDs
+  let partnerUser: typeof users.$inferSelect | undefined;
   if (couple) {
+    const memberIds = [couple.user1Id, couple.user2Id].filter((id): id is string => Boolean(id));
+    const coupleMembers = memberIds.length > 0
+      ? await db.select().from(users).where(inArray(users.id, memberIds))
+      : [];
     if (currentUser?.id === couple.user1Id) {
-      partnerUser = allUsers.find((u) => u.id === couple.user2Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
     } else if (currentUser?.id === couple.user2Id) {
-      partnerUser = allUsers.find((u) => u.id === couple.user1Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user1Id);
     } else {
-      currentUser = allUsers.find((u) => u.id === couple.user1Id);
-      partnerUser = allUsers.find((u) => u.id === couple.user2Id);
+      currentUser = coupleMembers.find((u) => u.id === couple.user1Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
     }
   }
 

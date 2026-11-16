@@ -1,10 +1,14 @@
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { couplePets, coupleEvents, users, couples } from "../../db/schema.ts";
 import { eq, and, or, gte } from "drizzle-orm";
+import crypto from "crypto";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
 import { getPairKey } from "../../shared/middleware/requirePairOwnership.ts";
+import { readEmergencyFile, writeEmergencyFile, findUserByLogin } from "../../services/storageService.ts";
 import type { CouplePetState, PetActionResult, PetActionType, PetMood, PetSpecies } from "../../../types.ts";
+
+const isProd = () => process.env.NODE_ENV === "production";
 
 const DEFAULT_PET_STATE: CouplePetState = {
   id: "",
@@ -125,48 +129,55 @@ function checkLevelUp(state: CouplePetState): { state: CouplePetState; levelUp: 
 }
 
 async function getCoupleInfo(userLogin: string): Promise<{ coupleId: string; pairKey: string; userId: string } | null> {
-  if (!isSqlConfigured() || !db) return null;
-  
-  const userRow = await db.select().from(users).where(eq(users.login, userLogin)).limit(1);
-  if (!userRow.length || !userRow[0].partnerLogin) return null;
-  
-  const partnerLogin = userRow[0].partnerLogin;
-  const pairKey = getPairKey(userLogin, partnerLogin);
-  
-  // Find couple in couples table by user IDs
-  const partnerUser = await db.select().from(users).where(eq(users.login, partnerLogin)).limit(1);
-  if (!partnerUser.length) return null;
-  
-  const coupleRow = await db.select().from(couples).where(
-    or(
-      and(
-        eq(couples.user1Id, userRow[0].id),
-        eq(couples.user2Id, partnerUser[0].id)
-      ),
-      and(
-        eq(couples.user1Id, partnerUser[0].id),
-        eq(couples.user2Id, userRow[0].id)
-      )
-    )
-  ).limit(1);
-  let coupleId: string;
-  if (coupleRow.length) {
-    coupleId = coupleRow[0].id;
-  } else {
-    coupleId = pairKey;
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+  if (isSqlConfigured() && db) {
     try {
-      await db.insert(couples).values({
-        id: pairKey,
-        user1Id: userRow[0].id,
-        user2Id: partnerUser[0].id,
-        startDate: new Date().toISOString().split('T')[0],
-      }).onConflictDoNothing();
+      const userRow = await db.select().from(users).where(eq(users.login, cleanLogin)).limit(1);
+      if (userRow.length && userRow[0].partnerLogin) {
+        const partnerLogin = userRow[0].partnerLogin.toLowerCase().trim().replace(/^@/, "");
+        const pairKey = getPairKey(cleanLogin, partnerLogin);
+        const partnerUser = await db.select().from(users).where(eq(users.login, partnerLogin)).limit(1);
+        if (partnerUser.length) {
+          const coupleRow = await db.select().from(couples).where(
+            or(
+              and(eq(couples.user1Id, userRow[0].id), eq(couples.user2Id, partnerUser[0].id)),
+              and(eq(couples.user1Id, partnerUser[0].id), eq(couples.user2Id, userRow[0].id))
+            )
+          ).limit(1);
+          let coupleId: string;
+          if (coupleRow.length) {
+            coupleId = coupleRow[0].id;
+          } else {
+            coupleId = pairKey;
+            try {
+              await db.insert(couples).values({
+                id: pairKey,
+                user1Id: userRow[0].id,
+                user2Id: partnerUser[0].id,
+                startDate: new Date().toISOString().split('T')[0],
+              }).onConflictDoNothing();
+            } catch (err) {
+              logger.warn('getCoupleInfo: failed to ensure couples row', { pairKey, err });
+            }
+          }
+          return { coupleId, pairKey, userId: userRow[0].id };
+        }
+      }
     } catch (err) {
-      logger.warn('getCoupleInfo: failed to ensure couples row', { pairKey, err });
+      if (isProd()) {
+        logger.error("getCoupleInfo SQL failed in production", err);
+        throw { status: 503, message: "База данных недоступна" };
+      }
     }
   }
-  
-  return { coupleId, pairKey, userId: userRow[0].id };
+
+  if (isProd()) return null;
+
+  const devUser = await findUserByLogin(cleanLogin);
+  if (!devUser?.partnerLogin) return null;
+  const partnerLogin = devUser.partnerLogin.toLowerCase().trim().replace(/^@/, "");
+  const pairKey = getPairKey(cleanLogin, partnerLogin);
+  return { coupleId: pairKey, pairKey, userId: devUser.id || cleanLogin };
 }
 
 
@@ -187,10 +198,19 @@ function normalizePetRow(row: Record<string, unknown>): CouplePetState {
 }
 
 async function calcTodaySynergy(coupleId: string): Promise<number> {
-  if (!isSqlConfigured() || !db) return 50;
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartIso = dayStart.toISOString();
+
+  if (!isSqlConfigured() || !db) {
+    if (isProd()) return 50;
+    const store = readEmergencyFile();
+    const actors = (store.coupleEvents || [])
+      .filter((e) => e.coupleId === coupleId && e.eventType === "pet_action" && String(e.createdAt || "") >= dayStartIso)
+      .map((e) => String(e.senderLogin || ""));
+    return calcDuoSynergy(actors);
+  }
   try {
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
     const rows = await db
       .select({ senderLogin: coupleEvents.senderLogin })
       .from(coupleEvents)
@@ -198,12 +218,11 @@ async function calcTodaySynergy(coupleId: string): Promise<number> {
         and(
           eq(coupleEvents.coupleId, coupleId),
           eq(coupleEvents.eventType, "pet_action"),
-          gte(coupleEvents.createdAt, dayStart.toISOString())
+          gte(coupleEvents.createdAt, dayStartIso)
         )
       );
     return calcDuoSynergy(rows.map((r) => r.senderLogin));
   } catch {
-    // Синергия — украшение, никогда не ломает чтение состояния
     return 50;
   }
 }
@@ -215,7 +234,35 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
   }
 
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "База данных недоступна" };
+    if (isProd()) {
+      throw { status: 503, message: "База данных недоступна" };
+    }
+    const store = readEmergencyFile();
+    const saved = store.couplePets?.[coupleInfo.pairKey];
+    if (!saved) {
+      return {
+        ...DEFAULT_PET_STATE,
+        id: crypto.randomUUID(),
+        coupleId: coupleInfo.coupleId,
+        pairKey: coupleInfo.pairKey,
+        isOnboardingCompleted: false,
+        synergy: await calcTodaySynergy(coupleInfo.coupleId),
+      };
+    }
+    const pet = normalizePetRow(saved as Record<string, unknown>);
+    const decayed = applyDecay(pet);
+    if (
+      decayed.hunger !== pet.hunger ||
+      decayed.joy !== pet.joy ||
+      decayed.energy !== pet.energy ||
+      decayed.cleanliness !== pet.cleanliness ||
+      decayed.mood !== pet.mood
+    ) {
+      if (!store.couplePets) store.couplePets = {};
+      store.couplePets[coupleInfo.pairKey] = decayed;
+      writeEmergencyFile(store);
+    }
+    return { ...decayed, synergy: await calcTodaySynergy(coupleInfo.coupleId) };
   }
 
   try {
@@ -233,10 +280,8 @@ export async function getPetState(userLogin: string): Promise<CouplePetState> {
     }
     
     const pet = normalizePetRow(row[0] as Record<string, unknown>);
-    // Apply decay engine
     const decayed = applyDecay(pet);
     
-    // If stats changed, update in DB
     if (decayed.hunger !== pet.hunger || decayed.joy !== pet.joy || 
         decayed.energy !== pet.energy || decayed.cleanliness !== pet.cleanliness ||
         decayed.mood !== pet.mood) {
@@ -271,7 +316,68 @@ export async function createPet(
   }
 
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "База данных недоступна" };
+    if (isProd()) {
+      throw { status: 503, message: "База данных недоступна" };
+    }
+    const store = readEmergencyFile();
+    if (!store.couplePets) store.couplePets = {};
+    const existing = store.couplePets[coupleInfo.pairKey];
+    const nowISO = new Date().toISOString();
+    if (existing) {
+      const updated = normalizePetRow({
+        ...existing,
+        name: name.trim(),
+        species,
+        isOnboardingCompleted: true,
+        updatedAt: nowISO,
+      });
+      store.couplePets[coupleInfo.pairKey] = updated;
+      writeEmergencyFile(store);
+      return {
+        success: true,
+        state: updated,
+        message: `🎉 ${name.trim()} теперь с вами!`,
+        levelUp: false,
+        expGained: 25,
+      };
+    }
+    const newPet: CouplePetState = {
+      id: crypto.randomUUID(),
+      coupleId: coupleInfo.coupleId,
+      pairKey: coupleInfo.pairKey,
+      species: species as PetSpecies,
+      name: name.trim(),
+      nameStatus: "confirmed",
+      nameProposedBy: coupleInfo.userId,
+      isOnboardingCompleted: true,
+      hunger: 85,
+      joy: 90,
+      energy: 65,
+      cleanliness: 80,
+      mood: "happy",
+      level: 1,
+      experience: 50,
+      weightKg: "1.20",
+      lastFedAt: nowISO,
+      lastPlayedAt: nowISO,
+      lastRestedAt: nowISO,
+      lastWashedAt: nowISO,
+      lastInteractionAt: nowISO,
+      lastActionBy: coupleInfo.userId,
+      createdAt: nowISO,
+      updatedAt: nowISO,
+    };
+    store.couplePets[coupleInfo.pairKey] = newPet;
+    writeEmergencyFile(store);
+    await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name.trim(), species });
+    await notifyPartner(coupleInfo, userLogin, "pet_birth", { petName: name.trim(), species });
+    return {
+      success: true,
+      state: newPet,
+      message: `🎉 ${name.trim()} родился! Добро пожаловать в семью!`,
+      levelUp: false,
+      expGained: 50,
+    };
   }
 
   const existingPet = await db
@@ -371,7 +477,95 @@ export async function performPetAction(
   }
 
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "База данных недоступна" };
+    if (isProd()) {
+      throw { status: 503, message: "База данных недоступна" };
+    }
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) {
+      throw { status: 404, message: "Питомец не найден. Сначала завершите онбординг." };
+    }
+    let state = applyDecay(normalizePetRow(existing as Record<string, unknown>));
+    let expGained = 0;
+    let actionName = "";
+    let emoji = "";
+    let gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 0 };
+    switch (action) {
+      case "feed":
+        gains = { hunger: 25, joy: 5, energy: 0, cleanliness: 0 };
+        expGained = 15;
+        state.lastFedAt = new Date().toISOString();
+        actionName = "покормил";
+        emoji = "🍓";
+        break;
+      case "play":
+        gains = { hunger: 0, joy: 20, energy: -10, cleanliness: 0 };
+        expGained = 20;
+        state.lastPlayedAt = new Date().toISOString();
+        actionName = "поиграл с";
+        emoji = "🎾";
+        break;
+      case "wash":
+        gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 25 };
+        expGained = 15;
+        state.lastWashedAt = new Date().toISOString();
+        actionName = "помыл";
+        emoji = "🛁";
+        break;
+      case "sleep":
+        gains = { hunger: 0, joy: 0, energy: 35, cleanliness: 0 };
+        expGained = 25;
+        state.lastRestedAt = new Date().toISOString();
+        actionName = "уложил спать";
+        emoji = "💤";
+        break;
+      case "hug":
+        gains = { hunger: 0, joy: 10, energy: 0, cleanliness: 0 };
+        expGained = 10;
+        actionName = "обнял";
+        emoji = "🤗";
+        break;
+    }
+    const boosted = applySpeciesBonus(state.species, gains);
+    state.hunger = clamp(state.hunger + boosted.hunger, 0, 100);
+    state.joy = clamp(state.joy + boosted.joy, 0, 100);
+    state.energy = clamp(state.energy + boosted.energy, 0, 100);
+    state.cleanliness = clamp(state.cleanliness + boosted.cleanliness, 0, 100);
+    state.experience += expGained;
+    state.lastInteractionAt = new Date().toISOString();
+    state.lastActionBy = coupleInfo.userId;
+    state.mood = deriveMood(state);
+    state.updatedAt = new Date().toISOString();
+    const { state: leveledState, levelUp } = checkLevelUp(state);
+    state = leveledState;
+
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = state;
+    if (!store.coupleEvents) store.coupleEvents = [];
+    store.coupleEvents.push({
+      id: `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`,
+      coupleId: coupleInfo.coupleId,
+      targetLogin: "",
+      senderLogin: userLogin,
+      eventType: "pet_action",
+      payload: { action, petName: state.name, level: state.level, mood: state.mood, expGained },
+      createdAt: new Date().toISOString(),
+    });
+    writeEmergencyFile(store);
+
+    await notifyPartner(coupleInfo, userLogin, `pet_${action}`, {
+      petName: state.name,
+      action,
+      expGained,
+    });
+
+    return {
+      success: true,
+      state,
+      message: getActionMessage(action, levelUp, actionName, emoji),
+      levelUp,
+      expGained,
+    };
   }
 
   try {
@@ -487,20 +681,40 @@ export async function proposePetName(userLogin: string, name: string): Promise<{
   const trimmedName = name.trim();
   if (!trimmedName) throw { status: 400, message: "Имя не может быть пустым" };
 
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "База данных недоступна" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd()) throw { status: 503, message: "База данных недоступна" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "Питомец не найден" };
+    const updated = normalizePetRow({
+      ...existing,
+      name: trimmedName,
+      nameStatus: "pending_partner",
+      nameProposedBy: coupleInfo.userId,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    await notifyPartner(coupleInfo, userLogin, "pet_name_proposed", {
+      proposedName: trimmedName,
+      proposedBy: userLogin,
+    });
+    return { success: true, state: updated };
+  }
 
-const now = new Date();
+  const now = new Date();
     
-    try {
-      const result = await db.update(couplePets)
-        .set({ 
-          name: trimmedName,
-          nameStatus: "pending_partner",
-          nameProposedBy: coupleInfo.userId,
-          updatedAt: now.toISOString()
-        })
-        .where(eq(couplePets.pairKey, coupleInfo.pairKey))
-        .returning();
+  try {
+    const result = await db.update(couplePets)
+      .set({ 
+        name: trimmedName,
+        nameStatus: "pending_partner",
+        nameProposedBy: coupleInfo.userId,
+        updatedAt: now.toISOString()
+      })
+      .where(eq(couplePets.pairKey, coupleInfo.pairKey))
+      .returning();
 
     const state = result.length ? normalizePetRow(result[0] as Record<string, unknown>) : undefined;
     if (!state) throw { status: 404, message: "Питомец не найден" };
@@ -521,7 +735,21 @@ export async function confirmPetName(userLogin: string, confirm: boolean): Promi
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) throw { status: 403, message: "Вы не состоите в паре" };
 
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "База данных недоступна" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd()) throw { status: 503, message: "База данных недоступна" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "Питомец не найден" };
+    const updated = normalizePetRow({
+      ...existing,
+      nameStatus: confirm ? "confirmed" : "pending_partner",
+      updatedAt: new Date().toISOString(),
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    return { success: true, state: updated };
+  }
 
   const now = new Date();
   
@@ -548,7 +776,21 @@ export async function switchPetSpecies(userLogin: string, species: "dog" | "cat"
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) throw { status: 403, message: "Вы не состоите в паре" };
 
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "База данных недоступна" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd()) throw { status: 503, message: "База данных недоступна" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "Питомец не найден" };
+    const updated = normalizePetRow({
+      ...existing,
+      species: species as PetSpecies,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    return { success: true, state: updated };
+  }
 
   const now = new Date();
   
@@ -587,10 +829,26 @@ async function awardCoupleXP(coupleId: string, xp: number, _reason: string): Pro
 }
 
 async function logPetEvent(coupleId: string, userLogin: string, eventType: string, payload: any): Promise<void> {
-  if (!isSqlConfigured() || !db) return;
+  const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
+  const nowIso = new Date().toISOString();
+  if (!isSqlConfigured() || !db) {
+    if (isProd()) return;
+    const store = readEmergencyFile();
+    if (!store.coupleEvents) store.coupleEvents = [];
+    store.coupleEvents.push({
+      id: eventId,
+      coupleId,
+      targetLogin: "",
+      senderLogin: userLogin,
+      eventType: "pet_action",
+      payload: { ...payload, eventType },
+      createdAt: nowIso,
+    });
+    writeEmergencyFile(store);
+    return;
+  }
   
   try {
-    const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
     await db.insert(coupleEvents).values({
       id: eventId,
       coupleId,
@@ -598,7 +856,7 @@ async function logPetEvent(coupleId: string, userLogin: string, eventType: strin
       senderLogin: userLogin,
       eventType: "pet_action",
       payload: { ...payload, eventType },
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     });
   } catch (e) {
     logger.warn("logPetEvent failed", undefined, e as any);
@@ -606,15 +864,17 @@ async function logPetEvent(coupleId: string, userLogin: string, eventType: strin
 }
 
 async function notifyPartner(coupleInfo: { coupleId: string; pairKey: string; userId: string }, userLogin: string, eventType: string, payload: any): Promise<void> {
-  if (!isSqlConfigured() || !db) return;
-  
   try {
-    const userRow = await db.select().from(users).where(eq(users.id, coupleInfo.userId)).limit(1);
-    if (!userRow.length) return;
-    
-    const partnerLogin = userRow[0].partnerLogin;
+    let partnerLogin: string | null | undefined;
+    if (isSqlConfigured() && db) {
+      const userRow = await db.select().from(users).where(eq(users.id, coupleInfo.userId)).limit(1);
+      partnerLogin = userRow[0]?.partnerLogin;
+    } else if (!isProd()) {
+      const devUser = await findUserByLogin(userLogin);
+      partnerLogin = devUser?.partnerLogin;
+    }
     if (!partnerLogin) return;
-    
+
     sendSSEEventToUser(partnerLogin, "pet_updated", {
       coupleId: coupleInfo.coupleId,
       eventType,

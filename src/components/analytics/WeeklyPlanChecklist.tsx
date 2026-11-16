@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { Check, Sparkles, Calendar, Clock } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage';
+import { CoupleContext } from '../../context/CoupleContext';
 
 interface WeeklyPlanTask {
   id: string;
@@ -53,24 +55,24 @@ interface WeeklyPlanChecklistProps {
 export const WeeklyPlanChecklist: React.FC<WeeklyPlanChecklistProps> = ({
   onTaskComplete,
 }) => {
-  const STORAGE_KEY = 'loop_weekly_plan_completed';
+  const coupleCtx = useContext(CoupleContext);
+  const storageKey = getUserStorageKey('loop_weekly_plan_completed', coupleCtx?.currentUser?.login);
+  const loadedKeyRef = useRef<string>(storageKey);
 
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : ['plan_mon'];
-    } catch {
-      return ['plan_mon'];
-    }
+    const saved = safeGetStorage<string[]>(storageKey, ['plan_mon']);
+    return Array.isArray(saved) ? saved : ['plan_mon'];
   });
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(completedTaskIds));
-    } catch {
-      // ignore
+    if (loadedKeyRef.current !== storageKey) {
+      loadedKeyRef.current = storageKey;
+      const saved = safeGetStorage<string[]>(storageKey, ['plan_mon']);
+      setCompletedTaskIds(Array.isArray(saved) ? saved : ['plan_mon']);
+      return;
     }
-  }, [completedTaskIds]);
+    safeSetStorage(storageKey, completedTaskIds);
+  }, [completedTaskIds, storageKey]);
 
   const toggleTask = (task: WeeklyPlanTask) => {
     triggerHaptic('selection');

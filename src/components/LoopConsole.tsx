@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import {
   CouplePetState,
   PetActionType,
@@ -9,7 +9,8 @@ import {
   performPetActionApi,
 } from '../api/pet.api.ts';
 import { triggerHaptic } from '../utils/haptics.ts';
-import { safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../utils/safeStorage.ts';
+import { CoupleContext } from '../context/CoupleContext.tsx';
 import { play8BitAudio, SoundEffectType } from '../utils/audio8Bit.ts';
 import {
   RANDOM_PET_NAMES,
@@ -62,6 +63,9 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
   onPetUpdated,
   initialPetState,
 }) => {
+  const coupleCtx = useContext(CoupleContext);
+  const petStorageKey = getUserStorageKey('loop_local_pet', coupleCtx?.currentUser?.login);
+
   const [step, setStep] = useState<'bios' | 'egg' | 'name' | 'game'>(
     initialPetState && initialPetState.isOnboardingCompleted ? 'game' : 'bios'
   );
@@ -112,16 +116,17 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
       setPet(initialPetState);
       setStep('game');
     } else {
-      const savedLocal = safeGetStorage<CouplePetState | null>('loop_local_pet', null);
+      const savedLocal = safeGetStorage<CouplePetState | null>(petStorageKey, null);
       if (savedLocal && savedLocal.isOnboardingCompleted) {
         setPet(savedLocal);
         setStep('game');
       } else {
+        setPet(null);
         setStep('bios');
         playChime('boot');
       }
     }
-  }, [isOpen, initialPetState, playChime]);
+  }, [isOpen, initialPetState, playChime, petStorageKey]);
 
   useEffect(() => {
     if (initialPetState) {
@@ -210,13 +215,13 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
         const res = await performPetActionApi(action, token);
         if (res.state) {
           setPet(res.state);
-          safeSetStorage('loop_local_pet', res.state);
+          safeSetStorage(petStorageKey, res.state);
           if (onPetUpdated) onPetUpdated(res.state);
         }
         if (res.levelUp) playChime('fanfare');
       } else {
         setPet(updatedLocalPet);
-        safeSetStorage('loop_local_pet', updatedLocalPet);
+        safeSetStorage(petStorageKey, updatedLocalPet);
         if (onPetUpdated) onPetUpdated(updatedLocalPet);
         if (nextLevel > (pet.level || 1)) playChime('fanfare');
       }
@@ -225,7 +230,7 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
       setTimeout(() => setActionFeedback(null), 2000);
     } catch {
       setPet(updatedLocalPet);
-      safeSetStorage('loop_local_pet', updatedLocalPet);
+      safeSetStorage(petStorageKey, updatedLocalPet);
       if (onPetUpdated) onPetUpdated(updatedLocalPet);
       if (nextLevel > (pet.level || 1)) playChime('fanfare');
       setActionFeedback(feedbackMap[action] || 'УСПЕХ!');
@@ -275,17 +280,17 @@ export const LoopConsole: React.FC<LoopConsoleProps> = ({
         const rawResult = await birthPetApi({ species: selectedSpecies, name: trimmed }, token);
         const actualPet = (rawResult as any)?.state || rawResult;
         setPet(actualPet);
-        safeSetStorage('loop_local_pet', actualPet);
+        safeSetStorage(petStorageKey, actualPet);
         if (onPetCreated) onPetCreated(actualPet);
       } else {
         setPet(localPet);
-        safeSetStorage('loop_local_pet', localPet);
+        safeSetStorage(petStorageKey, localPet);
         if (onPetCreated) onPetCreated(localPet);
       }
       setStep('game');
     } catch {
       setPet(localPet);
-      safeSetStorage('loop_local_pet', localPet);
+      safeSetStorage(petStorageKey, localPet);
       if (onPetCreated) onPetCreated(localPet);
       setStep('game');
     } finally {

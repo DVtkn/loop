@@ -68,7 +68,7 @@ realtimeRouter.get("/touches/:login", requireAuth, async (req: AuthenticatedRequ
     if (!req.user?.login || paramLogin !== req.user.login) {
       return res.status(403).json({ error: "Нет доступа" });
     }
-    const touches = getUserTouches(paramLogin);
+    const touches = await getUserTouches(paramLogin);
     return res.json({ touches });
   } catch (err) {
     logger.error("Ошибка загрузки касаний", err);

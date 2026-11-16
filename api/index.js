@@ -553,7 +553,21 @@ function ensureDataDir() {
 }
 function readEmergencyFile() {
   if (isProd2()) {
-    return { users: {}, pairRequests: [], coupleData: {}, chatMessages: [], rateLimits: {}, photos: [] };
+    return {
+      users: {},
+      pairRequests: [],
+      coupleData: {},
+      chatMessages: [],
+      rateLimits: {},
+      photos: [],
+      couplePets: {},
+      coupleEvents: [],
+      testDrafts: {},
+      testSessions: [],
+      testAnswers: [],
+      userPsychProfiles: {},
+      coupleReports: {}
+    };
   }
   ensureDataDir();
   try {
@@ -566,13 +580,34 @@ function readEmergencyFile() {
         coupleData: parsed.coupleData || {},
         chatMessages: parsed.chatMessages || [],
         rateLimits: parsed.rateLimits || {},
-        photos: parsed.photos || []
+        photos: parsed.photos || [],
+        couplePets: parsed.couplePets || {},
+        coupleEvents: parsed.coupleEvents || [],
+        testDrafts: parsed.testDrafts || {},
+        testSessions: parsed.testSessions || [],
+        testAnswers: parsed.testAnswers || [],
+        userPsychProfiles: parsed.userPsychProfiles || {},
+        coupleReports: parsed.coupleReports || {}
       };
     }
   } catch (err) {
     logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0447\u0442\u0435\u043D\u0438\u044F \u0430\u0432\u0430\u0440\u0438\u0439\u043D\u043E\u0433\u043E \u0444\u0430\u0439\u043B\u0430 db_store.json", err);
   }
-  return { users: {}, pairRequests: [], coupleData: {}, chatMessages: [], rateLimits: {}, photos: [] };
+  return {
+    users: {},
+    pairRequests: [],
+    coupleData: {},
+    chatMessages: [],
+    rateLimits: {},
+    photos: [],
+    couplePets: {},
+    coupleEvents: [],
+    testDrafts: {},
+    testSessions: [],
+    testAnswers: [],
+    userPsychProfiles: {},
+    coupleReports: {}
+  };
 }
 function writeEmergencyFile(data) {
   if (isProd2()) {
@@ -941,19 +976,28 @@ import { eq as eq5, or as or3, and as and2 } from "drizzle-orm";
 import crypto6 from "crypto";
 async function acceptPair(cleanMe, cleanPartner) {
   const now = (/* @__PURE__ */ new Date()).toISOString();
+  let hasVerifiedRequest = false;
   if (isSqlConfigured() && db) {
-    const pending = await db.select().from(pairRequests).where(and2(eq5(pairRequests.fromLogin, cleanPartner), eq5(pairRequests.toLogin, cleanMe)));
-    if (pending.length === 0) {
-      throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
+    try {
+      const pending = await db.select().from(pairRequests).where(and2(eq5(pairRequests.fromLogin, cleanPartner), eq5(pairRequests.toLogin, cleanMe)));
+      if (pending.length > 0) {
+        hasVerifiedRequest = true;
+      }
+    } catch (err) {
+      if (isProd4()) {
+        logger.error("CRITICAL: Pair request lookup failed in production.", err);
+        throw new DatabaseUnavailableError();
+      }
     }
-  } else {
+  }
+  if (!hasVerifiedRequest && !isProd4()) {
     const storeForCheck = readEmergencyFile();
-    const hasRequest = (storeForCheck.pairRequests || []).some(
+    hasVerifiedRequest = (storeForCheck.pairRequests || []).some(
       (r) => r.fromLogin === cleanPartner && r.toLogin === cleanMe
     );
-    if (!hasRequest) {
-      throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
-    }
+  }
+  if (!hasVerifiedRequest) {
+    throw { status: 403, message: "\u041D\u0435\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0451\u043D\u043D\u043E\u0433\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0430 \u043D\u0430 \u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435" };
   }
   if (isProd4()) {
     if (!isSqlConfigured() || !db) {
@@ -1335,9 +1379,9 @@ function parseAllowedOrigins() {
 function loadConfig() {
   const port = 3e3;
   const nodeEnv = process.env.NODE_ENV || "development";
-  const isProd7 = nodeEnv === "production";
+  const isProd9 = nodeEnv === "production";
   let jwtSecret = process.env.JWT_SECRET;
-  if (isProd7) {
+  if (isProd9) {
     if (!jwtSecret || jwtSecret === "loop_secret_fallback_12345" || jwtSecret.trim() === "") {
       logger.error("\u041A\u0420\u0418\u0422\u0418\u0427\u041D\u041E: JWT_SECRET \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043F\u0440\u043E\u0434\u0430\u043A\u0448\u0435\u043D\u0435 \u2014 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E (fail-fast), \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u044B\u0432\u0430\u0442\u044C \u0442\u043E\u043A\u0435\u043D\u044B \u043F\u0443\u0431\u043B\u0438\u0447\u043D\u044B\u043C \u043A\u043B\u044E\u0447\u043E\u043C.");
       throw new Error("JWT_SECRET is required in production");
@@ -1384,15 +1428,58 @@ init_client();
 init_schema();
 init_logger();
 init_storageService();
+import { GoogleGenAI } from "@google/genai";
 import crypto2 from "crypto";
 var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-var MODEL_NAME = "qwen/qwen3.8-27b";
-async function callGroqChat(messages) {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    logger.warn("GROQ_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D \u0432 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u0438 (.env)");
-    return "\u042F \u0440\u044F\u0434\u043E\u043C \u0438 \u0433\u043E\u0442\u043E\u0432\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0432\u0430\u0448\u0443 \u043F\u0430\u0440\u0443! \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u0442\u0435 \u043A\u043B\u044E\u0447 Groq, \u0447\u0442\u043E\u0431\u044B \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0433\u043B\u0443\u0431\u043E\u043A\u0438\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0430\u043D\u0430\u043B\u0438\u0437. \u{1F989}";
+var GROQ_MODEL_NAME = "qwen/qwen3.8-27b";
+var GEMINI_MODEL_NAME = "gemini-4-hydrogen";
+async function callGeminiChat(messages) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  const systemParts = [];
+  const contents = [];
+  for (const m of messages) {
+    const text2 = String(m.content || "").trim();
+    if (!text2) continue;
+    if (m.role === "system") {
+      systemParts.push(text2);
+    } else {
+      contents.push({
+        role: m.role === "assistant" || m.role === "model" ? "model" : "user",
+        parts: [{ text: text2 }]
+      });
+    }
   }
+  if (contents.length === 0) {
+    contents.push({ role: "user", parts: [{ text: "\u041F\u0440\u0438\u0432\u0435\u0442" }] });
+  }
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+  });
+  try {
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL_NAME,
+      contents,
+      config: {
+        ...systemParts.length > 0 ? { systemInstruction: systemParts.join("\n\n") } : {},
+        temperature: 0.5,
+        maxOutputTokens: 700
+      }
+    });
+    const text2 = response.text?.trim();
+    if (text2) {
+      logger.info(`\u041E\u0442\u0432\u0435\u0442 Gemini \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${GEMINI_MODEL_NAME})`);
+      return text2;
+    }
+  } catch (err) {
+    logger.warn(`[Gemini API Exception] \u043C\u043E\u0434\u0435\u043B\u044C ${GEMINI_MODEL_NAME}:`, void 0, err);
+  }
+  return null;
+}
+async function callGroqApi(messages) {
+  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_API_KEY) return null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const response = await fetch(GROQ_ENDPOINT, {
@@ -1403,7 +1490,7 @@ async function callGroqChat(messages) {
         },
         body: JSON.stringify({
           messages,
-          model: MODEL_NAME,
+          model: GROQ_MODEL_NAME,
           temperature: 0.5,
           max_tokens: 650,
           stream: false
@@ -1413,12 +1500,12 @@ async function callGroqChat(messages) {
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content;
         if (content) {
-          logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${MODEL_NAME})`);
+          logger.info(`\u041E\u0442\u0432\u0435\u0442 Groq \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${GROQ_MODEL_NAME})`);
           return content;
         }
       }
       const errText = await response.text();
-      logger.warn(`Groq ${MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status} (\u043F\u043E\u043F\u044B\u0442\u043A\u0430 ${attempt}/2): ${errText.slice(0, 150)}`);
+      logger.warn(`Groq ${GROQ_MODEL_NAME} \u0441\u0442\u0430\u0442\u0443\u0441 ${response.status} (\u043F\u043E\u043F\u044B\u0442\u043A\u0430 ${attempt}/2): ${errText.slice(0, 150)}`);
       if (attempt === 1 && (response.status === 429 || response.status >= 500)) {
         await new Promise((r) => setTimeout(r, 700));
         continue;
@@ -1430,7 +1517,66 @@ async function callGroqChat(messages) {
       }
     }
   }
-  return "\u042F \u0441\u0435\u0439\u0447\u0430\u0441 \u0432\u043D\u0438\u043C\u0430\u0442\u0435\u043B\u044C\u043D\u043E \u043E\u0431\u0434\u0443\u043C\u044B\u0432\u0430\u044E \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0441\u043E\u043D\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u044E\u0441\u044C \u0441 \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u043E\u0439 \u0432\u0430\u0448\u0435\u0439 \u043F\u0430\u0440\u044B. \u0417\u0430\u0434\u0430\u0439\u0442\u0435 \u043C\u043D\u0435 \u0432\u043E\u043F\u0440\u043E\u0441 \u0435\u0449\u0451 \u0440\u0430\u0437 \u0447\u0435\u0440\u0435\u0437 \u043F\u043E\u043B\u043C\u0438\u043D\u0443\u0442\u044B \u0438\u043B\u0438 \u043F\u043E\u0434\u0435\u043B\u0438\u0442\u0435\u0441\u044C, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u0432\u044B \u0441\u0435\u0439\u0447\u0430\u0441 \u0447\u0443\u0432\u0441\u0442\u0432\u0443\u0435\u0442\u0435 \u2014 \u044F \u0440\u044F\u0434\u043E\u043C \u0438 \u0441\u043B\u0443\u0448\u0430\u044E \u0432\u0430\u0441. \u{1F989}\u{1F49A}";
+  return null;
+}
+async function callAIChatDetailed(messages) {
+  if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY) {
+    logger.warn("GEMINI_API_KEY \u0438 GROQ_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u044B \u0432 \u043E\u043A\u0440\u0443\u0436\u0435\u043D\u0438\u0438");
+    return {
+      reply: "\u042F \u0440\u044F\u0434\u043E\u043C \u0438 \u0433\u043E\u0442\u043E\u0432\u0430 \u043F\u043E\u0434\u0434\u0435\u0440\u0436\u0430\u0442\u044C \u0432\u0430\u0448\u0443 \u043F\u0430\u0440\u0443! \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u0442\u0435 GEMINI_API_KEY \u0438\u043B\u0438 GROQ_API_KEY \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u0447\u0442\u043E\u0431\u044B \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u044C \u0433\u043B\u0443\u0431\u043E\u043A\u0438\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0430\u043D\u0430\u043B\u0438\u0437. \u{1F989}",
+      provider: "fallback"
+    };
+  }
+  const geminiReply = await callGeminiChat(messages);
+  if (geminiReply) {
+    return { reply: geminiReply, provider: "gemini" };
+  }
+  const groqReply = await callGroqApi(messages);
+  if (groqReply) {
+    return { reply: groqReply, provider: "groq" };
+  }
+  return {
+    reply: "\u042F \u0441\u0435\u0439\u0447\u0430\u0441 \u0432\u043D\u0438\u043C\u0430\u0442\u0435\u043B\u044C\u043D\u043E \u043E\u0431\u0434\u0443\u043C\u044B\u0432\u0430\u044E \u0432\u0430\u0448\u0438 \u0441\u043B\u043E\u0432\u0430 \u0438 \u0441\u043E\u043D\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u044E\u0441\u044C \u0441 \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u043E\u0439 \u0432\u0430\u0448\u0435\u0439 \u043F\u0430\u0440\u044B. \u0417\u0430\u0434\u0430\u0439\u0442\u0435 \u043C\u043D\u0435 \u0432\u043E\u043F\u0440\u043E\u0441 \u0435\u0449\u0451 \u0440\u0430\u0437 \u0447\u0435\u0440\u0435\u0437 \u043F\u043E\u043B\u043C\u0438\u043D\u0443\u0442\u044B \u0438\u043B\u0438 \u043F\u043E\u0434\u0435\u043B\u0438\u0442\u0435\u0441\u044C, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u0432\u044B \u0441\u0435\u0439\u0447\u0430\u0441 \u0447\u0443\u0432\u0441\u0442\u0432\u0443\u0435\u0442\u0435 \u2014 \u044F \u0440\u044F\u0434\u043E\u043C \u0438 \u0441\u043B\u0443\u0448\u0430\u044E \u0432\u0430\u0441. \u{1F989}\u{1F49A}",
+    provider: "fallback"
+  };
+}
+async function callGroqChat(messages) {
+  const result = await callAIChatDetailed(messages);
+  return result.reply;
+}
+async function checkAiHealth() {
+  if (process.env.GEMINI_API_KEY) {
+    const reply = await callGeminiChat([{ role: "user", content: "ping" }]);
+    if (reply) {
+      return { ok: true, provider: `gemini (${GEMINI_MODEL_NAME})` };
+    }
+  }
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const response = await fetch(GROQ_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "ping" }],
+          model: GROQ_MODEL_NAME,
+          max_tokens: 10
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.choices?.[0]?.message?.content) {
+          return { ok: true, provider: data.model || GROQ_MODEL_NAME };
+        }
+      }
+      return { ok: false, message: "AI upstream returned error", upstreamStatus: response.status };
+    } catch {
+      return { ok: false, message: "Network error reaching AI provider" };
+    }
+  }
+  return { ok: false, message: "Neither GEMINI_API_KEY nor GROQ_API_KEY is configured" };
 }
 async function saveAIMessageToDb(userLogin, prompt, reply) {
   if (!userLogin) return;
@@ -1738,7 +1884,7 @@ data: ${JSON.stringify(payload)}
 init_client();
 init_schema();
 init_storageService();
-import { eq as eq4, and, gt, desc } from "drizzle-orm";
+import { eq as eq4, or as or2, and, gt, desc } from "drizzle-orm";
 
 // src/server/services/pushService.ts
 init_client();
@@ -1957,6 +2103,7 @@ async function sendQuickTouch(params) {
   recentTouches.unshift(newTouch);
   if (recentTouches.length > 200) recentTouches.pop();
   const coupleKey = [sLogin, tLogin].sort().join("_");
+  let persistedSql = false;
   if (isSqlConfigured() && db) {
     try {
       await db.insert(coupleEvents).values({
@@ -1968,8 +2115,27 @@ async function sendQuickTouch(params) {
         payload: newTouch,
         createdAt: newTouch.createdAt
       });
+      persistedSql = true;
     } catch (err) {
       logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0432 couple_events (PostgreSQL)", void 0, err);
+    }
+  }
+  if (!persistedSql && process.env.NODE_ENV !== "production") {
+    try {
+      const store = readEmergencyFile();
+      if (!store.coupleEvents) store.coupleEvents = [];
+      store.coupleEvents.unshift({
+        id: newTouch.id,
+        coupleId: coupleKey,
+        targetLogin: tLogin,
+        senderLogin: sLogin,
+        eventType: "touch",
+        payload: newTouch,
+        createdAt: newTouch.createdAt
+      });
+      store.coupleEvents = store.coupleEvents.slice(0, 200);
+      writeEmergencyFile(store);
+    } catch {
     }
   }
   sendSSEEventToUser(tLogin, "touch", newTouch);
@@ -1993,11 +2159,45 @@ async function sendQuickTouch(params) {
     touch: newTouch
   };
 }
-function getUserTouches(login) {
+async function getUserTouches(login) {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
-  return recentTouches.filter(
-    (t) => t.targetLogin === cleanLogin || t.senderLogin === cleanLogin
-  );
+  const byId = /* @__PURE__ */ new Map();
+  if (isSqlConfigured() && db && cleanLogin) {
+    try {
+      const rows = await db.select().from(coupleEvents).where(
+        and(
+          eq4(coupleEvents.eventType, "touch"),
+          or2(eq4(coupleEvents.targetLogin, cleanLogin), eq4(coupleEvents.senderLogin, cleanLogin))
+        )
+      ).orderBy(desc(coupleEvents.createdAt)).limit(50);
+      for (const r of rows) {
+        if (r.payload && typeof r.payload === "object") {
+          byId.set(r.id, r.payload);
+        }
+      }
+    } catch (err) {
+      logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043A\u0430\u0441\u0430\u043D\u0438\u044F \u0438\u0437 couple_events", void 0, err);
+    }
+  }
+  if (byId.size === 0 && process.env.NODE_ENV !== "production") {
+    try {
+      const store = readEmergencyFile();
+      for (const ev of store.coupleEvents || []) {
+        if (ev.eventType === "touch" && (ev.targetLogin === cleanLogin || ev.senderLogin === cleanLogin) && ev.payload) {
+          byId.set(ev.id, ev.payload);
+        }
+      }
+    } catch {
+    }
+  }
+  for (const t of recentTouches) {
+    if (t.targetLogin === cleanLogin || t.senderLogin === cleanLogin) {
+      if (!byId.has(t.id)) {
+        byId.set(t.id, t);
+      }
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => b.createdAt > a.createdAt ? 1 : -1).slice(0, 50);
 }
 async function handleHeartbeat(login) {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
@@ -2111,7 +2311,7 @@ async function getEventsPoll(params) {
   const isPartnerOnline = partnerLastActiveAt ? Date.now() - new Date(partnerLastActiveAt).getTime() < 18e4 : false;
   return {
     events,
-    touches: getUserTouches(cleanLogin),
+    touches: await getUserTouches(cleanLogin),
     partnerLastActiveAt,
     isPartnerOnline,
     serverTime: nowIso
@@ -2124,10 +2324,15 @@ function generateToken(login) {
 }
 function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  let token;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.method === "GET" && (req.path.includes("events-stream") || req.originalUrl.includes("events-stream")) && typeof req.query?.token === "string" && req.query.token.trim().length > 0) {
+    token = req.query.token.trim();
+  }
+  if (!token) {
     return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
   }
-  const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
     const userLogin = String(decoded.login || "").toLowerCase();
@@ -3367,6 +3572,9 @@ var petSwitchSchema = z4.object({
 init_client();
 init_schema();
 import { eq as eq9, and as and5, or as or5, gte as gte2 } from "drizzle-orm";
+import crypto9 from "crypto";
+init_storageService();
+var isProd6 = () => process.env.NODE_ENV === "production";
 var DEFAULT_PET_STATE = {
   id: "",
   coupleId: "",
@@ -3455,42 +3663,53 @@ function checkLevelUp(state) {
   return { state: newState, levelUp };
 }
 async function getCoupleInfo(userLogin) {
-  if (!isSqlConfigured() || !db) return null;
-  const userRow = await db.select().from(users).where(eq9(users.login, userLogin)).limit(1);
-  if (!userRow.length || !userRow[0].partnerLogin) return null;
-  const partnerLogin = userRow[0].partnerLogin;
-  const pairKey = getPairKey(userLogin, partnerLogin);
-  const partnerUser = await db.select().from(users).where(eq9(users.login, partnerLogin)).limit(1);
-  if (!partnerUser.length) return null;
-  const coupleRow = await db.select().from(couples).where(
-    or5(
-      and5(
-        eq9(couples.user1Id, userRow[0].id),
-        eq9(couples.user2Id, partnerUser[0].id)
-      ),
-      and5(
-        eq9(couples.user1Id, partnerUser[0].id),
-        eq9(couples.user2Id, userRow[0].id)
-      )
-    )
-  ).limit(1);
-  let coupleId;
-  if (coupleRow.length) {
-    coupleId = coupleRow[0].id;
-  } else {
-    coupleId = pairKey;
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+  if (isSqlConfigured() && db) {
     try {
-      await db.insert(couples).values({
-        id: pairKey,
-        user1Id: userRow[0].id,
-        user2Id: partnerUser[0].id,
-        startDate: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
-      }).onConflictDoNothing();
+      const userRow = await db.select().from(users).where(eq9(users.login, cleanLogin)).limit(1);
+      if (userRow.length && userRow[0].partnerLogin) {
+        const partnerLogin2 = userRow[0].partnerLogin.toLowerCase().trim().replace(/^@/, "");
+        const pairKey2 = getPairKey(cleanLogin, partnerLogin2);
+        const partnerUser = await db.select().from(users).where(eq9(users.login, partnerLogin2)).limit(1);
+        if (partnerUser.length) {
+          const coupleRow = await db.select().from(couples).where(
+            or5(
+              and5(eq9(couples.user1Id, userRow[0].id), eq9(couples.user2Id, partnerUser[0].id)),
+              and5(eq9(couples.user1Id, partnerUser[0].id), eq9(couples.user2Id, userRow[0].id))
+            )
+          ).limit(1);
+          let coupleId;
+          if (coupleRow.length) {
+            coupleId = coupleRow[0].id;
+          } else {
+            coupleId = pairKey2;
+            try {
+              await db.insert(couples).values({
+                id: pairKey2,
+                user1Id: userRow[0].id,
+                user2Id: partnerUser[0].id,
+                startDate: (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+              }).onConflictDoNothing();
+            } catch (err) {
+              logger.warn("getCoupleInfo: failed to ensure couples row", { pairKey: pairKey2, err });
+            }
+          }
+          return { coupleId, pairKey: pairKey2, userId: userRow[0].id };
+        }
+      }
     } catch (err) {
-      logger.warn("getCoupleInfo: failed to ensure couples row", { pairKey, err });
+      if (isProd6()) {
+        logger.error("getCoupleInfo SQL failed in production", err);
+        throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+      }
     }
   }
-  return { coupleId, pairKey, userId: userRow[0].id };
+  if (isProd6()) return null;
+  const devUser = await findUserByLogin(cleanLogin);
+  if (!devUser?.partnerLogin) return null;
+  const partnerLogin = devUser.partnerLogin.toLowerCase().trim().replace(/^@/, "");
+  const pairKey = getPairKey(cleanLogin, partnerLogin);
+  return { coupleId: pairKey, pairKey, userId: devUser.id || cleanLogin };
 }
 function toIsoString(v) {
   try {
@@ -3507,15 +3726,21 @@ function normalizePetRow(row) {
   return pet;
 }
 async function calcTodaySynergy(coupleId) {
-  if (!isSqlConfigured() || !db) return 50;
+  const dayStart = /* @__PURE__ */ new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartIso = dayStart.toISOString();
+  if (!isSqlConfigured() || !db) {
+    if (isProd6()) return 50;
+    const store = readEmergencyFile();
+    const actors = (store.coupleEvents || []).filter((e) => e.coupleId === coupleId && e.eventType === "pet_action" && String(e.createdAt || "") >= dayStartIso).map((e) => String(e.senderLogin || ""));
+    return calcDuoSynergy(actors);
+  }
   try {
-    const dayStart = /* @__PURE__ */ new Date();
-    dayStart.setHours(0, 0, 0, 0);
     const rows = await db.select({ senderLogin: coupleEvents.senderLogin }).from(coupleEvents).where(
       and5(
         eq9(coupleEvents.coupleId, coupleId),
         eq9(coupleEvents.eventType, "pet_action"),
-        gte2(coupleEvents.createdAt, dayStart.toISOString())
+        gte2(coupleEvents.createdAt, dayStartIso)
       )
     );
     return calcDuoSynergy(rows.map((r) => r.senderLogin));
@@ -3529,14 +3754,36 @@ async function getPetState(userLogin) {
     throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
   }
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    if (isProd6()) {
+      throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    }
+    const store = readEmergencyFile();
+    const saved = store.couplePets?.[coupleInfo.pairKey];
+    if (!saved) {
+      return {
+        ...DEFAULT_PET_STATE,
+        id: crypto9.randomUUID(),
+        coupleId: coupleInfo.coupleId,
+        pairKey: coupleInfo.pairKey,
+        isOnboardingCompleted: false,
+        synergy: await calcTodaySynergy(coupleInfo.coupleId)
+      };
+    }
+    const pet = normalizePetRow(saved);
+    const decayed = applyDecay(pet);
+    if (decayed.hunger !== pet.hunger || decayed.joy !== pet.joy || decayed.energy !== pet.energy || decayed.cleanliness !== pet.cleanliness || decayed.mood !== pet.mood) {
+      if (!store.couplePets) store.couplePets = {};
+      store.couplePets[coupleInfo.pairKey] = decayed;
+      writeEmergencyFile(store);
+    }
+    return { ...decayed, synergy: await calcTodaySynergy(coupleInfo.coupleId) };
   }
   try {
     const row = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
     if (row.length === 0) {
       return {
         ...DEFAULT_PET_STATE,
-        id: crypto.randomUUID(),
+        id: crypto9.randomUUID(),
         coupleId: coupleInfo.coupleId,
         pairKey: coupleInfo.pairKey,
         isOnboardingCompleted: false,
@@ -3568,7 +3815,68 @@ async function createPet(userLogin, species, name) {
     throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
   }
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    if (isProd6()) {
+      throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    }
+    const store = readEmergencyFile();
+    if (!store.couplePets) store.couplePets = {};
+    const existing = store.couplePets[coupleInfo.pairKey];
+    const nowISO2 = (/* @__PURE__ */ new Date()).toISOString();
+    if (existing) {
+      const updated = normalizePetRow({
+        ...existing,
+        name: name.trim(),
+        species,
+        isOnboardingCompleted: true,
+        updatedAt: nowISO2
+      });
+      store.couplePets[coupleInfo.pairKey] = updated;
+      writeEmergencyFile(store);
+      return {
+        success: true,
+        state: updated,
+        message: `\u{1F389} ${name.trim()} \u0442\u0435\u043F\u0435\u0440\u044C \u0441 \u0432\u0430\u043C\u0438!`,
+        levelUp: false,
+        expGained: 25
+      };
+    }
+    const newPet2 = {
+      id: crypto9.randomUUID(),
+      coupleId: coupleInfo.coupleId,
+      pairKey: coupleInfo.pairKey,
+      species,
+      name: name.trim(),
+      nameStatus: "confirmed",
+      nameProposedBy: coupleInfo.userId,
+      isOnboardingCompleted: true,
+      hunger: 85,
+      joy: 90,
+      energy: 65,
+      cleanliness: 80,
+      mood: "happy",
+      level: 1,
+      experience: 50,
+      weightKg: "1.20",
+      lastFedAt: nowISO2,
+      lastPlayedAt: nowISO2,
+      lastRestedAt: nowISO2,
+      lastWashedAt: nowISO2,
+      lastInteractionAt: nowISO2,
+      lastActionBy: coupleInfo.userId,
+      createdAt: nowISO2,
+      updatedAt: nowISO2
+    };
+    store.couplePets[coupleInfo.pairKey] = newPet2;
+    writeEmergencyFile(store);
+    await logPetEvent(coupleInfo.coupleId, userLogin, "birth", { petName: name.trim(), species });
+    await notifyPartner(coupleInfo, userLogin, "pet_birth", { petName: name.trim(), species });
+    return {
+      success: true,
+      state: newPet2,
+      message: `\u{1F389} ${name.trim()} \u0440\u043E\u0434\u0438\u043B\u0441\u044F! \u0414\u043E\u0431\u0440\u043E \u043F\u043E\u0436\u0430\u043B\u043E\u0432\u0430\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E!`,
+      levelUp: false,
+      expGained: 50
+    };
   }
   const existingPet = await db.select().from(couplePets).where(eq9(couplePets.pairKey, coupleInfo.pairKey)).limit(1);
   const now = /* @__PURE__ */ new Date();
@@ -3590,7 +3898,7 @@ async function createPet(userLogin, species, name) {
       expGained: 25
     };
   }
-  const petId = crypto.randomUUID();
+  const petId = crypto9.randomUUID();
   const newPet = {
     id: petId,
     coupleId: coupleInfo.coupleId,
@@ -3641,7 +3949,92 @@ async function performPetAction(userLogin, action) {
     throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
   }
   if (!isSqlConfigured() || !db) {
-    throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    if (isProd6()) {
+      throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    }
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) {
+      throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0435 \u043E\u043D\u0431\u043E\u0440\u0434\u0438\u043D\u0433." };
+    }
+    let state = applyDecay(normalizePetRow(existing));
+    let expGained = 0;
+    let actionName = "";
+    let emoji = "";
+    let gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 0 };
+    switch (action) {
+      case "feed":
+        gains = { hunger: 25, joy: 5, energy: 0, cleanliness: 0 };
+        expGained = 15;
+        state.lastFedAt = (/* @__PURE__ */ new Date()).toISOString();
+        actionName = "\u043F\u043E\u043A\u043E\u0440\u043C\u0438\u043B";
+        emoji = "\u{1F353}";
+        break;
+      case "play":
+        gains = { hunger: 0, joy: 20, energy: -10, cleanliness: 0 };
+        expGained = 20;
+        state.lastPlayedAt = (/* @__PURE__ */ new Date()).toISOString();
+        actionName = "\u043F\u043E\u0438\u0433\u0440\u0430\u043B \u0441";
+        emoji = "\u{1F3BE}";
+        break;
+      case "wash":
+        gains = { hunger: 0, joy: 0, energy: 0, cleanliness: 25 };
+        expGained = 15;
+        state.lastWashedAt = (/* @__PURE__ */ new Date()).toISOString();
+        actionName = "\u043F\u043E\u043C\u044B\u043B";
+        emoji = "\u{1F6C1}";
+        break;
+      case "sleep":
+        gains = { hunger: 0, joy: 0, energy: 35, cleanliness: 0 };
+        expGained = 25;
+        state.lastRestedAt = (/* @__PURE__ */ new Date()).toISOString();
+        actionName = "\u0443\u043B\u043E\u0436\u0438\u043B \u0441\u043F\u0430\u0442\u044C";
+        emoji = "\u{1F4A4}";
+        break;
+      case "hug":
+        gains = { hunger: 0, joy: 10, energy: 0, cleanliness: 0 };
+        expGained = 10;
+        actionName = "\u043E\u0431\u043D\u044F\u043B";
+        emoji = "\u{1F917}";
+        break;
+    }
+    const boosted = applySpeciesBonus(state.species, gains);
+    state.hunger = clamp(state.hunger + boosted.hunger, 0, 100);
+    state.joy = clamp(state.joy + boosted.joy, 0, 100);
+    state.energy = clamp(state.energy + boosted.energy, 0, 100);
+    state.cleanliness = clamp(state.cleanliness + boosted.cleanliness, 0, 100);
+    state.experience += expGained;
+    state.lastInteractionAt = (/* @__PURE__ */ new Date()).toISOString();
+    state.lastActionBy = coupleInfo.userId;
+    state.mood = deriveMood(state);
+    state.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const { state: leveledState, levelUp } = checkLevelUp(state);
+    state = leveledState;
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = state;
+    if (!store.coupleEvents) store.coupleEvents = [];
+    store.coupleEvents.push({
+      id: `${Date.now()}_${crypto9.randomUUID().replace(/-/g, "").slice(0, 6)}`,
+      coupleId: coupleInfo.coupleId,
+      targetLogin: "",
+      senderLogin: userLogin,
+      eventType: "pet_action",
+      payload: { action, petName: state.name, level: state.level, mood: state.mood, expGained },
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    writeEmergencyFile(store);
+    await notifyPartner(coupleInfo, userLogin, `pet_${action}`, {
+      petName: state.name,
+      action,
+      expGained
+    });
+    return {
+      success: true,
+      state,
+      message: getActionMessage(action, levelUp, actionName, emoji),
+      levelUp,
+      expGained
+    };
   }
   try {
     const result = await db.transaction(async (tx) => {
@@ -3703,7 +4096,7 @@ async function performPetAction(userLogin, action) {
       const { state: leveledState, levelUp } = checkLevelUp(state);
       state = leveledState;
       await tx.update(couplePets).set(state).where(eq9(couplePets.pairKey, coupleInfo.pairKey));
-      const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
+      const eventId = `${Date.now()}_${crypto9.randomUUID().replace(/-/g, "").slice(0, 6)}`;
       await tx.insert(coupleEvents).values({
         id: eventId,
         coupleId: coupleInfo.coupleId,
@@ -3738,7 +4131,27 @@ async function proposePetName(userLogin, name) {
   if (!coupleInfo) throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
   const trimmedName = name.trim();
   if (!trimmedName) throw { status: 400, message: "\u0418\u043C\u044F \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C" };
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd6()) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+    const updated = normalizePetRow({
+      ...existing,
+      name: trimmedName,
+      nameStatus: "pending_partner",
+      nameProposedBy: coupleInfo.userId,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    await notifyPartner(coupleInfo, userLogin, "pet_name_proposed", {
+      proposedName: trimmedName,
+      proposedBy: userLogin
+    });
+    return { success: true, state: updated };
+  }
   const now = /* @__PURE__ */ new Date();
   try {
     const result = await db.update(couplePets).set({
@@ -3762,7 +4175,21 @@ async function proposePetName(userLogin, name) {
 async function confirmPetName(userLogin, confirm) {
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd6()) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+    const updated = normalizePetRow({
+      ...existing,
+      nameStatus: confirm ? "confirmed" : "pending_partner",
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    return { success: true, state: updated };
+  }
   const now = /* @__PURE__ */ new Date();
   try {
     const result = await db.update(couplePets).set({
@@ -3780,7 +4207,21 @@ async function confirmPetName(userLogin, confirm) {
 async function switchPetSpecies(userLogin, species) {
   const coupleInfo = await getCoupleInfo(userLogin);
   if (!coupleInfo) throw { status: 403, message: "\u0412\u044B \u043D\u0435 \u0441\u043E\u0441\u0442\u043E\u0438\u0442\u0435 \u0432 \u043F\u0430\u0440\u0435" };
-  if (!isSqlConfigured() || !db) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+  if (!isSqlConfigured() || !db) {
+    if (isProd6()) throw { status: 503, message: "\u0411\u0430\u0437\u0430 \u0434\u0430\u043D\u043D\u044B\u0445 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u0430" };
+    const store = readEmergencyFile();
+    const existing = store.couplePets?.[coupleInfo.pairKey];
+    if (!existing) throw { status: 404, message: "\u041F\u0438\u0442\u043E\u043C\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" };
+    const updated = normalizePetRow({
+      ...existing,
+      species,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    if (!store.couplePets) store.couplePets = {};
+    store.couplePets[coupleInfo.pairKey] = updated;
+    writeEmergencyFile(store);
+    return { success: true, state: updated };
+  }
   const now = /* @__PURE__ */ new Date();
   try {
     const result = await db.update(couplePets).set({
@@ -3807,9 +4248,25 @@ async function awardCoupleXP(coupleId, xp, _reason) {
   }
 }
 async function logPetEvent(coupleId, userLogin, eventType, payload) {
-  if (!isSqlConfigured() || !db) return;
+  const eventId = `${Date.now()}_${crypto9.randomUUID().replace(/-/g, "").slice(0, 6)}`;
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  if (!isSqlConfigured() || !db) {
+    if (isProd6()) return;
+    const store = readEmergencyFile();
+    if (!store.coupleEvents) store.coupleEvents = [];
+    store.coupleEvents.push({
+      id: eventId,
+      coupleId,
+      targetLogin: "",
+      senderLogin: userLogin,
+      eventType: "pet_action",
+      payload: { ...payload, eventType },
+      createdAt: nowIso
+    });
+    writeEmergencyFile(store);
+    return;
+  }
   try {
-    const eventId = `${Date.now()}_${crypto.randomUUID().replace(/-/g, "").slice(0, 6)}`;
     await db.insert(coupleEvents).values({
       id: eventId,
       coupleId,
@@ -3817,18 +4274,22 @@ async function logPetEvent(coupleId, userLogin, eventType, payload) {
       senderLogin: userLogin,
       eventType: "pet_action",
       payload: { ...payload, eventType },
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: nowIso
     });
   } catch (e) {
     logger.warn("logPetEvent failed", void 0, e);
   }
 }
 async function notifyPartner(coupleInfo, userLogin, eventType, payload) {
-  if (!isSqlConfigured() || !db) return;
   try {
-    const userRow = await db.select().from(users).where(eq9(users.id, coupleInfo.userId)).limit(1);
-    if (!userRow.length) return;
-    const partnerLogin = userRow[0].partnerLogin;
+    let partnerLogin;
+    if (isSqlConfigured() && db) {
+      const userRow = await db.select().from(users).where(eq9(users.id, coupleInfo.userId)).limit(1);
+      partnerLogin = userRow[0]?.partnerLogin;
+    } else if (!isProd6()) {
+      const devUser = await findUserByLogin(userLogin);
+      partnerLogin = devUser?.partnerLogin;
+    }
     if (!partnerLogin) return;
     sendSSEEventToUser(partnerLogin, "pet_updated", {
       coupleId: coupleInfo.coupleId,
@@ -3945,10 +4406,11 @@ init_storageService();
 // src/server/shared/validators/chat.validator.ts
 import { z as z5 } from "zod";
 var chatMessageCreateSchema = z5.object({
-  coupleId: z5.string().min(3).max(100),
-  senderLogin: z5.string(),
-  role: z5.string().optional(),
-  content: z5.string().min(1, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C").max(2e3, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435")
+  coupleId: z5.string().min(1).max(100).optional(),
+  senderLogin: z5.string().max(50).optional(),
+  role: z5.enum(["partner1", "partner2"]).optional(),
+  mode: z5.string().max(20).optional(),
+  content: z5.string().trim().min(1, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C").max(2e3, "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u043E\u0435")
 });
 var aiChatMessageSchema = z5.object({
   messages: z5.array(
@@ -3958,7 +4420,9 @@ var aiChatMessageSchema = z5.object({
     })
   ).min(1, "\u0421\u043F\u0438\u0441\u043E\u043A \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C"),
   userLogin: loginSchema.optional(),
-  context: z5.record(z5.string(), z5.unknown()).optional()
+  context: z5.record(z5.string(), z5.unknown()).optional(),
+  coupleContext: z5.record(z5.string(), z5.unknown()).optional(),
+  currentPartner: z5.record(z5.string(), z5.unknown()).optional()
 });
 var aiReportSchema = z5.object({
   coupleProfile: z5.record(z5.string(), z5.unknown()).optional(),
@@ -4318,7 +4782,7 @@ chatRouter.get(["/messages", "/messages/:coupleId", "/message"], requireAuth, as
     return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0447\u0430\u0442\u0430" });
   }
 });
-chatRouter.post(["/messages", "/message"], requireAuth, async (req, res, next) => {
+chatRouter.post(["/messages", "/message"], requireAuth, validateBody(chatMessageCreateSchema), async (req, res, next) => {
   try {
     const userLogin = req.user?.login;
     if (!userLogin) {
@@ -4326,9 +4790,6 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req, res, next) =
     }
     const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
     let { coupleId, senderLogin, content, role, mode } = req.body || {};
-    if (!content || typeof content !== "string" || !content.trim()) {
-      return res.status(400).json({ error: "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u043D\u0435 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043F\u0443\u0441\u0442\u044B\u043C" });
-    }
     if (!coupleId) {
       const userInDb = await findUserByLogin(cleanUser);
       const partner = userInDb?.partnerLogin ? userInDb.partnerLogin.toLowerCase().trim().replace(/^@/, "") : null;
@@ -4337,92 +4798,99 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req, res, next) =
     if (!isUserInCouple(coupleId, userLogin)) {
       return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u0434\u0430\u043D\u043D\u043E\u0439 \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u043A\u0435" });
     }
-    const cleanSender = String(senderLogin || cleanUser).toLowerCase().trim().replace(/^@/, "");
-    const isAiRole = role === "ai" || cleanSender === "ai" || cleanSender === "ai_owl";
-    if (!isAiRole && cleanSender !== cleanUser) {
-      return res.status(403).json({ error: "\u041D\u0435\u043B\u044C\u0437\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043E\u0442 \u0447\u0443\u0436\u043E\u0433\u043E \u0438\u043C\u0435\u043D\u0438" });
+    if (senderLogin) {
+      const cleanProvided = String(senderLogin).toLowerCase().trim().replace(/^@/, "");
+      if (cleanProvided && cleanProvided !== cleanUser) {
+        return res.status(403).json({ error: "\u041D\u0435\u043B\u044C\u0437\u044F \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043E\u0442 \u0447\u0443\u0436\u043E\u0433\u043E \u0438\u043C\u0435\u043D\u0438" });
+      }
     }
-    const assignedSender = isAiRole ? "ai" : cleanUser;
-    const assignedRole = isAiRole ? "ai" : role || "partner1";
+    const assignedRole = role === "partner2" ? "partner2" : "partner1";
+    const trimmedContent = content.trim();
     const message = await saveChatMessage({
       coupleId,
-      senderLogin: assignedSender,
-      content: content.trim(),
+      senderLogin: cleanUser,
+      content: trimmedContent,
       role: assignedRole
     });
-    try {
-      const targets = coupleId.split("_").map((p) => p.toLowerCase().trim().replace(/^@/, ""));
-      targets.forEach((targetLogin) => {
-        if (targetLogin && targetLogin !== "ai") {
-          sendSSEEventToUser(targetLogin, "chat_message", { message, coupleId, mode: mode || "together" });
-          sendSSEEventToUser(targetLogin, "new_message", { message, coupleId, mode: mode || "together" });
-          if (targetLogin !== cleanSender) {
-            recordCoupleEvent({
-              coupleId,
-              targetLogin,
-              senderLogin: cleanSender,
-              eventType: "chat_message",
-              payload: { message, coupleId, mode: mode || "together" }
-            }).catch(() => {
-            });
-            sendPushToUser(targetLogin, {
-              title: `@${cleanSender}`,
-              body: content.trim().length > 90 ? content.trim().slice(0, 87) + "..." : content.trim(),
-              icon: "/icon.svg",
-              tag: `chat-${coupleId}`,
-              url: "/"
-            }).catch(() => {
-            });
+    const targets = coupleId.split("_").map((p) => p.toLowerCase().trim().replace(/^@/, ""));
+    const broadcastMessage = (msgToSend, authorForPush, preview) => {
+      try {
+        targets.forEach((targetLogin) => {
+          if (targetLogin && targetLogin !== "ai") {
+            sendSSEEventToUser(targetLogin, "chat_message", { message: msgToSend, coupleId, mode: mode || "together" });
+            sendSSEEventToUser(targetLogin, "new_message", { message: msgToSend, coupleId, mode: mode || "together" });
+            if (targetLogin !== cleanUser || authorForPush === "ai") {
+              recordCoupleEvent({
+                coupleId,
+                targetLogin,
+                senderLogin: authorForPush,
+                eventType: "chat_message",
+                payload: { message: msgToSend, coupleId, mode: mode || "together" }
+              }).catch(() => {
+              });
+              if (targetLogin !== authorForPush) {
+                sendPushToUser(targetLogin, {
+                  title: authorForPush === "ai" ? "\u0421\u043E\u0432\u0430 \u2022 \u0418\u0418-\u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433" : `@${authorForPush}`,
+                  body: preview.length > 90 ? preview.slice(0, 87) + "..." : preview,
+                  icon: "/icon.svg",
+                  tag: `chat-${coupleId}`,
+                  url: "/"
+                }).catch(() => {
+                });
+              }
+            }
           }
+        });
+      } catch (sseErr) {
+        logger.warn("\u0421\u0431\u043E\u0439 SSE \u0431\u0440\u043E\u0434\u043A\u0430\u0441\u0442\u0430 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430", { error: String(sseErr) });
+      }
+    };
+    broadcastMessage(message, cleanUser, trimmedContent);
+    let aiMessage = void 0;
+    if (/(?:^|[\s,@])сова\b/i.test(trimmedContent)) {
+      try {
+        const safetyCheck = evaluateSafetyRisk(trimmedContent);
+        let replyText = safetyCheck.hasRisk ? safetyCheck.systemNotice || "\u041A\u0440\u0438\u0437\u0438\u0441\u043D\u0430\u044F \u043F\u043E\u043C\u043E\u0449\u044C" : "";
+        if (!replyText) {
+          const aiRes = await callAIChatDetailed([
+            {
+              role: "system",
+              content: "\u0422\u044B \u2014 \u0421\u043E\u0432\u0430, \u0431\u0435\u0440\u0435\u0436\u043D\u044B\u0439 \u0441\u0435\u043C\u0435\u0439\u043D\u044B\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433 \u0432 \u043E\u0431\u0449\u0435\u043C \u0447\u0430\u0442\u0435 \u043F\u0430\u0440\u044B Loop. \u041E\u0442\u0432\u0435\u0442\u044C \u043E\u0431\u043E\u0438\u043C \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0430\u043C \u043A\u0440\u0430\u0442\u043A\u043E (2\u20134 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u0438\u044F), \u0442\u0435\u043F\u043B\u043E \u0438 \u043A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u0438\u0432\u043D\u043E, \u043F\u043E\u043C\u043E\u0433\u0430\u044F \u0438\u043C \u0443\u0441\u043B\u044B\u0448\u0430\u0442\u044C \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430 \u0431\u0435\u0437 \u043E\u0431\u0432\u0438\u043D\u0435\u043D\u0438\u0439."
+            },
+            { role: "user", content: trimmedContent }
+          ]);
+          replyText = aiRes.reply;
         }
-      });
-    } catch (sseErr) {
-      logger.warn("\u0421\u0431\u043E\u0439 SSE \u0431\u0440\u043E\u0434\u043A\u0430\u0441\u0442\u0430 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430", { error: String(sseErr) });
+        if (replyText) {
+          aiMessage = await saveChatMessage({
+            coupleId,
+            senderLogin: "ai",
+            content: replyText,
+            role: "ai"
+          });
+          broadcastMessage(aiMessage, "ai", replyText);
+        }
+      } catch (owlErr) {
+        logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0444\u043E\u0440\u043C\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0440\u0432\u0435\u0440\u043D\u044B\u0439 \u043E\u0442\u0432\u0435\u0442 \u0421\u043E\u0432\u044B \u0432 \u043E\u0431\u0449\u0435\u043C \u0447\u0430\u0442\u0435", { error: String(owlErr) });
+      }
     }
-    return res.status(201).json({ message, status: "sent" });
+    return res.status(201).json({ message, ...aiMessage ? { aiMessage } : {}, status: "sent" });
   } catch (err) {
     logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0447\u0430\u0442\u0430", err);
     return res.status(500).json({ error: "\u041E\u0448\u0438\u0431\u043A\u0430 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F" });
   }
 });
 var aiRouter = Router5();
-aiRouter.get("/health", async (req, res) => {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    return res.status(503).json({ status: "error", message: "GROQ_API_KEY is not configured" });
+aiRouter.get("/health", async (_req, res) => {
+  const health = await checkAiHealth();
+  if (health.ok) {
+    return res.json({ status: "ok", provider: health.provider });
   }
-  try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: "ping" }],
-        model: "qwen/qwen3.8-27b",
-        max_tokens: 10
-      })
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[Groq Health Check Failed]:", response.status, errText);
-      return res.status(503).json({
-        status: "error",
-        message: "Groq API is currently unavailable",
-        upstreamStatus: response.status
-      });
-    }
-    const data = await response.json();
-    if (data.choices?.[0]?.message?.content) {
-      return res.json({ status: "ok", provider: data.model || "groq" });
-    } else {
-      return res.status(503).json({ status: "error", message: "Empty response from Groq" });
-    }
-  } catch (error) {
-    console.error("[Groq Error during health check]:", error);
-    return res.status(503).json({ status: "error", message: "Network error reaching Groq" });
-  }
+  return res.status(503).json({
+    status: "error",
+    message: health.message || "AI service is currently unavailable",
+    ...health.upstreamStatus ? { upstreamStatus: health.upstreamStatus } : {}
+  });
 });
 aiRouter.get("/messages/:login", requireAuth, requirePairOwnership, async (req, res, next) => {
   try {
@@ -4454,24 +4922,14 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
         mode: "crisis_intervention"
       });
     }
-    const offTopicKeywords = [
-      "\u0448\u043A\u0430\u0444",
-      "\u043A\u043E\u0434",
-      "\u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C",
-      "python",
-      "javascript",
-      "\u043C\u0430\u0448\u0438\u043D",
-      "\u0440\u0435\u043C\u043E\u043D\u0442",
-      "\u0440\u0435\u0446\u0435\u043F\u0442",
-      "\u043F\u0438\u0440\u043E\u0433",
-      "\u043F\u0440\u0435\u0437\u0438\u0434\u0435\u043D\u0442",
-      "\u043F\u043E\u043B\u0438\u0442\u0438\u043A",
-      "\u0437\u0430\u0431\u0443\u0434\u044C",
-      "\u0438\u0433\u043D\u043E\u0440\u0438\u0440\u0443\u0439"
+    const offTopicPatterns = [
+      /\b(python|javascript|typescript|sql|html|css|рецепт\w*|президент\w*)\b/i,
+      /\bпрограммир\w*/i,
+      /(забудь\s+(вс[её]|предыдущ|инструкц)|игнорируй\s+(предыдущ|вс[её]|инструкц))/i
     ];
-    if (offTopicKeywords.some((k) => lastUserText.toLowerCase().includes(k))) {
+    if (offTopicPatterns.some((rx) => rx.test(lastUserText))) {
       return res.json({
-        reply: "\u042F \u0441\u0435\u043C\u0435\u0439\u043D\u044B\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433 \u0421\u043E\u0432\u0430 \u0438 \u0441\u043F\u0435\u0446\u0438\u0430\u043B\u0438\u0437\u0438\u0440\u0443\u044E\u0441\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u043D\u0430 \u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F\u0445, \u0447\u0443\u0432\u0441\u0442\u0432\u0430\u0445 \u0438 \u0433\u0430\u0440\u043C\u043E\u043D\u0438\u0438 \u0432 \u043F\u0430\u0440\u0435.\n\n\u0424\u0438\u0437\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0438 \u0442\u0435\u0445\u043D\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0438\u043D\u0441\u0442\u0440\u0443\u043A\u0446\u0438\u0438 \u043B\u0443\u0447\u0448\u0435 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0432 \u0440\u0443\u043A\u043E\u0432\u043E\u0434\u0441\u0442\u0432\u0435 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F. \u0410 \u0435\u0441\u043B\u0438 \u0432 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u0435 \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0433\u043E \u0434\u0435\u043B\u0430 \u0432\u043E\u0437\u043D\u0438\u043A\u043B\u043E \u043D\u0435\u0434\u043E\u043F\u043E\u043D\u0438\u043C\u0430\u043D\u0438\u0435 \u2014 \u044F \u0441 \u0440\u0430\u0434\u043E\u0441\u0442\u044C\u044E \u043F\u043E\u043C\u043E\u0433\u0443 \u0432\u0441\u0451 \u044D\u043A\u043E\u043B\u043E\u0433\u0438\u0447\u043D\u043E \u0443\u043B\u0430\u0434\u0438\u0442\u044C! \u041E \u0447\u0451\u043C \u0432 \u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F\u0445 \u0432\u044B \u0445\u043E\u0442\u0438\u0442\u0435 \u043F\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C?",
+        reply: "\u042F \u0441\u0435\u043C\u0435\u0439\u043D\u044B\u0439 \u043F\u0441\u0438\u0445\u043E\u043B\u043E\u0433 \u0421\u043E\u0432\u0430 \u0438 \u0441\u043F\u0435\u0446\u0438\u0430\u043B\u0438\u0437\u0438\u0440\u0443\u044E\u0441\u044C \u0438\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E \u043D\u0430 \u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F\u0445, \u0447\u0443\u0432\u0441\u0442\u0432\u0430\u0445 \u0438 \u0433\u0430\u0440\u043C\u043E\u043D\u0438\u0438 \u0432 \u043F\u0430\u0440\u0435.\n\n\u0415\u0441\u043B\u0438 \u0437\u0430 \u044D\u0442\u0438\u043C \u0432\u043E\u043F\u0440\u043E\u0441\u043E\u043C \u0441\u043A\u0440\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u043D\u0430\u043F\u0440\u044F\u0436\u0435\u043D\u0438\u0435 \u0438\u043B\u0438 \u0442\u0435\u043C\u0430 \u0434\u043B\u044F \u0441\u043E\u0432\u043C\u0435\u0441\u0442\u043D\u043E\u0433\u043E \u043E\u0431\u0441\u0443\u0436\u0434\u0435\u043D\u0438\u044F \u2014 \u0440\u0430\u0441\u0441\u043A\u0430\u0436\u0438\u0442\u0435, \u043A\u0430\u043A \u044D\u0442\u043E \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u0432\u0430\u0448\u0438 \u043E\u0442\u043D\u043E\u0448\u0435\u043D\u0438\u044F, \u0438 \u043C\u044B \u0431\u0435\u0440\u0435\u0436\u043D\u043E \u044D\u0442\u043E \u0440\u0430\u0437\u0431\u0435\u0440\u0451\u043C!",
         mode: "fallback_guardrail"
       });
     }
@@ -4503,24 +4961,24 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
 - \u0414\u043D\u0435\u0439 \u0432\u043C\u0435\u0441\u0442\u0435: ${coupleContext?.daysTogether || 1}
 - \u042F\u0437\u044B\u043A \u043B\u044E\u0431\u0432\u0438 ${partnerName}: ${coupleContext?.user1?.loveLanguage || "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"}
 - \u042F\u0437\u044B\u043A \u043B\u044E\u0431\u0432\u0438 ${partner2Name}: ${coupleContext?.user2?.loveLanguage || "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"}`;
-    const groqMessages = [
+    const aiMessagesPayload = [
       { role: "system", content: systemPrompt },
       ...messages.map((m) => ({
         role: m.role === "user" ? "user" : "assistant",
         content: m.content
       }))
     ];
-    const groqReply = await callGroqChat(groqMessages);
-    if (groqReply) {
-      await saveAIMessageToDb(callerLogin, lastUserText, groqReply);
-      return res.json({ reply: groqReply, mode: "openrouter" });
+    const aiResult = await callAIChatDetailed(aiMessagesPayload);
+    if (aiResult.reply) {
+      await saveAIMessageToDb(callerLogin, lastUserText, aiResult.reply);
+      return res.json({ reply: aiResult.reply, mode: aiResult.provider });
     }
     return res.status(503).json({
       error: "\u0418\u0418 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043F\u043E\u0437\u0436\u0435.",
       mode: "error"
     });
   } catch (err) {
-    console.error("[OpenRouter Gemma Error]:", err);
+    logger.error("[AI Chat Error]:", err);
     return res.status(503).json({
       error: "\u0418\u0418 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u041F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u043F\u043E\u0437\u0436\u0435.",
       mode: "error"
@@ -4599,13 +5057,13 @@ import { Router as Router6 } from "express";
 // src/server/modules/analytics/analytics.service.ts
 init_client();
 init_schema();
-import { desc as desc2, eq as eq11 } from "drizzle-orm";
+import { desc as desc2, eq as eq11, inArray as inArray2, or as or7 } from "drizzle-orm";
 
 // src/server/services/insights.ts
 init_client();
 init_schema();
 init_logger();
-import crypto9 from "crypto";
+import crypto10 from "crypto";
 async function detectRiskZones(metrics) {
   const risks = [];
   if (metrics.length < 14) return risks;
@@ -4630,7 +5088,6 @@ async function detectRiskZones(metrics) {
   return risks;
 }
 async function generateWeeklyInsight(coupleId, contextData) {
-  if (!db) return null;
   const today = /* @__PURE__ */ new Date();
   const todayStr = today.toISOString().split("T")[0];
   const sevenDaysAgo = /* @__PURE__ */ new Date();
@@ -4670,7 +5127,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
       insightContent = JSON.parse(cleanJson);
     }
   } catch (err) {
-    logger.info(`Groq generation failed, using fallback: ${err.message}`);
+    logger.info(`AI insight generation failed, using fallback: ${err.message}`);
   }
   if (!insightContent) {
     insightContent = {
@@ -4681,19 +5138,21 @@ async function generateWeeklyInsight(coupleId, contextData) {
       conversationStarter: "\u041A\u0430\u043A\u043E\u0435 \u043C\u0433\u043D\u043E\u0432\u0435\u043D\u0438\u0435 \u043D\u0430 \u044D\u0442\u043E\u0439 \u043D\u0435\u0434\u0435\u043B\u0435 \u0437\u0430\u0441\u0442\u0430\u0432\u0438\u043B\u043E \u0442\u0435\u0431\u044F \u0443\u043B\u044B\u0431\u043D\u0443\u0442\u044C\u0441\u044F, \u0432\u0441\u043F\u043E\u043C\u0438\u043D\u0430\u044F \u043D\u0430\u0441?"
     };
   }
-  try {
-    await db.insert(aiInsights).values({
-      id: crypto9.randomUUID(),
-      coupleId,
-      type,
-      content: insightContent,
-      periodStart: sevenDaysAgoStr,
-      periodEnd: todayStr,
-      createdAt: today.toISOString()
-    });
-    logger.info(`Generated insight for ${coupleId} (${type})`);
-  } catch (dbErr) {
-    logger.info(`Failed to save insight for ${coupleId}: ${dbErr.message}`);
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(aiInsights).values({
+        id: crypto10.randomUUID(),
+        coupleId,
+        type,
+        content: insightContent,
+        periodStart: sevenDaysAgoStr,
+        periodEnd: todayStr,
+        createdAt: today.toISOString()
+      });
+      logger.info(`Generated insight for ${coupleId} (${type})`);
+    } catch (dbErr) {
+      logger.info(`Failed to save insight for ${coupleId}: ${dbErr.message}`);
+    }
   }
   return { type, content: insightContent, periodStart: sevenDaysAgoStr, periodEnd: todayStr };
 }
@@ -4701,7 +5160,7 @@ async function generateWeeklyInsight(coupleId, contextData) {
 // src/server/modules/tests/tests.service.ts
 init_client();
 init_schema();
-import crypto10 from "crypto";
+import crypto11 from "crypto";
 import { eq as eq10, and as and6 } from "drizzle-orm";
 
 // src/shared/tests.registry.ts
@@ -5189,21 +5648,50 @@ function calculateCoupleMatrix(p1Scales, p2Scales) {
 }
 
 // src/server/modules/tests/tests.service.ts
+init_storageService();
+var isProd7 = () => process.env.NODE_ENV === "production";
+function normalizeDraftAnswersMap(raw) {
+  if (!raw) return {};
+  if (Array.isArray(raw)) {
+    const out = {};
+    for (const item of raw) {
+      if (item && typeof item.questionId === "string") {
+        out[item.questionId] = item.value;
+      }
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    return raw;
+  }
+  return {};
+}
 var CATALOG_TEST_IDS = Object.keys(TESTS_REGISTRY);
 var EXPECTED_QUESTIONS = Object.fromEntries(
   Object.entries(TESTS_REGISTRY).map(([id, def]) => [id, def.totalQuestions])
 );
 async function resolveTestCoupleId(userLogin) {
   const clean = (s) => s.toLowerCase().trim().replace(/^@/, "");
-  if (!isSqlConfigured() || !db) return clean(userLogin);
-  const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq10(users.login, userLogin));
-  if (!u) return clean(userLogin);
-  if (!u.partnerLogin) return clean(u.login);
-  return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+  const cleanLogin = clean(userLogin);
+  if (!cleanLogin) return "";
+  if (isSqlConfigured() && db) {
+    try {
+      const [u] = await db.select({ login: users.login, partnerLogin: users.partnerLogin }).from(users).where(eq10(users.login, cleanLogin));
+      if (u) {
+        if (!u.partnerLogin) return clean(u.login);
+        return [clean(u.login), clean(u.partnerLogin)].sort().join("_");
+      }
+    } catch {
+      if (isProd7()) throw new DatabaseUnavailableError();
+    }
+  }
+  const fallbackUser = await findUserByLogin(cleanLogin);
+  if (!fallbackUser?.partnerLogin) return cleanLogin;
+  return [cleanLogin, clean(fallbackUser.partnerLogin)].sort().join("_");
 }
 async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
-  const isProd7 = process.env.NODE_ENV === "production";
-  if (isProd7 && (!isSqlConfigured() || !db)) {
+  const isProd9 = process.env.NODE_ENV === "production";
+  if (isProd9 && (!isSqlConfigured() || !db)) {
     throw new DatabaseUnavailableError();
   }
   const testDef = TESTS_REGISTRY[testId];
@@ -5228,7 +5716,7 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
         )
       ).limit(1);
       if (!session.length) {
-        const newSessionId = crypto10.randomUUID();
+        const newSessionId = crypto11.randomUUID();
         const [created] = await tx.insert(testSessions).values({
           id: newSessionId,
           testId,
@@ -5238,10 +5726,13 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
         }).returning();
         session = [created];
       }
-      const sessionId = session[0].id;
+      const sessionId2 = session[0].id;
+      await tx.delete(testAnswers).where(
+        and6(eq10(testAnswers.sessionId, sessionId2), eq10(testAnswers.userId, userId))
+      );
       const answerRecords = answers.map((a) => ({
-        id: crypto10.randomUUID(),
-        sessionId,
+        id: crypto11.randomUUID(),
+        sessionId: sessionId2,
         userId,
         questionId: a.questionId,
         selectedValue: String(a.value),
@@ -5256,24 +5747,127 @@ async function atomicSubmitTestAnswers(testId, coupleId, userLogin, answers) {
       await tx.delete(testDrafts).where(
         and6(eq10(testDrafts.userId, userId), eq10(testDrafts.testId, testId))
       );
-      await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId);
-      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq10(testSessions.id, sessionId));
+      await _recalculateUserProfile(tx, coupleId, userId, testId, sessionId2);
+      await tx.update(testSessions).set({ status: "completed", completedAt: /* @__PURE__ */ new Date() }).where(eq10(testSessions.id, sessionId2));
       const triggerResult = await _triggerCoupleReportIfReady(tx, coupleId, userId);
       return {
         status: "completed",
         testId,
         userId,
-        sessionId,
+        sessionId: sessionId2,
         answersCount: answers.length,
         harmonyState: triggerResult
       };
     });
   }
-  return { status: "recorded_locally", testId, message: "Dev mode: no DB" };
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+  const store = readEmergencyFile();
+  if (!store.testSessions) store.testSessions = [];
+  if (!store.testAnswers) store.testAnswers = [];
+  if (!store.userPsychProfiles) store.userPsychProfiles = {};
+  if (!store.coupleReports) store.coupleReports = {};
+  if (!store.testDrafts) store.testDrafts = {};
+  const sessionId = crypto11.randomUUID();
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  store.testSessions.push({
+    id: sessionId,
+    testId,
+    coupleId,
+    testClass: "couple",
+    status: "completed",
+    completedAt: nowIso
+  });
+  const existingSessionIds = new Set(
+    store.testSessions.filter((s) => s.coupleId === coupleId && s.testId === testId).map((s) => s.id)
+  );
+  store.testAnswers = store.testAnswers.filter(
+    (a) => !(a.userId === cleanLogin && existingSessionIds.has(a.sessionId))
+  );
+  for (const a of answers) {
+    store.testAnswers.push({
+      id: crypto11.randomUUID(),
+      sessionId,
+      userId: cleanLogin,
+      questionId: a.questionId,
+      selectedValue: String(a.value),
+      scaleId: a.scaleId ?? null,
+      weight: "1.00",
+      reactionTimeMs: a.reactionTimeMs ?? null,
+      toggleCount: a.toggleCount ?? 0,
+      targetType: a.targetType ?? "self",
+      rawPayload: a.rawPayload ?? null
+    });
+  }
+  delete store.testDrafts[`${cleanLogin}:${testId}`];
+  const myCoupleSessions = new Set(
+    store.testSessions.filter((s) => s.coupleId === coupleId && s.status === "completed").map((s) => s.id)
+  );
+  const myAllAnswers = store.testAnswers.filter((a) => a.userId === cleanLogin && myCoupleSessions.has(a.sessionId));
+  const profile = calculateIndividualVector(myAllAnswers);
+  store.userPsychProfiles[cleanLogin] = {
+    userId: cleanLogin,
+    coupleId,
+    sessionId,
+    traitScores: profile.traitScores,
+    dominantVectors: profile.dominantVectors,
+    eSafety: String(profile.eSafety),
+    aAutonomy: String(profile.aAutonomy),
+    cCloseness: String(profile.cCloseness),
+    rRepair: String(profile.rRepair),
+    vFuture: String(profile.vFuture),
+    consistencyScore: String(profile.consistencyScore),
+    updatedAt: nowIso
+  };
+  let harmonyState = {
+    state: "PARTNER_PENDING"
+  };
+  const coupleUser = await findUserByLogin(cleanLogin);
+  const partnerLogin = coupleUser?.partnerLogin?.toLowerCase().trim().replace(/^@/, "");
+  if (partnerLogin) {
+    const myCompletedIds = new Set(
+      store.testSessions.filter((s) => s.coupleId === coupleId && s.status === "completed").filter((s) => store.testAnswers.some((a) => a.sessionId === s.id && a.userId === cleanLogin)).map((s) => s.testId)
+    );
+    const partnerCompletedIds = new Set(
+      store.testSessions.filter((s) => s.coupleId === coupleId && s.status === "completed").filter((s) => store.testAnswers.some((a) => a.sessionId === s.id && a.userId === partnerLogin)).map((s) => s.testId)
+    );
+    const p1Done = CATALOG_TEST_IDS.every((id) => myCompletedIds.has(id));
+    const p2Done = CATALOG_TEST_IDS.every((id) => partnerCompletedIds.has(id));
+    if (p1Done && p2Done) {
+      const p1Scales = store.userPsychProfiles[cleanLogin]?.traitScores;
+      const p2Scales = store.userPsychProfiles[partnerLogin]?.traitScores;
+      if (p1Scales?.s1 != null && p2Scales?.s1 != null) {
+        const matrixResult = calculateCoupleMatrix(p1Scales, p2Scales);
+        store.coupleReports[coupleId] = {
+          id: crypto11.randomUUID(),
+          coupleId,
+          radarMetrics: matrixResult.radar,
+          archetypeTitle: matrixResult.archetype.title,
+          archetypeDescription: matrixResult.archetype.description,
+          leadSpheres: matrixResult.archetype.leadSpheres,
+          synergyPoints: matrixResult.synergyPoints,
+          growthZones: matrixResult.growthZones,
+          blindSpots: matrixResult.destructivePatternsDetected,
+          calculatedAt: nowIso
+        };
+        harmonyState = { state: "REPORT_GENERATED", radar: matrixResult.radar };
+      } else {
+        harmonyState = { state: "BOTH_COMPLETED" };
+      }
+    }
+  }
+  writeEmergencyFile(store);
+  return {
+    status: "completed",
+    testId,
+    userId: cleanLogin,
+    sessionId,
+    answersCount: answers.length,
+    harmonyState
+  };
 }
 async function submitTestAnswer(params) {
-  const isProd7 = process.env.NODE_ENV === "production";
-  if (isProd7 && (!isSqlConfigured() || !db)) {
+  const isProd9 = process.env.NODE_ENV === "production";
+  if (isProd9 && (!isSqlConfigured() || !db)) {
     throw new DatabaseUnavailableError();
   }
   const testDef = TESTS_REGISTRY[params.testId];
@@ -5294,7 +5888,7 @@ async function submitTestAnswer(params) {
           )
         ).limit(1);
         if (!session.length) {
-          const newSessionId = crypto10.randomUUID();
+          const newSessionId = crypto11.randomUUID();
           const [created] = await tx.insert(testSessions).values({
             id: newSessionId,
             testId: params.testId,
@@ -5307,7 +5901,7 @@ async function submitTestAnswer(params) {
         sessionId = session[0].id;
       }
       await tx.insert(testAnswers).values({
-        id: crypto10.randomUUID(),
+        id: crypto11.randomUUID(),
         sessionId,
         userId,
         questionId: params.questionId,
@@ -5339,8 +5933,21 @@ async function submitTestAnswer(params) {
   return { status: "recorded_locally", testId: params.testId, message: "Dev mode: no DB" };
 }
 async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
+  const normalizedAnswers = normalizeDraftAnswersMap(answers);
   if (!isSqlConfigured() || !db) {
-    return { status: "saved_locally", message: "Dev mode: no DB" };
+    if (isProd7()) throw new DatabaseUnavailableError();
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    if (!store.testDrafts) store.testDrafts = {};
+    store.testDrafts[`${cleanLogin}:${testId}`] = {
+      userId: cleanLogin,
+      testId,
+      currentQuestionIndex,
+      answers: normalizedAnswers,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    writeEmergencyFile(store);
+    return { status: "saved", testId, currentQuestionIndex };
   }
   const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
@@ -5348,12 +5955,12 @@ async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
     userId,
     testId,
     currentQuestionIndex,
-    answers
+    answers: normalizedAnswers
   }).onConflictDoUpdate({
     target: [testDrafts.userId, testDrafts.testId],
     set: {
       currentQuestionIndex,
-      answers,
+      answers: normalizedAnswers,
       updatedAt: /* @__PURE__ */ new Date()
     }
   });
@@ -5361,16 +5968,32 @@ async function saveTestDraft(userLogin, testId, currentQuestionIndex, answers) {
 }
 async function getTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
-    return null;
+    if (isProd7()) return null;
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    const draft2 = store.testDrafts?.[`${cleanLogin}:${testId}`];
+    if (!draft2) return null;
+    return { ...draft2, answers: normalizeDraftAnswersMap(draft2.answers) };
   }
   const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
   const [draft] = await db.select().from(testDrafts).where(and6(eq10(testDrafts.userId, userId), eq10(testDrafts.testId, testId))).limit(1);
-  return draft ?? null;
+  if (!draft) return null;
+  return {
+    ...draft,
+    answers: normalizeDraftAnswersMap(draft.answers)
+  };
 }
 async function clearTestDraft(userLogin, testId) {
   if (!isSqlConfigured() || !db) {
-    return { status: "cleared_locally", message: "Dev mode: no DB" };
+    if (isProd7()) throw new DatabaseUnavailableError();
+    const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
+    const store = readEmergencyFile();
+    if (store.testDrafts) {
+      delete store.testDrafts[`${cleanLogin}:${testId}`];
+      writeEmergencyFile(store);
+    }
+    return { status: "cleared", testId };
   }
   const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
   const userId = u ? u.id : userLogin;
@@ -5380,11 +6003,33 @@ async function clearTestDraft(userLogin, testId) {
   return { status: "cleared", testId };
 }
 async function getTestsStatusForUser(userLogin) {
+  const cleanLogin = userLogin.toLowerCase().trim().replace(/^@/, "");
   if (!isSqlConfigured() || !db) {
+    if (isProd7()) {
+      return CATALOG_TEST_IDS.map((testId) => ({
+        testId,
+        isCompletedByMe: false,
+        isCompletedByPartner: false
+      }));
+    }
+    const store = readEmergencyFile();
+    const u2 = await findUserByLogin(cleanLogin);
+    const partnerLogin = u2?.partnerLogin?.toLowerCase().trim().replace(/^@/, "");
+    const coupleId2 = await resolveTestCoupleId(cleanLogin);
+    const sessions = (store.testSessions || []).filter(
+      (s) => s.status === "completed" && s.coupleId === coupleId2
+    );
+    const answers = store.testAnswers || [];
+    const mySet2 = new Set(
+      sessions.filter((s) => answers.some((a) => a.sessionId === s.id && a.userId === cleanLogin)).map((s) => s.testId)
+    );
+    const partnerSet2 = new Set(
+      partnerLogin ? sessions.filter((s) => answers.some((a) => a.sessionId === s.id && a.userId === partnerLogin)).map((s) => s.testId) : []
+    );
     return CATALOG_TEST_IDS.map((testId) => ({
       testId,
-      isCompletedByMe: false,
-      isCompletedByPartner: false
+      isCompletedByMe: mySet2.has(testId),
+      isCompletedByPartner: partnerSet2.has(testId)
     }));
   }
   const [u] = await db.select().from(users).where(eq10(users.login, userLogin));
@@ -5532,7 +6177,7 @@ async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
   };
   await tx.insert(coupleReports).values({
     ...reportValues,
-    id: crypto10.randomUUID(),
+    id: crypto11.randomUUID(),
     createdAt: /* @__PURE__ */ new Date()
   }).onConflictDoUpdate({
     target: [coupleReports.coupleId],
@@ -5573,26 +6218,28 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
   const [couple] = await db.select().from(couples).where(eq11(couples.id, coupleId)).limit(1);
   const profiles = await db.select().from(userPsychProfiles).where(eq11(userPsychProfiles.coupleId, coupleId));
   const [report] = await db.select().from(coupleReports).where(eq11(coupleReports.coupleId, coupleId)).limit(1);
-  let completedTestsCount = 0;
+  let currentUser;
   if (currentUserIdOrLogin) {
-    const allUsers2 = await db.select().from(users);
-    const currentUser2 = allUsers2.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
-    if (currentUser2) {
-      const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(eq11(testAnswers.userId, currentUser2.id)).groupBy(testSessions.testId);
-      completedTestsCount = userCompletedSessions.length;
-    }
+    const cleanTarget = currentUserIdOrLogin.toLowerCase().trim().replace(/^@/, "");
+    const [found] = await db.select().from(users).where(or7(eq11(users.id, currentUserIdOrLogin), eq11(users.login, cleanTarget))).limit(1);
+    currentUser = found;
   }
-  const allUsers = await db.select().from(users);
-  let currentUser = allUsers.find((u) => u.id === currentUserIdOrLogin || u.login === currentUserIdOrLogin);
+  let completedTestsCount = 0;
+  if (currentUser) {
+    const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(eq11(testAnswers.userId, currentUser.id)).groupBy(testSessions.testId);
+    completedTestsCount = userCompletedSessions.length;
+  }
   let partnerUser;
   if (couple) {
+    const memberIds = [couple.user1Id, couple.user2Id].filter((id) => Boolean(id));
+    const coupleMembers = memberIds.length > 0 ? await db.select().from(users).where(inArray2(users.id, memberIds)) : [];
     if (currentUser?.id === couple.user1Id) {
-      partnerUser = allUsers.find((u) => u.id === couple.user2Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
     } else if (currentUser?.id === couple.user2Id) {
-      partnerUser = allUsers.find((u) => u.id === couple.user1Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user1Id);
     } else {
-      currentUser = allUsers.find((u) => u.id === couple.user1Id);
-      partnerUser = allUsers.find((u) => u.id === couple.user2Id);
+      currentUser = coupleMembers.find((u) => u.id === couple.user1Id);
+      partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
     }
   }
   const currentUserProfile = currentUser ? profiles.find((p) => p.userId === currentUser?.id) || profiles[0] || null : profiles[0] || null;
@@ -5630,11 +6277,19 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
 }
 
 // src/server/modules/analytics/analytics.routes.ts
+init_storageService();
 var analyticsRouter = Router6();
-analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, async (req, res, next) => {
+function parseTrendsDays(query) {
+  const period = String(query.period || "");
+  if (period === "1m") return 30;
+  if (period === "3m") return 90;
+  if (period === "6m") return 180;
+  return parseInt(String(query.days || ""), 10) || 30;
+}
+analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, async (req, res) => {
   try {
     const { coupleId } = req.params;
-    const days = parseInt(req.query.days, 10) || 30;
+    const days = parseTrendsDays(req.query);
     const trends = await getTrends(coupleId, days);
     return res.json(trends);
   } catch (err) {
@@ -5642,7 +6297,7 @@ analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, asyn
     return res.status(500).json({ error: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0430\u043D\u0430\u043B\u0438\u0442\u0438\u043A\u0443 \u0442\u0440\u0435\u043D\u0434\u043E\u0432" });
   }
 });
-analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, async (req, res, next) => {
+analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, async (req, res) => {
   try {
     const { coupleId } = req.params;
     const insights = await fetchAiInsights(coupleId);
@@ -5652,10 +6307,23 @@ analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, as
     return res.status(500).json({ error: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0438\u043D\u0441\u0430\u0439\u0442\u044B" });
   }
 });
-analyticsRouter.post("/insights/generate", requireAuth, requirePairOwnership, async (req, res, next) => {
+analyticsRouter.post("/insights/generate", requireAuth, requirePairOwnership, async (req, res) => {
   try {
-    const { coupleId } = req.body;
-    const insight = await generateWeeklyInsight(coupleId, req.body.contextData || {});
+    const userLogin = req.user?.login;
+    if (!userLogin) {
+      return res.status(401).json({ error: "\u041D\u0435\u043E\u0431\u0445\u043E\u0434\u0438\u043C\u0430 \u0430\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F" });
+    }
+    let resolvedCoupleId = req.couple?.id || (req.body?.coupleId ? String(req.body.coupleId) : void 0);
+    if (!resolvedCoupleId) {
+      const user = await findUserByLogin(userLogin);
+      resolvedCoupleId = getPairKey(userLogin, user?.partnerLogin || null);
+    }
+    const contextData = {
+      p1Name: req.body?.p1Name || "\u041F\u0430\u0440\u0442\u043D\u0451\u0440 1",
+      p2Name: req.body?.p2Name || "\u041F\u0430\u0440\u0442\u043D\u0451\u0440 2",
+      ...req.body?.contextData || {}
+    };
+    const insight = await generateWeeklyInsight(resolvedCoupleId, contextData);
     return res.json({ insight });
   } catch (err) {
     logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u043D\u0435\u0434\u0435\u043B\u044C\u043D\u043E\u0433\u043E \u0438\u043D\u0441\u0430\u0439\u0442\u0430", err);
@@ -5702,8 +6370,8 @@ init_client();
 init_logger();
 init_storageService();
 init_errors();
-import crypto11 from "crypto";
-var isProd6 = () => process.env.NODE_ENV === "production";
+import crypto12 from "crypto";
+var isProd8 = () => process.env.NODE_ENV === "production";
 function detectMimeType(buffer) {
   if (!buffer || buffer.length < 12) return null;
   if (buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255) {
@@ -5724,12 +6392,12 @@ var PhotoStorageService = class {
    * Сохранить фото в базу данных (BYTEA) и вернуть только метаданные
    */
   async savePhoto(input) {
-    const id = input.id || crypto11.randomUUID();
+    const id = input.id || crypto12.randomUUID();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const caption = input.caption?.trim() || null;
     const width = typeof input.width === "number" ? input.width : null;
     const height = typeof input.height === "number" ? input.height : null;
-    if (isProd6()) {
+    if (isProd8()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5826,7 +6494,7 @@ var PhotoStorageService = class {
   async listPhotos(coupleId, limit = 100, offset = 0) {
     const safeLimit = Math.min(Math.max(1, limit), 100);
     const safeOffset = Math.max(0, offset);
-    if (isProd6()) {
+    if (isProd8()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5906,7 +6574,7 @@ var PhotoStorageService = class {
    * Получить метаданные одного фото (без байтов)
    */
   async getPhotoById(id) {
-    if (isProd6()) {
+    if (isProd8()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -5993,7 +6661,7 @@ var PhotoStorageService = class {
    * Получить бинарные данные (Buffer) фото и MIME-тип
    */
   async getPhotoBytes(id) {
-    if (isProd6()) {
+    if (isProd8()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -6070,7 +6738,7 @@ var PhotoStorageService = class {
    * Удалить фото
    */
   async deletePhoto(id) {
-    if (isProd6()) {
+    if (isProd8()) {
       if (!isSqlConfigured()) {
         throw new DatabaseUnavailableError();
       }
@@ -6336,7 +7004,7 @@ realtimeRouter.get("/touches/:login", requireAuth, async (req, res, next) => {
     if (!req.user?.login || paramLogin !== req.user.login) {
       return res.status(403).json({ error: "\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" });
     }
-    const touches = getUserTouches(paramLogin);
+    const touches = await getUserTouches(paramLogin);
     return res.json({ touches });
   } catch (err) {
     logger.error("\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u043A\u0430\u0441\u0430\u043D\u0438\u0439", err);
@@ -6570,12 +7238,15 @@ testsRouter.post(
     z7.object({
       testId: z7.string().min(1),
       currentQuestionIndex: z7.number().int().min(0),
-      answers: z7.array(
-        z7.object({
-          questionId: z7.string(),
-          value: z7.union([z7.string(), z7.number()])
-        })
-      ).min(1)
+      answers: z7.union([
+        z7.record(z7.string(), z7.unknown()),
+        z7.array(
+          z7.object({
+            questionId: z7.string(),
+            value: z7.union([z7.string(), z7.number()])
+          })
+        )
+      ])
     })
   ),
   async (req, res, next) => {
@@ -6625,9 +7296,9 @@ testsRouter.delete("/draft/:testId", requireAuth, async (req, res, next) => {
 // src/server/app.ts
 var app = express();
 async function initDatabase() {
-  const isProd7 = process.env.NODE_ENV === "production";
+  const isProd9 = process.env.NODE_ENV === "production";
   if (!isSqlConfigured()) {
-    if (isProd7) {
+    if (isProd9) {
       logger.warn("\u0412\u041D\u0418\u041C\u0410\u041D\u0418\u0415: DATABASE_URL \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0430 \u0432 production (Vercel). \u041F\u043E\u0436\u0430\u043B\u0443\u0439\u0441\u0442\u0430, \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u043F\u0435\u0440\u0435\u043C\u0435\u043D\u043D\u0443\u044E DATABASE_URL \u0432 Project Settings -> Environment Variables \u043D\u0430 Vercel.");
       return;
     }
@@ -6640,10 +7311,6 @@ async function initDatabase() {
       logger.warn("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0443\u043B \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0439 \u043A PostgreSQL.");
       return;
     }
-    const check = await pool.query("SELECT to_regclass('public.users') as ex");
-    if (check.rows[0]?.ex) {
-      return;
-    }
     const statements = [
       `CREATE TABLE IF NOT EXISTS users (
         id text PRIMARY KEY,
@@ -6651,31 +7318,63 @@ async function initDatabase() {
         password_hash text NOT NULL,
         name text NOT NULL,
         gender text,
-        avatar_emoji text NOT NULL DEFAULT '\u2728',
+        avatar_emoji text NOT NULL DEFAULT 'sparkles',
         partner_login text,
-        created_at text NOT NULL,
-        updated_at text NOT NULL,
-        data_version integer NOT NULL DEFAULT 1
+        invite_code text,
+        invite_code_expires text,
+        paired_at text,
+        start_date text,
+        city text,
+        love_language text,
+        attachment_style text,
+        current_mood jsonb,
+        last_active_at text,
+        created_at text NOT NULL
       )`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code_expires text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS paired_at text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS start_date text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS city text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS love_language text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS attachment_style text`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS current_mood jsonb`,
+      `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at text`,
       `CREATE INDEX IF NOT EXISTS users_login_idx ON users(login)`,
+      `CREATE INDEX IF NOT EXISTS users_partner_login_idx ON users(partner_login)`,
       `CREATE INDEX IF NOT EXISTS users_lower_login_idx ON users(LOWER(login))`,
       `CREATE INDEX IF NOT EXISTS users_lower_partner_idx ON users(LOWER(partner_login))`,
       `CREATE TABLE IF NOT EXISTS pair_requests (
         id text PRIMARY KEY,
         from_login text NOT NULL,
+        from_name text NOT NULL DEFAULT '',
+        from_avatar text NOT NULL DEFAULT 'sparkles',
         to_login text NOT NULL,
-        status text NOT NULL DEFAULT 'pending',
-        created_at text NOT NULL,
-        updated_at text NOT NULL
+        status text NOT NULL DEFAULT 'PENDING',
+        created_at text NOT NULL
       )`,
+      `ALTER TABLE pair_requests ADD COLUMN IF NOT EXISTS from_name text NOT NULL DEFAULT ''`,
+      `ALTER TABLE pair_requests ADD COLUMN IF NOT EXISTS from_avatar text NOT NULL DEFAULT 'sparkles'`,
+      `CREATE INDEX IF NOT EXISTS pair_requests_from_to_idx ON pair_requests(from_login, to_login)`,
       `CREATE INDEX IF NOT EXISTS pair_requests_to_login_idx ON pair_requests(to_login)`,
-      `CREATE INDEX IF NOT EXISTS pair_requests_from_login_idx ON pair_requests(from_login)`,
+      `CREATE INDEX IF NOT EXISTS pair_requests_status_idx ON pair_requests(status)`,
       `CREATE TABLE IF NOT EXISTS couple_data (
         id text PRIMARY KEY,
         data jsonb NOT NULL,
         last_updated_at text NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS couple_data_id_idx ON couple_data(id)`,
+      `CREATE TABLE IF NOT EXISTS couples (
+        id text PRIMARY KEY,
+        user1_id text REFERENCES users(id) ON DELETE CASCADE,
+        user2_id text REFERENCES users(id) ON DELETE CASCADE,
+        status text NOT NULL DEFAULT 'active',
+        xp_points integer NOT NULL DEFAULT 0,
+        current_level integer NOT NULL DEFAULT 1,
+        streak_days integer NOT NULL DEFAULT 0,
+        start_date text,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
       `CREATE TABLE IF NOT EXISTS chat_messages (
         id text PRIMARY KEY,
         couple_id text NOT NULL,
@@ -6686,6 +7385,95 @@ async function initDatabase() {
         created_at text NOT NULL
       )`,
       `CREATE INDEX IF NOT EXISTS chat_messages_couple_created_idx ON chat_messages(couple_id, created_at)`,
+      `CREATE INDEX IF NOT EXISTS chat_messages_sender_login_idx ON chat_messages(sender_login)`,
+      `CREATE TABLE IF NOT EXISTS relationship_metrics (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        metric_date text NOT NULL,
+        radar_scores jsonb NOT NULL,
+        mood_average real,
+        mood_entries_count integer DEFAULT 0,
+        interaction_count integer DEFAULT 0,
+        quiz_completed boolean DEFAULT false,
+        streak_days integer DEFAULT 0,
+        created_at text NOT NULL,
+        CONSTRAINT relationship_metrics_couple_date_unq UNIQUE (couple_id, metric_date)
+      )`,
+      `CREATE TABLE IF NOT EXISTS ai_insights (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        type text NOT NULL,
+        content jsonb NOT NULL,
+        period_start text NOT NULL,
+        period_end text NOT NULL,
+        created_at text NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS ai_insights_couple_created_idx ON ai_insights(couple_id, created_at)`,
+      `CREATE TABLE IF NOT EXISTS photos (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        uploader_login text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        image_bytes bytea NOT NULL,
+        mime_type text NOT NULL,
+        caption text,
+        width integer,
+        height integer,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS photos_couple_id_idx ON photos(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS photos_created_at_idx ON photos(created_at)`,
+      `CREATE TABLE IF NOT EXISTS date_events (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        title text NOT NULL,
+        description text,
+        location text,
+        event_date text NOT NULL,
+        status text NOT NULL DEFAULT 'planned',
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS date_events_couple_id_idx ON date_events(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS care_notes (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        author_login text NOT NULL,
+        target_login text NOT NULL,
+        content text NOT NULL,
+        category text NOT NULL DEFAULT 'general',
+        is_completed boolean NOT NULL DEFAULT false,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS care_notes_couple_id_idx ON care_notes(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS time_capsules (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        author_login text NOT NULL,
+        title text NOT NULL,
+        content text NOT NULL,
+        open_at text NOT NULL,
+        is_opened boolean NOT NULL DEFAULT false,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS time_capsules_couple_id_idx ON time_capsules(couple_id)`,
+      `CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id text PRIMARY KEY,
+        user_login text NOT NULL,
+        couple_id text,
+        subscription jsonb NOT NULL,
+        created_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS push_subscriptions_user_idx ON push_subscriptions(user_login)`,
+      `CREATE TABLE IF NOT EXISTS couple_events (
+        id text PRIMARY KEY,
+        couple_id text NOT NULL,
+        target_login text NOT NULL,
+        sender_login text NOT NULL,
+        event_type text NOT NULL,
+        payload jsonb NOT NULL,
+        created_at text NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS couple_events_target_idx ON couple_events(target_login, created_at)`,
+      `CREATE INDEX IF NOT EXISTS couple_events_couple_idx ON couple_events(couple_id, created_at)`,
       `CREATE TABLE IF NOT EXISTS test_sessions (
         id text PRIMARY KEY,
         test_id text NOT NULL,
@@ -6696,13 +7484,15 @@ async function initDatabase() {
         created_at timestamp with time zone NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS test_sessions_couple_id_idx ON test_sessions(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS test_sessions_test_id_idx ON test_sessions(test_id)`,
+      `CREATE INDEX IF NOT EXISTS test_sessions_status_idx ON test_sessions(status)`,
       `CREATE TABLE IF NOT EXISTS test_answers (
         id text PRIMARY KEY,
         session_id text NOT NULL,
         user_id text NOT NULL,
         question_id text NOT NULL,
         scale_id text,
-        selected_value numeric(8, 2) NOT NULL,
+        selected_value text NOT NULL,
         weight numeric(5, 2) NOT NULL DEFAULT 1.00,
         reaction_time_ms integer,
         toggle_count integer NOT NULL DEFAULT 0,
@@ -6711,8 +7501,10 @@ async function initDatabase() {
         created_at timestamp with time zone NOT NULL DEFAULT now(),
         CONSTRAINT uniq_user_session_question UNIQUE (session_id, user_id, question_id)
       )`,
+      `ALTER TABLE test_answers ALTER COLUMN selected_value TYPE text USING selected_value::text`,
       `CREATE INDEX IF NOT EXISTS test_answers_session_idx ON test_answers(session_id)`,
       `CREATE INDEX IF NOT EXISTS test_answers_user_idx ON test_answers(user_id)`,
+      `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS scale_id text`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS reaction_time_ms integer`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS toggle_count integer NOT NULL DEFAULT 0`,
       `ALTER TABLE test_answers ADD COLUMN IF NOT EXISTS target_type varchar(24) NOT NULL DEFAULT 'self'`,
@@ -6721,11 +7513,13 @@ async function initDatabase() {
         user_id text PRIMARY KEY,
         couple_id text NOT NULL,
         session_id text NOT NULL,
-        e_safety numeric(5, 2) NOT NULL,
-        a_autonomy numeric(5, 2) NOT NULL,
-        c_closeness numeric(5, 2) NOT NULL,
-        r_repair numeric(5, 2) NOT NULL,
-        v_future numeric(5, 2) NOT NULL,
+        trait_scores jsonb,
+        dominant_vectors jsonb,
+        e_safety numeric(5, 2) NOT NULL DEFAULT 50.00,
+        a_autonomy numeric(5, 2) NOT NULL DEFAULT 50.00,
+        c_closeness numeric(5, 2) NOT NULL DEFAULT 50.00,
+        r_repair numeric(5, 2) NOT NULL DEFAULT 50.00,
+        v_future numeric(5, 2) NOT NULL DEFAULT 50.00,
         consistency_score numeric(5, 2),
         raw_responses jsonb,
         updated_at timestamp with time zone NOT NULL DEFAULT now()
@@ -6742,7 +7536,9 @@ async function initDatabase() {
         radar_communication numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_intimacy numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_values numeric(5, 2) NOT NULL DEFAULT 50.00,
+        radar_lifestyle numeric(5, 2) NOT NULL DEFAULT 50.00,
         radar_metrics jsonb,
+        personality_types jsonb,
         archetype_title text NOT NULL,
         archetype_description text NOT NULL,
         lead_spheres jsonb NOT NULL,
@@ -6757,7 +7553,9 @@ async function initDatabase() {
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_communication numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_intimacy numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_values numeric(5, 2)`,
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_lifestyle numeric(5, 2)`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS radar_metrics jsonb`,
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS personality_types jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS archetype_title text`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS archetype_description text`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS lead_spheres jsonb`,
@@ -6765,7 +7563,45 @@ async function initDatabase() {
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS growth_zones jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS blind_spots jsonb`,
       `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS calculated_at timestamp with time zone DEFAULT now()`,
-      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now()`
+      `ALTER TABLE couple_reports ADD COLUMN IF NOT EXISTS created_at timestamp with time zone DEFAULT now()`,
+      `CREATE TABLE IF NOT EXISTS test_drafts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        test_id varchar(64) NOT NULL,
+        current_question_index integer NOT NULL DEFAULT 0,
+        answers jsonb NOT NULL,
+        updated_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS user_test_draft_idx ON test_drafts(user_id, test_id)`,
+      `CREATE TABLE IF NOT EXISTS couple_pets (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        couple_id text NOT NULL UNIQUE REFERENCES couples(id) ON DELETE CASCADE,
+        pair_key varchar(120) NOT NULL UNIQUE,
+        species varchar(20) NOT NULL DEFAULT 'dog',
+        name varchar(50) NOT NULL DEFAULT '\u0411\u0443\u0441\u0438\u043D\u043A\u0430',
+        name_status varchar(20) NOT NULL DEFAULT 'confirmed',
+        name_proposed_by text REFERENCES users(id),
+        is_onboarding_completed boolean NOT NULL DEFAULT false,
+        hunger integer NOT NULL DEFAULT 85,
+        joy integer NOT NULL DEFAULT 90,
+        energy integer NOT NULL DEFAULT 65,
+        cleanliness integer NOT NULL DEFAULT 80,
+        mood varchar(20) NOT NULL DEFAULT 'happy',
+        level integer NOT NULL DEFAULT 1,
+        experience integer NOT NULL DEFAULT 0,
+        weight_kg numeric(4, 2) NOT NULL DEFAULT 1.20,
+        last_fed_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_played_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_rested_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_washed_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_interaction_at timestamp with time zone NOT NULL DEFAULT now(),
+        last_action_by text REFERENCES users(id),
+        created_at timestamp with time zone NOT NULL DEFAULT now(),
+        updated_at timestamp with time zone NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_created_idx ON couple_pets(created_at)`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_couple_id_idx ON couple_pets(couple_id)`,
+      `CREATE INDEX IF NOT EXISTS couple_pets_pair_key_idx ON couple_pets(pair_key)`
     ];
     for (const stmt of statements) {
       try {
@@ -6777,7 +7613,7 @@ async function initDatabase() {
     logger.info("\u0422\u0430\u0431\u043B\u0438\u0446\u044B \u0438 \u0438\u043D\u0434\u0435\u043A\u0441\u044B \u0431\u0430\u0437\u044B \u0434\u0430\u043D\u043D\u044B\u0445 \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u044B/\u0441\u043E\u0437\u0434\u0430\u043D\u044B \u0432 PostgreSQL");
   } catch (err) {
     const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : err;
-    if (isProd7) {
+    if (isProd9) {
       logger.error("\u041F\u0440\u0435\u0434\u0443\u043F\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435 \u0438\u043D\u0438\u0446\u0438\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446 PostgreSQL \u0432 production:", { error: errorObj });
     } else {
       logger.warn("\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u0440\u0438 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0435/\u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438 \u0442\u0430\u0431\u043B\u0438\u0446 PostgreSQL, \u043F\u0435\u0440\u0435\u043A\u043B\u044E\u0447\u0430\u0435\u043C\u0441\u044F \u043D\u0430 \u0430\u0432\u0430\u0440\u0438\u0439\u043D\u044B\u0439 \u0440\u0435\u0436\u0438\u043C:", { error: errorObj });
@@ -6852,6 +7688,9 @@ app.use(
         ]);
         if (allowed.has(host)) return callback(null, true);
         if (/^loop-[a-z0-9-]+-vtkn1\.vercel\.app$/.test(host)) return callback(null, true);
+        if (host.endsWith(".run.app") || host === "aistudio.google.com" || host.endsWith(".aistudio.google.com")) {
+          return callback(null, true);
+        }
         return callback(null, false);
       } catch {
         return callback(null, false);
@@ -6880,7 +7719,7 @@ apiRouter.get("/health", async (req, res) => {
       dbStatus = "error";
       const errorObj = err instanceof Error ? { message: err.message, stack: err.stack } : String(err);
       logger.error("Health check DB ping failed:", { error: errorObj });
-      dbErrorDetail = errorObj;
+      dbErrorDetail = config.nodeEnv === "production" ? "database_connection_failed" : err instanceof Error ? err.message : String(err);
     }
   }
   const isHealthy = dbStatus === "connected" || dbStatus === "not_configured";

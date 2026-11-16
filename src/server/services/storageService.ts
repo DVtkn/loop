@@ -24,7 +24,21 @@ function ensureDataDir(): void {
 
 export function readEmergencyFile(): JsonStoreShape {
   if (isProd()) {
-    return { users: {}, pairRequests: [], coupleData: {}, chatMessages: [], rateLimits: {}, photos: [] };
+    return {
+      users: {},
+      pairRequests: [],
+      coupleData: {},
+      chatMessages: [],
+      rateLimits: {},
+      photos: [],
+      couplePets: {},
+      coupleEvents: [],
+      testDrafts: {},
+      testSessions: [],
+      testAnswers: [],
+      userPsychProfiles: {},
+      coupleReports: {},
+    };
   }
   ensureDataDir();
   try {
@@ -38,12 +52,33 @@ export function readEmergencyFile(): JsonStoreShape {
         chatMessages: parsed.chatMessages || [],
         rateLimits: parsed.rateLimits || {},
         photos: parsed.photos || [],
+        couplePets: parsed.couplePets || {},
+        coupleEvents: parsed.coupleEvents || [],
+        testDrafts: parsed.testDrafts || {},
+        testSessions: parsed.testSessions || [],
+        testAnswers: parsed.testAnswers || [],
+        userPsychProfiles: parsed.userPsychProfiles || {},
+        coupleReports: parsed.coupleReports || {},
       };
     }
   } catch (err: unknown) {
     logger.error('Ошибка чтения аварийного файла db_store.json', err);
   }
-  return { users: {}, pairRequests: [], coupleData: {}, chatMessages: [], rateLimits: {}, photos: [] };
+  return {
+    users: {},
+    pairRequests: [],
+    coupleData: {},
+    chatMessages: [],
+    rateLimits: {},
+    photos: [],
+    couplePets: {},
+    coupleEvents: [],
+    testDrafts: {},
+    testSessions: [],
+    testAnswers: [],
+    userPsychProfiles: {},
+    coupleReports: {},
+  };
 }
 
 export function writeEmergencyFile(data: JsonStoreShape): void {

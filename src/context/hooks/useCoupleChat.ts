@@ -9,7 +9,7 @@ import {
   NavigationTab,
   PulseEntry,
 } from '../../types.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 
 interface UseCoupleChatParams {
   currentUser: UserAccount | null;
@@ -21,6 +21,15 @@ interface UseCoupleChatParams {
   getFormattedTimeTogether: () => string;
 }
 
+const DEFAULT_AI_WELCOME: AIMessage[] = [
+  {
+    id: 'ai-init-1',
+    role: 'model',
+    content: `Здравствуйте! Я Сова — ваш персональный ИИ-психолог Loop.\n\nЯ помогу вам бережно разбирать любые ситуации, находить гармонию, понимать стили привязанности и языки любви в вашей паре.\n\nО чём вы хотели бы поговорить сегодня?`,
+    timestamp: new Date().toISOString(),
+  },
+];
+
 export function useCoupleChat({
   currentUser,
   currentPartnerId,
@@ -31,41 +40,71 @@ export function useCoupleChat({
   getFormattedTimeTogether,
 }: UseCoupleChatParams) {
   const [partnerMessages, setPartnerMessages] = useState<ChatMessage[]>(() => {
-    return safeGetStorage<ChatMessage[]>('together_partner_messages', []);
+    return safeGetStorage<ChatMessage[]>(getUserStorageKey('together_partner_messages', currentUser?.login), []);
   });
 
   const [aiMessages, setAIMessages] = useState<AIMessage[]>(() => {
-    const fallbackMessages: AIMessage[] = [
-      {
-        id: 'ai-init-1',
-        role: 'model',
-        content: `Здравствуйте! Я Сова — ваш персональный ИИ-психолог Loop.\n\nЯ помогу вам бережно разбирать любые ситуации, находить гармонию, понимать стили привязанности и языки любви в вашей паре.\n\nО чём вы хотели бы поговорить сегодня?`,
-        timestamp: new Date().toISOString(),
-      },
-    ];
-    return safeGetStorage('together_ai_messages', fallbackMessages);
+    return safeGetStorage(getUserStorageKey('together_ai_messages', currentUser?.login), DEFAULT_AI_WELCOME);
   });
 
   const [isAITyping, setIsAITyping] = useState<boolean>(false);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(() =>
-    safeGetStorage('together_unread_chat', 0)
+    safeGetStorage(getUserStorageKey('together_unread_chat', currentUser?.login), 0)
   );
+
+  // Reload isolated chat histories when user changes or logs out
+  useEffect(() => {
+    const login = currentUser?.login;
+    if (!login) {
+      setPartnerMessages([]);
+      setAIMessages(DEFAULT_AI_WELCOME);
+      setUnreadChatCount(0);
+      return;
+    }
+
+    const cleanLogin = login.toLowerCase().trim().replace(/^@/, '');
+    const savedPartner = safeGetStorage<ChatMessage[]>(getUserStorageKey('together_partner_messages', cleanLogin), []);
+    setPartnerMessages(Array.isArray(savedPartner) ? savedPartner : []);
+
+    const savedAi = safeGetStorage<AIMessage[]>(getUserStorageKey('together_ai_messages', cleanLogin), DEFAULT_AI_WELCOME);
+    setAIMessages(Array.isArray(savedAi) && savedAi.length > 0 ? savedAi : DEFAULT_AI_WELCOME);
+
+    setUnreadChatCount(safeGetStorage(getUserStorageKey('together_unread_chat', cleanLogin), 0));
+
+    // Hydrate solo AI messages from server database
+    apiFetch(`/api/ai/messages/${encodeURIComponent(cleanLogin)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+          const mapped: AIMessage[] = data.messages.map((m: any) => ({
+            id: m.id,
+            role: m.senderLogin === 'ai_owl' || m.senderLogin === 'ai' || m.role === 'ai' ? 'model' : 'user',
+            content: m.content,
+            timestamp: m.createdAt || new Date().toISOString(),
+          }));
+          setAIMessages(mapped);
+          safeSetStorage(getUserStorageKey('together_ai_messages', cleanLogin), mapped);
+        }
+      })
+      .catch(() => {});
+  }, [currentUser?.login]);
 
   const clearUnreadChatCount = useCallback(() => {
     setUnreadChatCount(0);
-    safeSetStorage('together_unread_chat', 0);
-  }, []);
+    safeSetStorage(getUserStorageKey('together_unread_chat', currentUser?.login), 0);
+  }, [currentUser?.login]);
 
   useEffect(() => {
     if (activeTab === 'chat' || activeTab === 'owl') {
       setUnreadChatCount(0);
-      safeSetStorage('together_unread_chat', 0);
+      safeSetStorage(getUserStorageKey('together_unread_chat', currentUser?.login), 0);
     }
-  }, [activeTab]);
+  }, [activeTab, currentUser?.login]);
 
   useEffect(() => {
-    safeSetStorage('together_ai_messages', aiMessages);
-  }, [aiMessages]);
+    if (!currentUser?.login) return;
+    safeSetStorage(getUserStorageKey('together_ai_messages', currentUser.login), aiMessages);
+  }, [aiMessages, currentUser?.login]);
 
   const fetchPartnerMessages = useCallback(async () => {
     if (!currentUser) return;
@@ -83,7 +122,7 @@ export function useCoupleChat({
         const msgsData = await msgsRes.json();
         if (Array.isArray(msgsData.messages)) {
           setPartnerMessages(msgsData.messages);
-          safeSetStorage('together_partner_messages', msgsData.messages);
+          safeSetStorage(getUserStorageKey('together_partner_messages', cleanMyLogin), msgsData.messages);
         }
       }
     } catch {
@@ -141,7 +180,7 @@ export function useCoupleChat({
       };
       setAIMessages((prev) => [...prev, aiReply]);
     } catch (err: any) {
-      console.error('[OpenRouter Gemma Error]:', err);
+      console.error('[AI Chat Error]:', err);
       const fallbackReply: AIMessage = {
         id: `ai-err-${Date.now()}`,
         role: 'model',
@@ -154,29 +193,31 @@ export function useCoupleChat({
     }
   };
 
-  const sendPartnerMessage = async (text: string, isAi: boolean = false) => {
+  const sendPartnerMessage = async (text: string, _isAi?: boolean) => {
     if (!currentUser) return;
-    const cleanMyLogin = currentUser.login.toLowerCase().replace(/^@/, '');
+    const cleanMyLogin = currentUser.login.toLowerCase().trim().replace(/^@/, '');
     const partnerLogin = currentUser.partnerLogin;
-    const cleanPartnerLogin = partnerLogin ? partnerLogin.toLowerCase().replace(/^@/, '') : '';
+    const cleanPartnerLogin = partnerLogin ? partnerLogin.toLowerCase().trim().replace(/^@/, '') : '';
     const targetCoupleId = cleanPartnerLogin
       ? [cleanMyLogin, cleanPartnerLogin].sort().join('_')
       : cleanMyLogin;
 
+    const myRole: 'partner1' | 'partner2' = currentPartnerId === 'partner1' ? 'partner1' : 'partner2';
     const tempId = crypto.randomUUID();
     const msg: ChatMessage = {
       id: tempId,
       coupleId: targetCoupleId,
-      senderLogin: isAi ? 'ai' : currentUser.login,
-      role: isAi ? 'ai' : currentPartnerId === 'partner1' ? 'partner1' : 'partner2',
+      senderLogin: cleanMyLogin,
+      role: myRole,
       content: text,
       isRead: true,
       createdAt: new Date().toISOString(),
     };
 
+    const storageKey = getUserStorageKey('together_partner_messages', cleanMyLogin);
     setPartnerMessages((prev) => {
       const next = [...prev, msg];
-      safeSetStorage('together_partner_messages', next);
+      safeSetStorage(storageKey, next);
       return next;
     });
 
@@ -186,8 +227,8 @@ export function useCoupleChat({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           coupleId: targetCoupleId,
-          senderLogin: isAi ? 'ai' : cleanMyLogin,
-          role: isAi ? 'ai' : currentPartnerId === 'partner1' ? 'partner1' : 'partner2',
+          senderLogin: cleanMyLogin,
+          role: myRole,
           content: text,
           mode: 'together',
         }),
@@ -195,19 +236,16 @@ export function useCoupleChat({
 
       if (res.ok) {
         const data = await res.json();
-        if (data?.message) {
-          setPartnerMessages((prev) => {
-            const next = prev.map((m) => (m.id === tempId ? data.message : m));
-            safeSetStorage('together_partner_messages', next);
-            return next;
-          });
-        }
-      }
-
-      if (!isAi && text.toLowerCase().includes('сов')) {
-        setTimeout(() => {
-          sendPartnerMessage('Я здесь! Слышу вас. Как я могу помочь?', true);
-        }, 1200);
+        setPartnerMessages((prev) => {
+          let next = data?.message
+            ? prev.map((m) => (m.id === tempId ? data.message : m))
+            : prev;
+          if (data?.aiMessage && !next.some((m) => m.id === data.aiMessage.id)) {
+            next = [...next, data.aiMessage];
+          }
+          safeSetStorage(storageKey, next);
+          return next;
+        });
       }
     } catch (err) {
       console.error('Ошибка отправки сообщения партнёру', err);

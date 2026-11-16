@@ -9,7 +9,7 @@ import {
   Challenge,
   MoodHistoryItem,
 } from '../../types.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 import {
   getFreshTests,
   initialChallenges,
@@ -40,26 +40,33 @@ export function useCoupleAssessments({
     return `together_tests_${login.toLowerCase().trim().replace(/^@/, '')}`;
   }, []);
 
+  const userLogin = currentUser?.login;
+  const testsKey = getUserTestsStorageKey(userLogin);
+  const pulseKey = getUserStorageKey('together_pulse_history', userLogin);
+  const challengesKey = getUserStorageKey('together_challenges', userLogin);
+  const moodKey = getUserStorageKey('together_mood_history', userLogin);
+  const loadedLoginRef = useRef<string | undefined | null>(userLogin);
+
   const [tests, setTests] = useState<TestCategory[]>(() => {
-    const savedUser = safeGetStorage<UserAccount | null>('together_current_user', null);
-    const userLogin = savedUser?.login ? savedUser.login.toLowerCase().trim().replace(/^@/, '') : null;
-    const key = userLogin ? `together_tests_${userLogin}` : 'together_tests_guest';
-    const data = safeGetStorage<TestCategory[]>(key, []);
+    const initialTestsKey = getUserTestsStorageKey(
+      safeGetStorage<UserAccount | null>('together_current_user', null)?.login
+    );
+    const data = safeGetStorage<TestCategory[]>(initialTestsKey, []);
     return Array.isArray(data) && data.length > 0 ? data : getFreshTests();
   });
 
   const [pulseHistory, setPulseHistory] = useState<PulseEntry[]>(() => {
-    const data = safeGetStorage<PulseEntry[]>('together_pulse_history', []);
+    const data = safeGetStorage<PulseEntry[]>(getUserStorageKey('together_pulse_history', userLogin), []);
     return Array.isArray(data) ? data.filter((p) => !['p-1', 'p-2', 'p-3', 'p-4'].includes(p.id)) : [];
   });
 
   const [challenges, setChallenges] = useState<Challenge[]>(() => {
-    const data = safeGetStorage<Challenge[]>('together_challenges', initialChallenges);
+    const data = safeGetStorage<Challenge[]>(getUserStorageKey('together_challenges', userLogin), initialChallenges);
     return Array.isArray(data) ? data : initialChallenges;
   });
 
   const [moodHistory, setMoodHistory] = useState<MoodHistoryItem[]>(() => {
-    const data = safeGetStorage<MoodHistoryItem[]>('together_mood_history', []);
+    const data = safeGetStorage<MoodHistoryItem[]>(getUserStorageKey('together_mood_history', userLogin), []);
     return Array.isArray(data)
       ? data.filter(
           (m) =>
@@ -70,44 +77,58 @@ export function useCoupleAssessments({
       : [];
   });
 
-  // Storage persistence effects
-  useEffect(() => {
-    safeSetStorage('together_pulse_history', pulseHistory);
-  }, [pulseHistory]);
-
-  useEffect(() => {
-    safeSetStorage('together_challenges', challenges);
-  }, [challenges]);
-
-  useEffect(() => {
-    const key = getUserTestsStorageKey(currentUser?.login);
-    safeSetStorage(key, tests);
-  }, [tests, currentUser?.login, getUserTestsStorageKey]);
-
-  useEffect(() => {
-    safeSetStorage('together_mood_history', moodHistory);
-  }, [moodHistory]);
-
   const refreshTestsStatusRef = useRef(refreshTestsStatus);
   useEffect(() => {
     refreshTestsStatusRef.current = refreshTestsStatus;
   }, [refreshTestsStatus]);
 
-  // Load user-isolated tests on user change
+  // Reload user-isolated assessment state on user change before persisting
   useEffect(() => {
-    if (currentUser?.login) {
-      const key = getUserTestsStorageKey(currentUser.login);
-      const userTests = safeGetStorage<TestCategory[]>(key, []);
-      if (Array.isArray(userTests) && userTests.length > 0) {
-        setTests(userTests);
-      } else {
-        setTests(getFreshTests());
-      }
+    if (loadedLoginRef.current === userLogin) return;
+    loadedLoginRef.current = userLogin;
+
+    if (userLogin) {
+      const userTests = safeGetStorage<TestCategory[]>(testsKey, []);
+      setTests(Array.isArray(userTests) && userTests.length > 0 ? userTests : getFreshTests());
+
+      const userPulse = safeGetStorage<PulseEntry[]>(pulseKey, []);
+      setPulseHistory(Array.isArray(userPulse) ? userPulse : []);
+
+      const userChallenges = safeGetStorage<Challenge[]>(challengesKey, initialChallenges);
+      setChallenges(Array.isArray(userChallenges) ? userChallenges : initialChallenges);
+
+      const userMood = safeGetStorage<MoodHistoryItem[]>(moodKey, []);
+      setMoodHistory(Array.isArray(userMood) ? userMood : []);
+
       refreshTestsStatusRef.current?.();
     } else {
       setTests(getFreshTests());
+      setPulseHistory([]);
+      setChallenges(initialChallenges);
+      setMoodHistory([]);
     }
-  }, [currentUser?.login, getUserTestsStorageKey]);
+  }, [userLogin, testsKey, pulseKey, challengesKey, moodKey]);
+
+  // Storage persistence effects (only when current user state matches loaded user)
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(pulseKey, pulseHistory);
+  }, [pulseHistory, pulseKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(challengesKey, challenges);
+  }, [challenges, challengesKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(testsKey, tests);
+  }, [tests, testsKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(moodKey, moodHistory);
+  }, [moodHistory, moodKey, userLogin]);
 
   const addPulseCheckin = useCallback(
     (closeness: number, constructiveness: number, comment: string) => {
@@ -262,7 +283,7 @@ export function useCoupleAssessments({
           attachmentStyle: 'Пройдите тест',
         },
       };
-      safeSetStorage('together_couple_profile', updated);
+      safeSetStorage(getUserStorageKey('together_couple_profile', currentUser?.login), updated);
       return updated;
     });
   }, [currentUser?.login, getUserTestsStorageKey, setCoupleProfile]);
@@ -321,13 +342,13 @@ export function useCoupleAssessments({
       };
       setMoodHistory((prev) => {
         const updated = [newMoodEntry, ...prev.slice(0, 49)];
-        safeSetStorage('together_mood_history', updated);
+        safeSetStorage(moodKey, updated);
         return updated;
       });
 
       addCoupleXP(15, `Отметка настроения: ${label}`, 'mood');
     },
-    [currentPartnerId, currentUser, updateUserProfile, setCoupleProfile, addCoupleXP]
+    [currentPartnerId, currentUser, updateUserProfile, setCoupleProfile, addCoupleXP, moodKey]
   );
 
   return {

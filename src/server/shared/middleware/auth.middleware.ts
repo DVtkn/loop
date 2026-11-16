@@ -20,11 +20,23 @@ export function generateToken(login: string): string {
 
 export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  let token: string | undefined;
+
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (
+    req.method === "GET" &&
+    (req.path.includes("events-stream") || req.originalUrl.includes("events-stream")) &&
+    typeof req.query?.token === "string" &&
+    req.query.token.trim().length > 0
+  ) {
+    token = req.query.token.trim();
+  }
+
+  if (!token) {
     return res.status(401).json({ error: "Необходима авторизация" });
   }
 
-  const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as { login: string };
     const userLogin = String(decoded.login || "").toLowerCase();

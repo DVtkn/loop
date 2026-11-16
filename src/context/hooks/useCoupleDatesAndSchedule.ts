@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Venue,
   DateInvite,
@@ -8,9 +8,10 @@ import {
   FlowerPreference,
   PartnerId,
   DateReview,
+  UserAccount,
 } from '../../types.ts';
 import { initialFlowerPreferences } from '../../data/questionBank.ts';
-import { safeGetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 
 // Криптостойкий hex-суффикс для id; randomUUID требует secure context,
 // поэтому на plain-HTTP откатываемся на getRandomValues (тоже крипто).
@@ -24,6 +25,7 @@ function cryptoHex(chars: number): string {
 }
 
 export interface UseCoupleDatesAndScheduleProps {
+  currentUser?: UserAccount | null;
   currentPartnerId: PartnerId;
   triggerConfetti: () => void;
   addCoupleXP: (points: number, reason: string, category: 'date' | 'bonus') => void;
@@ -76,41 +78,108 @@ export interface UseCoupleDatesAndScheduleReturn {
 }
 
 export function useCoupleDatesAndSchedule({
+  currentUser,
   currentPartnerId,
   triggerConfetti,
   addCoupleXP,
   addFeedItem,
 }: UseCoupleDatesAndScheduleProps): UseCoupleDatesAndScheduleReturn {
+  const userLogin = currentUser?.login;
+  const venuesKey = getUserStorageKey('together_venues', userLogin);
+  const invitesKey = getUserStorageKey('together_date_invites', userLogin);
+  const scheduleKey = getUserStorageKey('together_schedule_events', userLogin);
+  const wishlistKey = getUserStorageKey('together_wishlist', userLogin);
+  const cravingsKey = getUserStorageKey('together_cravings', userLogin);
+  const flowersKey = getUserStorageKey('together_flowers', userLogin);
+  const loadedLoginRef = useRef<string | undefined | null>(userLogin);
+
   const [venues, setVenues] = useState<Venue[]>(() => {
-    const data = safeGetStorage<Venue[]>('together_venues', []);
+    const data = safeGetStorage<Venue[]>(venuesKey, []);
     return Array.isArray(data) ? data.filter((v) => !['v-1', 'v-2', 'v-3', 'v-4', 'v-5', 'v-6'].includes(v.id)) : [];
   });
 
   const [selectedCity, setSelectedCity] = useState<string>('Москва');
 
   const [dateInvites, setDateInvites] = useState<DateInvite[]>(() => {
-    const data = safeGetStorage<DateInvite[]>('together_date_invites', []);
+    const data = safeGetStorage<DateInvite[]>(invitesKey, []);
     return Array.isArray(data) ? data.filter((d) => !['inv-1'].includes(d.id)) : [];
   });
 
   const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(() => {
-    const data = safeGetStorage<ScheduleEvent[]>('together_schedule_events', []);
+    const data = safeGetStorage<ScheduleEvent[]>(scheduleKey, []);
     return Array.isArray(data) ? data : [];
   });
 
   const [wishlist, setWishlist] = useState<WishlistItem[]>(() => {
-    const data = safeGetStorage<WishlistItem[]>('together_wishlist', []);
+    const data = safeGetStorage<WishlistItem[]>(wishlistKey, []);
     return Array.isArray(data) ? data.filter((w) => !['w-1', 'w-2', 'w-3', 'w-4'].includes(w.id)) : [];
   });
 
   const [smallCravings, setSmallCravings] = useState<SmallCraving[]>(() => {
-    const data = safeGetStorage<SmallCraving[]>('together_cravings', []);
+    const data = safeGetStorage<SmallCraving[]>(cravingsKey, []);
     return Array.isArray(data) ? data.filter((c) => !['cr-1', 'cr-2', 'cr-3', 'cr-4'].includes(c.id)) : [];
   });
 
   const [flowerPreferences, setFlowerPreferences] = useState<Record<string, FlowerPreference>>(() => {
-    return safeGetStorage('together_flowers', initialFlowerPreferences);
+    return safeGetStorage(flowersKey, initialFlowerPreferences);
   });
+
+  useEffect(() => {
+    if (loadedLoginRef.current === userLogin) return;
+    loadedLoginRef.current = userLogin;
+
+    if (!userLogin) {
+      setVenues([]);
+      setDateInvites([]);
+      setScheduleEvents([]);
+      setWishlist([]);
+      setSmallCravings([]);
+      setFlowerPreferences(initialFlowerPreferences);
+      return;
+    }
+
+    const vData = safeGetStorage<Venue[]>(venuesKey, []);
+    setVenues(Array.isArray(vData) ? vData : []);
+    const iData = safeGetStorage<DateInvite[]>(invitesKey, []);
+    setDateInvites(Array.isArray(iData) ? iData : []);
+    const sData = safeGetStorage<ScheduleEvent[]>(scheduleKey, []);
+    setScheduleEvents(Array.isArray(sData) ? sData : []);
+    const wData = safeGetStorage<WishlistItem[]>(wishlistKey, []);
+    setWishlist(Array.isArray(wData) ? wData : []);
+    const cData = safeGetStorage<SmallCraving[]>(cravingsKey, []);
+    setSmallCravings(Array.isArray(cData) ? cData : []);
+    setFlowerPreferences(safeGetStorage(flowersKey, initialFlowerPreferences));
+  }, [userLogin, venuesKey, invitesKey, scheduleKey, wishlistKey, cravingsKey, flowersKey]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(venuesKey, venues);
+  }, [venues, venuesKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(invitesKey, dateInvites);
+  }, [dateInvites, invitesKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(scheduleKey, scheduleEvents);
+  }, [scheduleEvents, scheduleKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(wishlistKey, wishlist);
+  }, [wishlist, wishlistKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(cravingsKey, smallCravings);
+  }, [smallCravings, cravingsKey, userLogin]);
+
+  useEffect(() => {
+    if (loadedLoginRef.current !== userLogin) return;
+    safeSetStorage(flowersKey, flowerPreferences);
+  }, [flowerPreferences, flowersKey, userLogin]);
 
   const addVenue = (venue: Omit<Venue, 'id' | 'createdAt' | 'addedBy'>) => {
     const newV: Venue = {

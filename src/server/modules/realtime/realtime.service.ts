@@ -139,6 +139,7 @@ export async function sendQuickTouch(params: {
   const coupleKey = [sLogin, tLogin].sort().join("_");
 
   // Сохраняем в таблицу couple_events в Neon DB
+  let persistedSql = false;
   if (isSqlConfigured() && db) {
     try {
       await db.insert(coupleEvents).values({
@@ -150,8 +151,29 @@ export async function sendQuickTouch(params: {
         payload: newTouch,
         createdAt: newTouch.createdAt,
       });
+      persistedSql = true;
     } catch (err: unknown) {
       logger.warn("Не удалось записать касание в couple_events (PostgreSQL)", undefined, err);
+    }
+  }
+
+  if (!persistedSql && process.env.NODE_ENV !== "production") {
+    try {
+      const store = readEmergencyFile();
+      if (!store.coupleEvents) store.coupleEvents = [];
+      store.coupleEvents.unshift({
+        id: newTouch.id,
+        coupleId: coupleKey,
+        targetLogin: tLogin,
+        senderLogin: sLogin,
+        eventType: "touch",
+        payload: newTouch,
+        createdAt: newTouch.createdAt,
+      });
+      store.coupleEvents = store.coupleEvents.slice(0, 200);
+      writeEmergencyFile(store);
+    } catch {
+      // ignore
     }
   }
 
@@ -182,11 +204,61 @@ export async function sendQuickTouch(params: {
   };
 }
 
-export function getUserTouches(login: string) {
+export async function getUserTouches(login: string): Promise<TouchRecord[]> {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "");
-  return recentTouches.filter(
-    (t) => t.targetLogin === cleanLogin || t.senderLogin === cleanLogin
-  );
+  const byId = new Map<string, TouchRecord>();
+
+  if (isSqlConfigured() && db && cleanLogin) {
+    try {
+      const rows = await db
+        .select()
+        .from(coupleEvents)
+        .where(
+          and(
+            eq(coupleEvents.eventType, "touch"),
+            or(eq(coupleEvents.targetLogin, cleanLogin), eq(coupleEvents.senderLogin, cleanLogin))
+          )
+        )
+        .orderBy(desc(coupleEvents.createdAt))
+        .limit(50);
+      for (const r of rows) {
+        if (r.payload && typeof r.payload === "object") {
+          byId.set(r.id, r.payload as TouchRecord);
+        }
+      }
+    } catch (err: unknown) {
+      logger.warn("Не удалось загрузить касания из couple_events", undefined, err);
+    }
+  }
+
+  if (byId.size === 0 && process.env.NODE_ENV !== "production") {
+    try {
+      const store = readEmergencyFile();
+      for (const ev of store.coupleEvents || []) {
+        if (
+          ev.eventType === "touch" &&
+          (ev.targetLogin === cleanLogin || ev.senderLogin === cleanLogin) &&
+          ev.payload
+        ) {
+          byId.set(ev.id, ev.payload as TouchRecord);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  for (const t of recentTouches) {
+    if (t.targetLogin === cleanLogin || t.senderLogin === cleanLogin) {
+      if (!byId.has(t.id)) {
+        byId.set(t.id, t);
+      }
+    }
+  }
+
+  return Array.from(byId.values())
+    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
+    .slice(0, 50);
 }
 
 export async function handleHeartbeat(login: string) {
@@ -339,7 +411,7 @@ export async function getEventsPoll(params: {
 
   return {
     events,
-    touches: getUserTouches(cleanLogin),
+    touches: await getUserTouches(cleanLogin),
     partnerLastActiveAt,
     isPartnerOnline,
     serverTime: nowIso,

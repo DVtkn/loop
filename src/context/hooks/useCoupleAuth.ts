@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { apiFetch } from '../../utils/api.ts';
 import { UserAccount, PairRequest } from '../../types.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 
 export interface UseCoupleAuthReturn {
   accountsDb: Record<string, UserAccount & { password?: string }>;
@@ -82,11 +82,14 @@ export function useCoupleAuth(
   ): Promise<{ success: boolean; error?: string }> => {
     const cleanLogin = login.trim().toLowerCase().replace(/^@/, '');
     const cleanPass = pass.trim();
-    if (!cleanLogin || cleanLogin.length < 2) {
-      return { success: false, error: 'Логин должен содержать минимум 2 символа' };
+    if (!cleanLogin || cleanLogin.length < 3) {
+      return { success: false, error: 'Логин должен содержать минимум 3 символа' };
     }
-    if (!cleanPass || cleanPass.length < 3) {
-      return { success: false, error: 'Пароль должен содержать минимум 3 символа' };
+    if (!/^[a-zA-Zа-яА-Я0-9_]+$/.test(cleanLogin)) {
+      return { success: false, error: 'Логин может содержать только буквы, цифры и знак _' };
+    }
+    if (!cleanPass || cleanPass.length < 6) {
+      return { success: false, error: 'Пароль должен содержать минимум 6 символов' };
     }
 
     try {
@@ -110,7 +113,11 @@ export function useCoupleAuth(
       }
 
       if (!res.ok) {
-        return { success: false, error: data?.error || (res.status === 500 ? 'Ошибка сервера при регистрации' : 'Ошибка при регистрации') };
+        const detailMsg = Array.isArray(data?.details) && data.details[0]?.message ? String(data.details[0].message) : null;
+        return {
+          success: false,
+          error: detailMsg || data?.error || (res.status === 500 ? 'Ошибка сервера при регистрации' : 'Ошибка при регистрации'),
+        };
       }
 
       const safeUser: UserAccount = data.user;
@@ -136,7 +143,7 @@ export function useCoupleAuth(
               setPairRequests((prev) => {
                 const others = prev.filter((r) => r.toLogin.toLowerCase() !== cleanLogin);
                 const merged = [...others, ...statusData.incomingRequests, ...(statusData.outgoingRequests || [])];
-                safeSetStorage('together_pair_requests', merged);
+                safeSetStorage(getUserStorageKey('together_pair_requests', cleanLogin), merged);
                 return merged;
               });
             }
@@ -199,7 +206,7 @@ export function useCoupleAuth(
             setPairRequests((prev) => {
               const others = prev.filter((r) => r.toLogin.toLowerCase() !== cleanLogin);
               const merged = [...others, ...statusData.incomingRequests, ...(statusData.outgoingRequests || [])];
-              safeSetStorage('together_pair_requests', merged);
+              safeSetStorage(getUserStorageKey('together_pair_requests', cleanLogin), merged);
               return merged;
             });
           }
@@ -237,16 +244,18 @@ export function useCoupleAuth(
         // non-JSON
       }
       if (!res.ok) {
-        return { success: false, error: data?.error || 'Ошибка сброса пароля' };
+        const detailMsg = Array.isArray(data?.details) && data.details[0]?.message ? String(data.details[0].message) : null;
+        return { success: false, error: detailMsg || data?.error || 'Ошибка сброса пароля' };
       }
 
-      const safeUser: UserAccount = data.user;
-      const updatedDb = { ...accountsDb, [cleanLogin]: safeUser };
-      setAccountsDb(updatedDb);
-      safeSetStorage('together_accounts_registry', updatedDb);
-
-      setCurrentUser(safeUser);
-      setIsOnboarded(true);
+      if (data?.user) {
+        const safeUser: UserAccount = data.user;
+        const updatedDb = { ...accountsDb, [cleanLogin]: safeUser };
+        setAccountsDb(updatedDb);
+        safeSetStorage('together_accounts_registry', updatedDb);
+        setCurrentUser(safeUser);
+        setIsOnboarded(true);
+      }
       triggerConfetti();
       return { success: true };
     } catch {
@@ -294,13 +303,6 @@ export function useCoupleAuth(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ login: cleanLogin, startDate: date }),
       });
-      if (existing.partnerLogin) {
-        await apiFetch('/api/auth/update-profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login: existing.partnerLogin, startDate: date }),
-        });
-      }
     } catch {
       // ignore
     }
@@ -364,7 +366,8 @@ export function useCoupleAuth(
         // non-JSON
       }
       if (!res.ok) {
-        return { success: false, error: data?.error || 'Ошибка смены пароля' };
+        const detailMsg = Array.isArray(data?.details) && data.details[0]?.message ? String(data.details[0].message) : null;
+        return { success: false, error: detailMsg || data?.error || 'Ошибка смены пароля' };
       }
 
       const updated = { ...user, password: newPass.trim() };

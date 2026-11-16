@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import confetti from 'canvas-confetti';
 import {
   AppTheme,
   AppFont,
@@ -7,6 +8,8 @@ import {
   DatesSubTab,
   OwlMode,
   NavigationTab,
+  PartnerId,
+  UserAccount,
 } from '../types.ts';
 import {
   initialCoupleProfile,
@@ -103,12 +106,25 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const fetchCoupleDataRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const refreshTestsStatusRef = useRef<(() => Promise<void>) | undefined>(undefined);
+  const currentPartnerIdRef = useRef<PartnerId>('partner1');
+  const onRegisterResetRef = useRef<((safeUser: UserAccount) => void) | undefined>(undefined);
+  const onLogoutResetRef = useRef<(() => void) | undefined>(undefined);
+  const setPairRequestsRef = useRef<React.Dispatch<React.SetStateAction<any[]>>>(() => {});
 
-  // 1. Gamification XP Hook
-  const { coupleXP, setCoupleXP, xpHistory, setXpHistory, coupleLevelInfo, achievements, addCoupleXP, triggerConfetti } =
-    useCoupleXP('partner1');
+  const triggerConfettiBase = useCallback(() => {
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: ['#F43F5E', '#FB7185', '#FDA4AF', '#F472B6'],
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
 
-  // 2. Auth Sub-hook
+  // 1. Auth Sub-hook (runs first so currentUser?.login is known for per-user storage hooks)
   const {
     accountsDb,
     setAccountsDb,
@@ -127,32 +143,15 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     updateUserProfile,
     changePassword,
   } = useCoupleAuth(
-    triggerConfetti,
-    () => {},
-    (safeUser) => {
-      setTests(getFreshTests());
-      setPulseHistory([]);
-      setChallenges(getFreshChallenges());
-      setCoupleProfile(
-        createFreshCoupleProfile(
-          safeUser.name,
-          'Партнёр не подключён',
-          new Date().toISOString().split('T')[0],
-          'Москва',
-          safeUser.gender,
-          undefined,
-          safeUser.login,
-          safeUser.partnerLogin || undefined
-        )
-      );
-    },
-    () => {
-      setTests(getFreshTests());
-      setPulseHistory([]);
-      setChallenges(getFreshChallenges());
-      setCoupleProfile(initialCoupleProfile);
-    }
+    triggerConfettiBase,
+    (updater) => setPairRequestsRef.current(updater),
+    (safeUser) => onRegisterResetRef.current?.(safeUser),
+    () => onLogoutResetRef.current?.()
   );
+
+  // 2. Gamification XP Hook (scoped per user login)
+  const { coupleXP, setCoupleXP, xpHistory, setXpHistory, coupleLevelInfo, achievements, addCoupleXP, triggerConfetti } =
+    useCoupleXP(useCallback(() => currentPartnerIdRef.current, []), currentUser?.login);
 
   // 3. Profile & Relationship Sub-hook
   const {
@@ -186,6 +185,8 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setQuestionAnswer: (qa) => setQuestionAnswer(qa),
     setMoodHistory: (m) => setMoodHistory(m),
   });
+
+  currentPartnerIdRef.current = currentPartnerId;
 
   // 4. Daily Activities Sub-hook
   const {
@@ -241,6 +242,7 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setFlowerPreferences,
     updateFlowerPreferences,
   } = useCoupleDatesAndSchedule({
+    currentUser,
     currentPartnerId,
     triggerConfetti,
     addCoupleXP,
@@ -313,6 +315,31 @@ export const CoupleProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await refreshTestsStatusRef.current?.();
     }, []),
   });
+
+  setPairRequestsRef.current = setPairRequests;
+  onRegisterResetRef.current = (safeUser) => {
+    setTests(getFreshTests());
+    setPulseHistory([]);
+    setChallenges(getFreshChallenges());
+    setCoupleProfile(
+      createFreshCoupleProfile(
+        safeUser.name,
+        'Партнёр не подключён',
+        new Date().toISOString().split('T')[0],
+        'Москва',
+        safeUser.gender,
+        undefined,
+        safeUser.login,
+        safeUser.partnerLogin || undefined
+      )
+    );
+  };
+  onLogoutResetRef.current = () => {
+    setTests(getFreshTests());
+    setPulseHistory([]);
+    setChallenges(getFreshChallenges());
+    setCoupleProfile(initialCoupleProfile);
+  };
 
   // 9. Chat & AI Messages Sub-hook
   const {

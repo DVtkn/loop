@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Heart, Gamepad2, Plus, Sparkles, Utensils, Smile, Moon, Bath } from 'lucide-react';
 import { getPetStateApi, performPetActionApi } from '../api/pet.api.ts';
@@ -8,7 +8,8 @@ import { PetAvatarLiving } from './pet/PetAvatarLiving.tsx';
 import { triggerHaptic } from '../utils/haptics.ts';
 import { play8BitAudio } from '../utils/audio8Bit.ts';
 import { dispatchInAppNotification } from '../utils/pushManager.ts';
-import { safeGetStorage, safeSetStorage } from '../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../utils/safeStorage.ts';
+import { CoupleContext } from '../context/CoupleContext.tsx';
 import {
   PET_SPECIES_DETAILS,
   STATE_PET_QUOTES,
@@ -36,9 +37,12 @@ function getStatColor(value: number): string {
 }
 
 export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
+  const coupleCtx = useContext(CoupleContext);
+  const activeLogin = coupleCtx?.currentUser?.login;
+  const petStorageKey = getUserStorageKey('loop_local_pet', activeLogin);
   const token = getToken();
   const [petState, setPetState] = useState<CouplePetState | null>(() => {
-    return safeGetStorage<CouplePetState | null>('loop_local_pet', null);
+    return safeGetStorage<CouplePetState | null>(petStorageKey, null);
   });
   const [showConsole, setShowConsole] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,9 +54,11 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
   const [floatingHeart, setFloatingHeart] = useState<{ id: number; text: string } | null>(null);
 
   const loadPetState = async () => {
-    const cachedLocal = safeGetStorage<CouplePetState | null>('loop_local_pet', null);
+    const cachedLocal = safeGetStorage<CouplePetState | null>(petStorageKey, null);
     if (cachedLocal && cachedLocal.isOnboardingCompleted) {
       setPetState(cachedLocal);
+    } else {
+      setPetState(null);
     }
 
     if (!token) {
@@ -70,7 +76,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       const actualState = (state as any)?.state || state;
       if (actualState && actualState.isOnboardingCompleted) {
         setPetState(actualState);
-        safeSetStorage('loop_local_pet', actualState);
+        safeSetStorage(petStorageKey, actualState);
       } else if (cachedLocal && cachedLocal.isOnboardingCompleted) {
         setPetState(cachedLocal);
       } else {
@@ -121,6 +127,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       const res = await performPetActionApi(action, token);
       if (res.state) {
         setPetState(res.state);
+        safeSetStorage(petStorageKey, res.state);
       }
 
       const rewardText =
@@ -161,7 +168,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
     setTimeout(() => setFloatingHeart(null), 1200);
   };
 
-  // Load on mount if paired
+  // Load on mount if paired or when active account changes
   useEffect(() => {
     if (isPaired) {
       loadPetState();
@@ -169,7 +176,7 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
       setPetState(null);
       setNeedsAuth(false);
     }
-  }, [isPaired, token]);
+  }, [isPaired, token, petStorageKey]);
 
   const careNotifiedRef = useRef<string | null>(null);
 
@@ -240,12 +247,12 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
             onPetCreated={(newPet) => {
               const actual = (newPet as any)?.state || newPet;
               setPetState(actual);
-              safeSetStorage('loop_local_pet', actual);
+              safeSetStorage(petStorageKey, actual);
             }}
             onPetUpdated={(updatedPet) => {
               const actual = (updatedPet as any)?.state || updatedPet;
               setPetState(actual);
-              safeSetStorage('loop_local_pet', actual);
+              safeSetStorage(petStorageKey, actual);
             }}
           />
         )}
@@ -493,12 +500,12 @@ export const PetCard: React.FC<PetCardProps> = ({ isPaired }) => {
           onPetCreated={(newPet) => {
             const actual = (newPet as any)?.state || newPet;
             setPetState(actual);
-            safeSetStorage('loop_local_pet', actual);
+            safeSetStorage(petStorageKey, actual);
           }}
           onPetUpdated={(updatedPet) => {
             const actual = (updatedPet as any)?.state || updatedPet;
             setPetState(actual);
-            safeSetStorage('loop_local_pet', actual);
+            safeSetStorage(petStorageKey, actual);
           }}
         />
       )}

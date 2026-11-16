@@ -1,7 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TimeCapsule, DailyCoupleQuiz, DeepTalkCard, PartnerId, CoupleProfile, UserAccount } from '../../types.ts';
 import { DAILY_QUIZ_QUESTIONS, DEEP_TALK_CARDS } from '../../data/gamificationData.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
+
+function buildDefaultQuiz(): DailyCoupleQuiz {
+  const defaultQ = DAILY_QUIZ_QUESTIONS[0];
+  return {
+    id: defaultQ.id,
+    question: defaultQ.question,
+    options: [
+      { key: 'me', label: 'Я' },
+      { key: 'partner', label: 'Партнёр' },
+      { key: 'both', label: 'Оба одинаково' },
+    ],
+    category: defaultQ.category,
+  };
+}
+
+function loadSavedQuiz(storageKey: string): DailyCoupleQuiz {
+  const defaultQ = DAILY_QUIZ_QUESTIONS[0];
+  const saved = safeGetStorage<Partial<DailyCoupleQuiz> | null>(storageKey, null);
+  if (!saved) return buildDefaultQuiz();
+  return {
+    id: saved.id || defaultQ.id,
+    question: saved.question || defaultQ.question,
+    options:
+      saved.options && saved.options.length > 0
+        ? saved.options
+        : [
+            { key: 'me', label: 'Я' },
+            { key: 'partner', label: 'Партнёр' },
+            { key: 'both', label: 'Оба одинаково' },
+          ],
+    category: saved.category || defaultQ.category,
+    partner1Answer: saved.partner1Answer,
+    partner2Answer: saved.partner2Answer,
+    isMatch: saved.isMatch,
+  };
+}
+
+function filterFeed(feed: FeedItem[]): FeedItem[] {
+  return Array.isArray(feed)
+    ? feed.filter(
+        (item) =>
+          item.id !== 'f1' &&
+          item.id !== 'f2' &&
+          item.id !== 'f3' &&
+          !item.title?.includes('Добро пожаловать') &&
+          !item.subtitle?.includes('Серия ответов 12 дней')
+      )
+    : [];
+}
 
 export interface FeedItem {
   id: string;
@@ -45,60 +94,48 @@ export function useCoupleDaily({
   currentPartnerId,
   triggerConfetti,
 }: UseCoupleDailyProps): UseCoupleDailyReturn {
+  const userLogin = currentUser?.login;
+  const capsulesKey = getUserStorageKey('together_time_capsules', userLogin);
+  const quizKey = getUserStorageKey('together_daily_quiz', userLogin);
+  const qAnswerKey = getUserStorageKey('together_q_answer', userLogin);
+  const feedKey = getUserStorageKey('together_feed', userLogin);
+  const loadedLoginRef = useRef<string | undefined | null>(userLogin);
+
   const [timeCapsules, setTimeCapsules] = useState<TimeCapsule[]>(() => {
-    return safeGetStorage('together_time_capsules', []);
+    return safeGetStorage(capsulesKey, []);
   });
 
   const [dailyQuiz, setDailyQuiz] = useState<DailyCoupleQuiz>(() => {
-    const defaultQ = DAILY_QUIZ_QUESTIONS[0];
-    const saved = safeGetStorage<Partial<DailyCoupleQuiz> | null>('together_daily_quiz', null);
-    if (!saved) {
-      return {
-        id: defaultQ.id,
-        question: defaultQ.question,
-        options: [
-          { key: 'me', label: 'Я' },
-          { key: 'partner', label: 'Партнёр' },
-          { key: 'both', label: 'Оба одинаково' },
-        ],
-        category: defaultQ.category,
-      };
-    }
-    return {
-      id: saved.id || defaultQ.id,
-      question: saved.question || defaultQ.question,
-      options:
-        saved.options && saved.options.length > 0
-          ? saved.options
-          : [
-              { key: 'me', label: 'Я' },
-              { key: 'partner', label: 'Партнёр' },
-              { key: 'both', label: 'Оба одинаково' },
-            ],
-      category: saved.category || defaultQ.category,
-      partner1Answer: saved.partner1Answer,
-      partner2Answer: saved.partner2Answer,
-      isMatch: saved.isMatch,
-    };
+    return loadSavedQuiz(quizKey);
   });
 
   const deepCards = DEEP_TALK_CARDS;
 
   const [questionAnswer, setQuestionAnswer] = useState<string | null>(() => {
-    return safeGetStorage('together_q_answer', null);
+    return safeGetStorage(qAnswerKey, null);
   });
 
   const [feedItems, setFeedItems] = useState<FeedItem[]>(() => {
-    const feed = safeGetStorage<FeedItem[]>('together_feed', []);
-    return feed.filter(
-      (item) =>
-        item.id !== 'f1' &&
-        item.id !== 'f2' &&
-        item.id !== 'f3' &&
-        !item.title.includes('Добро пожаловать') &&
-        !item.subtitle?.includes('Серия ответов 12 дней')
-    );
+    return filterFeed(safeGetStorage<FeedItem[]>(feedKey, []));
   });
+
+  useEffect(() => {
+    if (loadedLoginRef.current === userLogin) return;
+    loadedLoginRef.current = userLogin;
+
+    if (!userLogin) {
+      setTimeCapsules([]);
+      setDailyQuiz(buildDefaultQuiz());
+      setQuestionAnswer(null);
+      setFeedItems([]);
+      return;
+    }
+
+    setTimeCapsules(safeGetStorage(capsulesKey, []));
+    setDailyQuiz(loadSavedQuiz(quizKey));
+    setQuestionAnswer(safeGetStorage(qAnswerKey, null));
+    setFeedItems(filterFeed(safeGetStorage<FeedItem[]>(feedKey, [])));
+  }, [userLogin, capsulesKey, quizKey, qAnswerKey, feedKey]);
 
   const addFeedItem = (item: Omit<FeedItem, 'id' | 'timeAgo'>) => {
     const newItem: FeedItem = {
@@ -108,19 +145,19 @@ export function useCoupleDaily({
     };
     setFeedItems((prev) => {
       const updated = [newItem, ...prev.slice(0, 19)];
-      safeSetStorage('together_feed', updated);
+      safeSetStorage(feedKey, updated);
       return updated;
     });
   };
 
   const clearFeed = () => {
     setFeedItems([]);
-    safeSetStorage('together_feed', []);
+    safeSetStorage(feedKey, []);
   };
 
   const answerQuestionOfDay = (ans: string) => {
     setQuestionAnswer(ans);
-    safeSetStorage('together_q_answer', ans);
+    safeSetStorage(qAnswerKey, ans);
     addFeedItem({
       author: currentPartnerId,
       type: 'heart',
@@ -150,7 +187,7 @@ export function useCoupleDaily({
 
     setTimeCapsules((prev) => {
       const updated = [newCapsule, ...prev];
-      safeSetStorage('together_time_capsules', updated);
+      safeSetStorage(capsulesKey, updated);
       return updated;
     });
 
@@ -169,7 +206,7 @@ export function useCoupleDaily({
       const updated = prev.map((c) =>
         c.id === id ? { ...c, isOpened: true, openedAt: new Date().toISOString() } : c
       );
-      safeSetStorage('together_time_capsules', updated);
+      safeSetStorage(capsulesKey, updated);
       return updated;
     });
     triggerConfetti();
@@ -195,7 +232,7 @@ export function useCoupleDaily({
         isMatch,
       };
 
-      safeSetStorage('together_daily_quiz', updated);
+      safeSetStorage(quizKey, updated);
       return updated;
     });
 

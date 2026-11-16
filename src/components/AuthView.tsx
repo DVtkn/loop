@@ -15,7 +15,7 @@ import {
 import { useCouple } from '../context/CoupleContext';
 
 export const AuthView: React.FC = () => {
-  const { authLogin, authRegister, authResetPassword } = useCouple();
+  const { authLogin, authRegister } = useCouple();
   const [showLanding, setShowLanding] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -54,11 +54,6 @@ export const AuthView: React.FC = () => {
         const res = await authRegister(login, password, name || undefined, gender);
         if (!res.success) {
           setError(res.error || 'Ошибка регистрации');
-        }
-      } else if (mode === 'reset') {
-        const res = await authResetPassword(login, password);
-        if (!res.success) {
-          setError(res.error || 'Ошибка сброса пароля');
         }
       }
     } catch (err: any) {
@@ -171,7 +166,7 @@ export const AuthView: React.FC = () => {
           <div className="flex items-center justify-between p-2.5 bg-[var(--surface-2)] rounded-2xl border border-[var(--divider)] mb-5">
             <div className="flex items-center gap-2 pl-2 text-xs font-bold text-[var(--text)]">
               <KeyRound className="w-4 h-4 text-[var(--accent)]" />
-              <span>Восстановление / Сброс пароля</span>
+              <span>Восстановление пароля</span>
             </div>
             <button
               id="auth-back-to-login-btn"
@@ -243,7 +238,41 @@ export const AuthView: React.FC = () => {
           </div>
         )}
 
-        {/* Form */}
+        {mode === 'reset' ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-[var(--surface-2)] border border-[var(--divider)] space-y-2.5 text-left">
+              <div className="flex items-center gap-2 text-xs font-bold text-[var(--text)]">
+                <ShieldCheck className="w-4 h-4 text-[var(--accent)] shrink-0" />
+                <span>Как обновить пароль безопасно</span>
+              </div>
+              <p className="text-xs text-[var(--text-2)] leading-relaxed">
+                В целях защиты приватности вашей пары самостоятельный сброс пароля без входа отключён.
+              </p>
+              <ul className="text-xs text-[var(--text-2)] space-y-1.5 list-disc pl-4 leading-relaxed">
+                <li>
+                  Если вы помните текущий пароль и хотите его сменить — войдите в аккаунт и откройте раздел{' '}
+                  <span className="font-bold text-[var(--text)]">Профиль → Пароль</span>.
+                </li>
+                <li>
+                  Если доступ к аккаунту полностью утерян — обратитесь к администратору сервера для безопасного сброса.
+                </li>
+              </ul>
+            </div>
+
+            <button
+              id="auth-reset-return-btn"
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setError(null);
+              }}
+              className="w-full min-h-[48px] py-3 px-4 rounded-xl apple-btn-primary text-sm flex items-center justify-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Вернуться ко входу</span>
+            </button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Login Field */}
           <div>
@@ -270,11 +299,6 @@ export const AuthView: React.FC = () => {
             {mode === 'register' && (
               <p className="text-[10px] text-[var(--text-2)] mt-1.5">
                 По этому логину ваш партнёр сможет найти и добавить вас в пару
-              </p>
-            )}
-            {mode === 'reset' && (
-              <p className="text-[10px] text-[var(--text-2)] mt-1.5">
-                Укажите ваш логин для обновления пароля
               </p>
             )}
           </div>
@@ -352,7 +376,7 @@ export const AuthView: React.FC = () => {
                 htmlFor="auth-password-input"
                 className="block text-[11px] font-bold text-[var(--text-2)]"
               >
-                {mode === 'reset' ? 'Новый пароль' : 'Пароль'}
+                Пароль
               </label>
               {mode === 'login' && (
                 <button
@@ -401,15 +425,12 @@ export const AuthView: React.FC = () => {
             className="w-full min-h-[48px] mt-3 py-3 px-4 rounded-xl apple-btn-primary text-sm flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <span>
-              {mode === 'register'
-                ? 'Создать аккаунт'
-                : mode === 'reset'
-                ? 'Сохранить новый пароль и войти'
-                : 'Войти в аккаунт'}
+              {mode === 'register' ? 'Создать аккаунт' : 'Войти в аккаунт'}
             </span>
-            {mode === 'reset' ? <RotateCcw className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
+            <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+        )}
 
         {/* Footer Mode Switch */}
         <div className="mt-5 pt-4 border-t border-[var(--divider)] text-center">

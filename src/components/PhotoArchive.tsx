@@ -155,7 +155,8 @@ export const PhotoArchive: React.FC = () => {
       setShowDeleteConfirm(false);
     } else {
       triggerHaptic('error');
-      alert(res.error || 'Не удалось удалить фото');
+      setErrorMessage(res.error || 'Не удалось удалить фото');
+      setShowDeleteConfirm(false);
     }
   };
 

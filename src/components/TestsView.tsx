@@ -13,6 +13,7 @@ import { TestRunnerModal } from './tests/TestRunnerModal.tsx';
 import { TestCompletedModal } from './tests/TestCompletedModal.tsx';
 import { TestResultModal } from './tests/TestResultModal.tsx';
 import { apiFetch } from '../utils/api.ts';
+import { dispatchInAppNotification } from '../utils/pushManager.ts';
 
 export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
   initialMode = 'catalog',
@@ -48,6 +49,7 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
   const [answerMetrics, setAnswerMetrics] = useState<Record<string, any>>({});
   const [testJustFinished, setTestJustFinished] = useState<TestCategory | null>(null);
   const [viewingResultTest, setViewingResultTest] = useState<TestCategory | null>(null);
+  const [draftNotice, setDraftNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const getIsMyDone = useCallback((t: TestCategory) => {
     if (t.isCompletedByMe !== undefined) return !!t.isCompletedByMe;
@@ -104,7 +106,7 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
       return;
     }
     try {
-      await apiFetch('/api/tests/draft', {
+      const res = await apiFetch('/api/tests/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,10 +115,22 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
           answers: userAnswers
         })
       });
-      alert('Прогресс сохранён. Вы можете продолжить с любого устройства.');
+      if (res.ok) {
+        const msg = 'Прогресс сохранён. Вы можете продолжить с любого устройства.';
+        setDraftNotice({ type: 'success', text: msg });
+        dispatchInAppNotification({
+          title: 'Черновик теста сохранён',
+          body: msg,
+          icon: 'sparkles',
+        });
+      } else {
+        setDraftNotice({ type: 'error', text: 'Не удалось сохранить черновик на сервере.' });
+      }
     } catch (err) {
       console.error('Failed to save draft:', err);
+      setDraftNotice({ type: 'error', text: 'Не удалось сохранить черновик. Проверьте соединение.' });
     }
+    setTimeout(() => setDraftNotice(null), 4000);
     setActiveTest(null);
   };
 
@@ -222,6 +236,18 @@ export const TestsView: React.FC<{ initialMode?: 'catalog' | 'report' }> = ({
       }
     >
       <div className="space-y-5 pb-8">
+        {draftNotice && (
+          <div
+            role="status"
+            className={`px-4 py-3 rounded-2xl text-xs font-bold border shadow-2xs ${
+              draftNotice.type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                : 'bg-red-500/10 border-red-500/25 text-red-500'
+            }`}
+          >
+            {draftNotice.text}
+          </div>
+        )}
         {/* Flo-style Top Segmented Switcher */}
         <div className="bg-[var(--surface-2)] p-1 rounded-2xl flex items-center gap-1 border border-[var(--divider)]/40 select-none max-w-md mx-auto">
           <button

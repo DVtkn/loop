@@ -23,7 +23,7 @@ import {
   TouchNotificationData,
   PairRequest,
 } from '../../types.ts';
-import { safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 import { dispatchInAppNotification, playNotificationSound } from '../../utils/pushManager.ts';
 
 interface UseCoupleSyncParams {
@@ -290,6 +290,7 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
   fetchCoupleDataRef.current = fetchCoupleDataFromRemote;
 
   useEffect(() => {
+    isInitialRemoteLoadDone.current = false;
     if (!currentUser?.login) return;
     fetchCoupleDataRef.current?.().then(() => {
       isInitialRemoteLoadDone.current = true;
@@ -357,7 +358,7 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
             });
 
             if (currentPendingIds !== newPendingIds) {
-              safeSetStorage('together_pair_requests', combined);
+              safeSetStorage(getUserStorageKey('together_pair_requests', cleanLogin), combined);
               return combined;
             }
             return prev;
@@ -534,7 +535,7 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
           setPartnerMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             const next = [...prev, newMsg];
-            safeSetStorage('together_partner_messages', next);
+            safeSetStorage(getUserStorageKey('together_partner_messages', cleanLogin), next);
             return next;
           });
           if (newMsg.senderLogin !== cleanLogin) {
@@ -605,7 +606,11 @@ export function useCoupleSync(params: UseCoupleSyncParams) {
     };
 
     try {
-      eventSource = new EventSource(`/api/couple/events-stream/${cleanLogin}`);
+      const token = safeGetStorage<string | null>('loop_auth_token', null);
+      const sseUrl = token && token.trim()
+        ? `/api/couple/events-stream/${cleanLogin}?token=${encodeURIComponent(token.trim())}`
+        : `/api/couple/events-stream/${cleanLogin}`;
+      eventSource = new EventSource(sseUrl);
       eventSource.addEventListener('touch', (event: MessageEvent) => {
         try { applyEvent('touch', JSON.parse(event.data)); } catch {}
       });

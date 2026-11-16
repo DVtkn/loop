@@ -11,12 +11,23 @@ import {
 } from "./analytics.service.ts";
 import { logger } from "../../shared/utils/logger.ts";
 
+import { findUserByLogin } from "../../services/storageService.ts";
+import { getPairKey } from "../../shared/middleware/requirePairOwnership.ts";
+
 export const analyticsRouter = Router();
 
-analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res, next) => {
+function parseTrendsDays(query: Record<string, unknown>): number {
+  const period = String(query.period || "");
+  if (period === "1m") return 30;
+  if (period === "3m") return 90;
+  if (period === "6m") return 180;
+  return parseInt(String(query.days || ""), 10) || 30;
+}
+
+analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res) => {
   try {
     const { coupleId } = req.params;
-    const days = parseInt(req.query.days as string, 10) || 30;
+    const days = parseTrendsDays(req.query as Record<string, unknown>);
     const trends = await getTrends(coupleId, days);
     return res.json(trends);
   } catch (err) {
@@ -25,7 +36,7 @@ analyticsRouter.get("/trends/:coupleId", requireAuth, requirePairOwnership, asyn
   }
 });
 
-analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res, next) => {
+analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res) => {
   try {
     const { coupleId } = req.params;
     const insights = await fetchAiInsights(coupleId);
@@ -36,10 +47,23 @@ analyticsRouter.get("/insights/:coupleId", requireAuth, requirePairOwnership, as
   }
 });
 
-analyticsRouter.post("/insights/generate", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res, next) => {
+analyticsRouter.post("/insights/generate", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res) => {
   try {
-    const { coupleId } = req.body;
-    const insight = await generateWeeklyInsight(coupleId, req.body.contextData || {});
+    const userLogin = req.user?.login;
+    if (!userLogin) {
+      return res.status(401).json({ error: "Необходима авторизация" });
+    }
+    let resolvedCoupleId: string | undefined = req.couple?.id || (req.body?.coupleId ? String(req.body.coupleId) : undefined);
+    if (!resolvedCoupleId) {
+      const user = await findUserByLogin(userLogin);
+      resolvedCoupleId = getPairKey(userLogin, user?.partnerLogin || null);
+    }
+    const contextData = {
+      p1Name: req.body?.p1Name || "Партнёр 1",
+      p2Name: req.body?.p2Name || "Партнёр 2",
+      ...(req.body?.contextData || {}),
+    };
+    const insight = await generateWeeklyInsight(resolvedCoupleId, contextData);
     return res.json({ insight });
   } catch (err) {
     logger.error("Ошибка генерации недельного инсайта", err);

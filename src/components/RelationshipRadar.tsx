@@ -34,6 +34,7 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
     dateInvites,
     loveTaps,
     dailyQuiz,
+    sendTouchAction,
   } = useCouple();
 
   const getResolvedMode = (): 'both' | 'partner1' | 'partner2' => {
@@ -50,6 +51,10 @@ export const RelationshipRadar: React.FC<RelationshipRadarProps> = ({
 
   const handleRemindPartner = () => {
     triggerHaptic('success');
+    sendTouchAction?.('thinking', {
+      title: 'Напоминание о тестах',
+      customNote: 'Загляни в тесты совместимости в Loop — ждём твои ответы ✨',
+    });
     setReminded(true);
     setTimeout(() => setReminded(false), 3000);
   };

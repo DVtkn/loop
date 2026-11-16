@@ -182,12 +182,15 @@ testsRouter.post(
     z.object({
       testId: z.string().min(1),
       currentQuestionIndex: z.number().int().min(0),
-      answers: z.array(
-        z.object({
-          questionId: z.string(),
-          value: z.union([z.string(), z.number()]),
-        })
-      ).min(1),
+      answers: z.union([
+        z.record(z.string(), z.unknown()),
+        z.array(
+          z.object({
+            questionId: z.string(),
+            value: z.union([z.string(), z.number()]),
+          })
+        ),
+      ]),
     })
   ),
   async (req: AuthenticatedRequest, res, next) => {

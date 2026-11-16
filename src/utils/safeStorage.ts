@@ -47,6 +47,16 @@ export function safeRemoveStorage(key: string): void {
   }
 }
 
+export function getCurrentStorageUserLogin(): string {
+  const user = safeGetStorage<{ login?: string } | null>('together_current_user', null);
+  return user?.login ? String(user.login).toLowerCase().trim().replace(/^@/, '') : '';
+}
+
+export function getUserStorageKey(baseKey: string, login?: string | null): string {
+  const clean = (login ?? getCurrentStorageUserLogin()).toLowerCase().trim().replace(/^@/, '');
+  return clean ? `${baseKey}_${clean}` : `${baseKey}_guest`;
+}
+
 export function isIOSDevice(): boolean {
   try {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;

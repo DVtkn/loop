@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { XPEntry, Achievement, PartnerId } from '../../types.ts';
 import { initialAchievements } from '../../data/questionBank.ts';
 import { getCoupleLevelInfo } from '../../utils/rankingEngine.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 
 // Криптостойкий hex-суффикс для id; randomUUID требует secure context,
 // поэтому на plain-HTTP откатываемся на getRandomValues (тоже крипто).
@@ -28,19 +28,41 @@ export interface UseCoupleXPReturn {
   triggerConfetti: () => void;
 }
 
-export function useCoupleXP(currentPartnerId: PartnerId): UseCoupleXPReturn {
+export function useCoupleXP(
+  getPartnerId: PartnerId | (() => PartnerId),
+  userLogin?: string | null
+): UseCoupleXPReturn {
+  const resolvePartnerId = useCallback((): PartnerId => {
+    return typeof getPartnerId === 'function' ? getPartnerId() : getPartnerId;
+  }, [getPartnerId]);
+
   const [coupleXP, setCoupleXP] = useState<number>(() => {
-    return safeGetStorage('together_couple_xp', 0);
+    return safeGetStorage(getUserStorageKey('together_couple_xp', userLogin), 0);
   });
 
   const [xpHistory, setXpHistory] = useState<XPEntry[]>(() => {
-    return safeGetStorage('together_xp_history', []);
+    const saved = safeGetStorage<XPEntry[]>(getUserStorageKey('together_xp_history', userLogin), []);
+    return Array.isArray(saved) ? saved : [];
   });
 
   const [achievements, setAchievements] = useState<Achievement[]>(() => {
-    const data = safeGetStorage<Achievement[]>('together_achievements', initialAchievements);
+    const data = safeGetStorage<Achievement[]>(
+      getUserStorageKey('together_achievements', userLogin),
+      initialAchievements
+    );
     return Array.isArray(data) ? data : initialAchievements;
   });
+
+  useEffect(() => {
+    setCoupleXP(safeGetStorage(getUserStorageKey('together_couple_xp', userLogin), 0));
+    const savedHistory = safeGetStorage<XPEntry[]>(getUserStorageKey('together_xp_history', userLogin), []);
+    setXpHistory(Array.isArray(savedHistory) ? savedHistory : []);
+    const savedAch = safeGetStorage<Achievement[]>(
+      getUserStorageKey('together_achievements', userLogin),
+      initialAchievements
+    );
+    setAchievements(Array.isArray(savedAch) ? savedAch : initialAchievements);
+  }, [userLogin]);
 
   const triggerConfetti = useCallback(() => {
     try {
@@ -59,9 +81,11 @@ export function useCoupleXP(currentPartnerId: PartnerId): UseCoupleXPReturn {
 
   const addCoupleXP = useCallback(
     (points: number, reason: string, category: XPEntry['category'] = 'bonus') => {
+      const xpKey = getUserStorageKey('together_couple_xp', userLogin);
+      const historyKey = getUserStorageKey('together_xp_history', userLogin);
       setCoupleXP((prev) => {
         const next = Math.max(0, prev + points);
-        safeSetStorage('together_couple_xp', next);
+        safeSetStorage(xpKey, next);
         return next;
       });
       const entry: XPEntry = {
@@ -70,15 +94,15 @@ export function useCoupleXP(currentPartnerId: PartnerId): UseCoupleXPReturn {
         reason,
         category,
         timestamp: new Date().toISOString(),
-        partnerId: currentPartnerId,
+        partnerId: resolvePartnerId(),
       };
       setXpHistory((prev) => {
         const updated = [entry, ...prev.slice(0, 49)];
-        safeSetStorage('together_xp_history', updated);
+        safeSetStorage(historyKey, updated);
         return updated;
       });
     },
-    [currentPartnerId]
+    [resolvePartnerId, userLogin]
   );
 
   return {

@@ -1,4 +1,4 @@
-import { db } from '../db/client.ts';
+import { db, isSqlConfigured } from '../db/client.ts';
 import { aiInsights, relationshipMetrics } from '../db/schema.ts';
 import { eq, and, gte, lte } from "drizzle-orm";
 import crypto from "crypto";
@@ -39,8 +39,6 @@ export async function detectRiskZones(metrics: any[]): Promise<string[]> {
 }
 
 export async function generateWeeklyInsight(coupleId: string, contextData: any) {
-  if (!db) return null; // Needs DB
-
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   
@@ -91,7 +89,7 @@ export async function generateWeeklyInsight(coupleId: string, contextData: any) 
       insightContent = JSON.parse(cleanJson);
     }
   } catch (err: any) {
-    logger.info(`Groq generation failed, using fallback: ${err.message}`);
+    logger.info(`AI insight generation failed, using fallback: ${err.message}`);
   }
 
   // Fallback template if generation fails
@@ -105,20 +103,22 @@ export async function generateWeeklyInsight(coupleId: string, contextData: any) 
     };
   }
 
-  // 3. Save to DB
-  try {
-    await db.insert(aiInsights).values({
-      id: crypto.randomUUID(),
-      coupleId,
-      type,
-      content: insightContent,
-      periodStart: sevenDaysAgoStr,
-      periodEnd: todayStr,
-      createdAt: today.toISOString()
-    });
-    logger.info(`Generated insight for ${coupleId} (${type})`);
-  } catch (dbErr: any) {
-    logger.info(`Failed to save insight for ${coupleId}: ${dbErr.message}`);
+  // 3. Save to DB when configured
+  if (isSqlConfigured() && db) {
+    try {
+      await db.insert(aiInsights).values({
+        id: crypto.randomUUID(),
+        coupleId,
+        type,
+        content: insightContent,
+        periodStart: sevenDaysAgoStr,
+        periodEnd: todayStr,
+        createdAt: today.toISOString()
+      });
+      logger.info(`Generated insight for ${coupleId} (${type})`);
+    } catch (dbErr: any) {
+      logger.info(`Failed to save insight for ${coupleId}: ${dbErr.message}`);
+    }
   }
 
   return { type, content: insightContent, periodStart: sevenDaysAgoStr, periodEnd: todayStr };

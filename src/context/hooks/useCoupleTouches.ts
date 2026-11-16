@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { apiFetch } from '../../utils/api.ts';
 import { TouchNotificationData, LoveTap, UserAccount, CoupleProfile, PartnerId } from '../../types.ts';
-import { safeGetStorage, safeSetStorage } from '../../utils/safeStorage.ts';
+import { safeGetStorage, safeSetStorage, getUserStorageKey } from '../../utils/safeStorage.ts';
 
 export interface UseCoupleTouchesProps {
   currentUser: UserAccount | null;
@@ -45,14 +45,38 @@ export function useCoupleTouches({
   playNotificationSound,
   dispatchInAppNotification,
 }: UseCoupleTouchesProps): UseCoupleTouchesReturn {
+  const userLogin = currentUser?.login;
+  const loveTapsKey = getUserStorageKey('together_love_taps', userLogin);
+  const loadedLoginRef = useRef<string | undefined | null>(userLogin);
+
   const [activePartnerTouch, setActivePartnerTouch] = useState<TouchNotificationData | null>(null);
   const [loveTaps, setLoveTaps] = useState<LoveTap[]>(() => {
-    return safeGetStorage('together_love_taps', []);
+    return safeGetStorage(loveTapsKey, []);
   });
 
   const lastHandledTouchIdsRef = useRef<Set<string>>(new Set());
   const lastTouchTimestampsRef = useRef<Record<string, number>>({});
   const touchAutoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (loadedLoginRef.current === userLogin) return;
+    loadedLoginRef.current = userLogin;
+
+    setActivePartnerTouch(null);
+    lastHandledTouchIdsRef.current.clear();
+    lastTouchTimestampsRef.current = {};
+    if (touchAutoDismissTimerRef.current) {
+      clearTimeout(touchAutoDismissTimerRef.current);
+      touchAutoDismissTimerRef.current = null;
+    }
+
+    if (!userLogin) {
+      setLoveTaps([]);
+    } else {
+      const saved = safeGetStorage<LoveTap[]>(loveTapsKey, []);
+      setLoveTaps(Array.isArray(saved) ? saved : []);
+    }
+  }, [userLogin, loveTapsKey]);
 
   const dismissPartnerTouch = useCallback(() => {
     setActivePartnerTouch(null);
@@ -245,7 +269,7 @@ export function useCoupleTouches({
 
     setLoveTaps((prev) => {
       const updated = [newTap, ...prev.slice(0, 29)];
-      safeSetStorage('together_love_taps', updated);
+      safeSetStorage(loveTapsKey, updated);
       return updated;
     });
 

@@ -50,4 +50,11 @@ export interface JsonStoreShape {
   chatMessages: DbChatMessage[];
   rateLimits?: Record<string, { attempts: number; resetAt: number }>;
   photos?: any[];
+  couplePets?: Record<string, any>;
+  coupleEvents?: any[];
+  testDrafts?: Record<string, any>;
+  testSessions?: any[];
+  testAnswers?: any[];
+  userPsychProfiles?: Record<string, any>;
+  coupleReports?: Record<string, any>;
 }

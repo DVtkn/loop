@@ -15,6 +15,8 @@ import {
   saveChatMessage,
   getAIMessages,
   callGroqChat,
+  callAIChatDetailed,
+  checkAiHealth,
   saveAIMessageToDb,
 } from "./chat.service.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
@@ -64,7 +66,7 @@ chatRouter.get(["/messages", "/messages/:coupleId", "/message"], requireAuth, as
 });
 
 // 2. POST send chat message (supports /api/chat/messages and /api/chat/message + real-time SSE broadcast)
-chatRouter.post(["/messages", "/message"], requireAuth, async (req: AuthenticatedRequest, res, next) => {
+chatRouter.post(["/messages", "/message"], requireAuth, validateBody(chatMessageCreateSchema), async (req: AuthenticatedRequest, res, next) => {
   try {
     const userLogin = req.user?.login;
     if (!userLogin) {
@@ -73,10 +75,6 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req: Authenticate
 
     const cleanUser = userLogin.toLowerCase().trim().replace(/^@/, "");
     let { coupleId, senderLogin, content, role, mode } = req.body || {};
-
-    if (!content || typeof content !== "string" || !content.trim()) {
-      return res.status(400).json({ error: "Сообщение не может быть пустым" });
-    }
 
     if (!coupleId) {
       const userInDb = await findUserByLogin(cleanUser);
@@ -89,55 +87,90 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req: Authenticate
       return res.status(403).json({ error: "Нет доступа к данной переписке" });
     }
 
-    const cleanSender = String(senderLogin || cleanUser).toLowerCase().trim().replace(/^@/, "");
-    const isAiRole = role === "ai" || cleanSender === "ai" || cleanSender === "ai_owl";
-
-    if (!isAiRole && cleanSender !== cleanUser) {
-      return res.status(403).json({ error: "Нельзя отправлять сообщения от чужого имени" });
+    if (senderLogin) {
+      const cleanProvided = String(senderLogin).toLowerCase().trim().replace(/^@/, "");
+      if (cleanProvided && cleanProvided !== cleanUser) {
+        return res.status(403).json({ error: "Нельзя отправлять сообщения от чужого имени" });
+      }
     }
 
-    const assignedSender = isAiRole ? "ai" : cleanUser;
-    const assignedRole = isAiRole ? "ai" : (role || "partner1");
+    const assignedRole = role === "partner2" ? "partner2" : "partner1";
+    const trimmedContent = content.trim();
 
     const message = await saveChatMessage({
       coupleId,
-      senderLogin: assignedSender,
-      content: content.trim(),
+      senderLogin: cleanUser,
+      content: trimmedContent,
       role: assignedRole,
     });
 
-    // Realtime broadcast via SSE to all parties in this couple
-    try {
-      const targets = coupleId.split("_").map((p: string) => p.toLowerCase().trim().replace(/^@/, ""));
-      targets.forEach((targetLogin: string) => {
-        if (targetLogin && targetLogin !== "ai") {
-          sendSSEEventToUser(targetLogin, "chat_message", { message, coupleId, mode: mode || "together" });
-          sendSSEEventToUser(targetLogin, "new_message", { message, coupleId, mode: mode || "together" });
-          if (targetLogin !== cleanSender) {
-            recordCoupleEvent({
-              coupleId,
-              targetLogin,
-              senderLogin: cleanSender,
-              eventType: "chat_message",
-              payload: { message, coupleId, mode: mode || "together" },
-            }).catch(() => {});
+    const targets = coupleId.split("_").map((p: string) => p.toLowerCase().trim().replace(/^@/, ""));
 
-            // Send real system Web Push to partner
-            sendPushToUser(targetLogin, {
-              title: `@${cleanSender}`,
-              body: content.trim().length > 90 ? content.trim().slice(0, 87) + "..." : content.trim(),
-              icon: "/icon.svg",
-              tag: `chat-${coupleId}`,
-              url: "/",
-            }).catch(() => {});
+    const broadcastMessage = (msgToSend: any, authorForPush: string, preview: string) => {
+      try {
+        targets.forEach((targetLogin: string) => {
+          if (targetLogin && targetLogin !== "ai") {
+            sendSSEEventToUser(targetLogin, "chat_message", { message: msgToSend, coupleId, mode: mode || "together" });
+            sendSSEEventToUser(targetLogin, "new_message", { message: msgToSend, coupleId, mode: mode || "together" });
+            if (targetLogin !== cleanUser || authorForPush === "ai") {
+              recordCoupleEvent({
+                coupleId,
+                targetLogin,
+                senderLogin: authorForPush,
+                eventType: "chat_message",
+                payload: { message: msgToSend, coupleId, mode: mode || "together" },
+              }).catch(() => {});
+
+              if (targetLogin !== authorForPush) {
+                sendPushToUser(targetLogin, {
+                  title: authorForPush === "ai" ? "Сова • ИИ-психолог" : `@${authorForPush}`,
+                  body: preview.length > 90 ? preview.slice(0, 87) + "..." : preview,
+                  icon: "/icon.svg",
+                  tag: `chat-${coupleId}`,
+                  url: "/",
+                }).catch(() => {});
+              }
+            }
           }
+        });
+      } catch (sseErr) {
+        logger.warn("Сбой SSE бродкаста сообщения чата", { error: String(sseErr) });
+      }
+    };
+
+    broadcastMessage(message, cleanUser, trimmedContent);
+
+    // Authentic server-side Owl intervention if explicitly addressed in couple chat
+    let aiMessage: any = undefined;
+    if (/(?:^|[\s,@])сова\b/i.test(trimmedContent)) {
+      try {
+        const safetyCheck = evaluateSafetyRisk(trimmedContent);
+        let replyText = safetyCheck.hasRisk ? (safetyCheck.systemNotice || "Кризисная помощь") : "";
+        if (!replyText) {
+          const aiRes = await callAIChatDetailed([
+            {
+              role: "system",
+              content: "Ты — Сова, бережный семейный психолог в общем чате пары Loop. Ответь обоим партнёрам кратко (2–4 предложения), тепло и конструктивно, помогая им услышать друг друга без обвинений.",
+            },
+            { role: "user", content: trimmedContent },
+          ]);
+          replyText = aiRes.reply;
         }
-      });
-    } catch (sseErr) {
-      logger.warn("Сбой SSE бродкаста сообщения чата", { error: String(sseErr) });
+        if (replyText) {
+          aiMessage = await saveChatMessage({
+            coupleId,
+            senderLogin: "ai",
+            content: replyText,
+            role: "ai",
+          });
+          broadcastMessage(aiMessage, "ai", replyText);
+        }
+      } catch (owlErr) {
+        logger.warn("Не удалось сформировать серверный ответ Совы в общем чате", { error: String(owlErr) });
+      }
     }
 
-    return res.status(201).json({ message, status: "sent" });
+    return res.status(201).json({ message, ...(aiMessage ? { aiMessage } : {}), status: "sent" });
   } catch (err) {
     logger.error("Ошибка сохранения сообщения чата", err);
     return res.status(500).json({ error: "Ошибка отправки сообщения" });
@@ -146,46 +179,16 @@ chatRouter.post(["/messages", "/message"], requireAuth, async (req: Authenticate
 
 export const aiRouter = Router();
 
-aiRouter.get("/health", async (req, res) => {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
-  if (!GROQ_API_KEY) {
-    return res.status(503).json({ status: "error", message: "GROQ_API_KEY is not configured" });
+aiRouter.get("/health", async (_req, res) => {
+  const health = await checkAiHealth();
+  if (health.ok) {
+    return res.json({ status: "ok", provider: health.provider });
   }
-
-  try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: "ping" }],
-        model: "qwen/qwen3.8-27b",
-        max_tokens: 10,
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[Groq Health Check Failed]:", response.status, errText);
-      return res.status(503).json({
-        status: "error",
-        message: "Groq API is currently unavailable",
-        upstreamStatus: response.status,
-      });
-    }
-
-    const data = await response.json();
-    if (data.choices?.[0]?.message?.content) {
-      return res.json({ status: "ok", provider: data.model || "groq" });
-    } else {
-      return res.status(503).json({ status: "error", message: "Empty response from Groq" });
-    }
-  } catch (error) {
-    console.error("[Groq Error during health check]:", error);
-    return res.status(503).json({ status: "error", message: "Network error reaching Groq" });
-  }
+  return res.status(503).json({
+    status: "error",
+    message: health.message || "AI service is currently unavailable",
+    ...(health.upstreamStatus ? { upstreamStatus: health.upstreamStatus } : {}),
+  });
 });
 
 aiRouter.get("/messages/:login", requireAuth, requirePairOwnership, async (req: AuthenticatedRequest, res, next) => {
@@ -224,14 +227,15 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
       });
     }
 
-    // 2. Off-topic Guardrail check
-    const offTopicKeywords = [
-      "шкаф", "код", "программ", "python", "javascript", "машин", "ремонт",
-      "рецепт", "пирог", "президент", "политик", "забудь", "игнорируй"
+    // 2. Off-topic & prompt-injection guardrail check (word-boundary safe)
+    const offTopicPatterns = [
+      /\b(python|javascript|typescript|sql|html|css|рецепт\w*|президент\w*)\b/i,
+      /\bпрограммир\w*/i,
+      /(забудь\s+(вс[её]|предыдущ|инструкц)|игнорируй\s+(предыдущ|вс[её]|инструкц))/i,
     ];
-    if (offTopicKeywords.some((k) => lastUserText.toLowerCase().includes(k))) {
+    if (offTopicPatterns.some((rx) => rx.test(lastUserText))) {
       return res.json({
-        reply: "Я семейный психолог Сова и специализируюсь исключительно на отношениях, чувствах и гармонии в паре.\n\nФизические и технические инструкции лучше посмотреть в руководстве пользователя. А если в процессе совместного дела возникло недопонимание — я с радостью помогу всё экологично уладить! О чём в отношениях вы хотите поговорить?",
+        reply: "Я семейный психолог Сова и специализируюсь исключительно на отношениях, чувствах и гармонии в паре.\n\nЕсли за этим вопросом скрывается напряжение или тема для совместного обсуждения — расскажите, как это влияет на ваши отношения, и мы бережно это разберём!",
         mode: "fallback_guardrail",
       });
     }
@@ -265,7 +269,7 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
 - Язык любви ${partnerName}: ${coupleContext?.user1?.loveLanguage || "не указан"}
 - Язык любви ${partner2Name}: ${coupleContext?.user2?.loveLanguage || "не указан"}`;
 
-    const groqMessages = [
+    const aiMessagesPayload = [
       { role: "system", content: systemPrompt },
       ...messages.map((m: any) => ({
         role: m.role === "user" ? "user" : "assistant",
@@ -273,10 +277,10 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
       })),
     ];
 
-    const groqReply = await callGroqChat(groqMessages);
-    if (groqReply) {
-      await saveAIMessageToDb(callerLogin, lastUserText, groqReply);
-      return res.json({ reply: groqReply, mode: "openrouter" });
+    const aiResult = await callAIChatDetailed(aiMessagesPayload);
+    if (aiResult.reply) {
+      await saveAIMessageToDb(callerLogin, lastUserText, aiResult.reply);
+      return res.json({ reply: aiResult.reply, mode: aiResult.provider });
     }
 
     return res.status(503).json({
@@ -284,7 +288,7 @@ aiRouter.post("/chat", aiLimiter, requireAuth, validateBody(aiChatMessageSchema)
       mode: "error",
     });
   } catch (err: unknown) {
-    console.error("[OpenRouter Gemma Error]:", err);
+    logger.error("[AI Chat Error]:", err);
     return res.status(503).json({
       error: "ИИ временно недоступен. Попробуйте позже.",
       mode: "error",

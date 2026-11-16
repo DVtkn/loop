@@ -6,11 +6,13 @@ import { logger } from "../../shared/utils/logger.ts";
 import { readEmergencyFile, writeEmergencyFile } from "../../services/storageService.ts";
 import {
   callGroqChat,
+  callAIChatDetailed,
+  checkAiHealth,
   saveAIMessageToDb,
 } from "../../services/aiService.ts";
 import { DatabaseUnavailableError } from "../../shared/errors/index.ts";
 
-export { callGroqChat, saveAIMessageToDb };
+export { callGroqChat, callAIChatDetailed, checkAiHealth, saveAIMessageToDb };
 
 const isProd = () => process.env.NODE_ENV === "production";
 

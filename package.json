@@ -24,7 +24,7 @@
     "check:analytics": "node scripts/integration/verify-analytics-db.js"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
+    "@google/genai": "^3.3.0",
     "@neondatabase/serverless": "^1.1.0",
     "bcryptjs": "^3.0.3",
     "canvas-confetti": "^1.9.4",

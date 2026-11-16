@@ -20,11 +20,16 @@
 
 ## 2. Набор автотестов и команды запуска
 
-### 1. Юнит-тесты Vitest (`tests/unit/`)
-Покрывают изоляцию данных, математику скоринга и ключевые UI-компоненты:
+### 1. Тестовый набор Vitest (`tests/unit/`) — 125 тестов в 12 файлах
+Покрывают изоляцию данных, математику скоринга, состязательные сценарии (adversarial), защиту от состояния гонки и серверный харденинг:
 - `tests/unit/isolation.test.tsx` — проверка строгой изоляции данных пары (IDOR, 401/403).
 - `tests/unit/tradeOff.test.tsx` — валидация распределения баллов и вопросов с принудительным выбором.
-- `tests/unit/soundFx.test.ts` — проверка генерации Web Audio синтезатора звука.
+- `tests/unit/care-battery.test.tsx` & `tests/unit/care-battery-adversarial.test.ts` — уровни энергии, устойчивость к невалидным состояниям и граничным переходам.
+- `tests/unit/household-roulette.test.tsx` & `tests/unit/household-roulette-adversarial.test.tsx` — состязательное тестирование рулетки, блокировка множественных кликов (concurrency shielding), сохранение договорённостей.
+- `tests/unit/ui-components-adversarial.test.tsx` — стресс-тестирование модальных окон, дроверов, доступности ARIA и touch-таргетов.
+- `tests/unit/boost-audit-fixes.test.ts` & `tests/unit/audit-fixes.test.ts` — проверка LRU-кэширования с авто-очисткой (pruning), санитизации ввода, NULL-safe атомарных апдейтов XP.
+- `tests/unit/pet-visual.test.ts` & `tests/unit/couple-experience.test.ts` — визуальные состояния Тамагочи, расчет уровней и decay.
+- `tests/unit/server-auth.test.ts` — аутентификация, валидация JWT, хеширование bcrypt.
 
 Запуск:
 ```bash

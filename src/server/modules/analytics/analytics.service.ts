@@ -65,7 +65,7 @@ export async function getDetailedCoupleAnalytics(
   coupleId: string,
   currentUserIdOrLogin?: string
 ): Promise<DetailedCoupleAnalyticsResponse> {
-  if (!isSqlConfigured() || !db) {
+  if (!coupleId || !isSqlConfigured() || !db) {
     return {
       isCoupleReportReady: false,
       completedTestsCount: 0,
@@ -102,7 +102,7 @@ export async function getDetailedCoupleAnalytics(
     const [found] = await db
       .select()
       .from(users)
-      .where(or(eq(users.id, currentUserIdOrLogin), eq(users.login, cleanTarget)))
+      .where(or(eq(users.id, currentUserIdOrLogin.trim()), eq(users.login, cleanTarget)))
       .limit(1);
     currentUser = found;
   }
@@ -138,6 +138,21 @@ export async function getDetailedCoupleAnalytics(
     } else {
       currentUser = coupleMembers.find((u) => u.id === couple.user1Id);
       partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
+      if (currentUser && completedTestsCount === 0) {
+        const userCompletedSessions = await db
+          .select({ testId: testSessions.testId })
+          .from(testSessions)
+          .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
+          .where(
+            and(
+              eq(testSessions.coupleId, coupleId),
+              eq(testSessions.status, "completed"),
+              eq(testAnswers.userId, currentUser.id)
+            )
+          )
+          .groupBy(testSessions.testId);
+        completedTestsCount = userCompletedSessions.length;
+      }
     }
   }
 

@@ -815,11 +815,12 @@ export async function switchPetSpecies(userLogin: string, species: "dog" | "cat"
 
 export async function awardCoupleXP(coupleId: string, xp: number, _reason?: string): Promise<void> {
   if (!isSqlConfigured() || !db) return;
+  if (!coupleId || typeof xp !== "number" || !Number.isFinite(xp) || xp <= 0) return;
   
   try {
     await db.update(couples)
       .set({ 
-        xpPoints: sql`${couples.xpPoints} + ${xp}`
+        xpPoints: sql`COALESCE(${couples.xpPoints}, 0) + ${xp}`
       })
       .where(eq(couples.id, coupleId));
   } catch (e) {

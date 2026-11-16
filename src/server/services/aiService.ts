@@ -8,7 +8,7 @@ import crypto from 'crypto';
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL_NAME = 'qwen/qwen3.8-27b';
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-export const getGeminiModelName = () => process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+export const getGeminiModelName = () => (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL);
 
 export interface AiChatResult {
   reply: string;
@@ -196,7 +196,7 @@ export async function saveAIMessageToDb(
   reply: string
 ): Promise<void> {
   if (!userLogin) return;
-  const cleanLogin = String(userLogin).toLowerCase().replace(/^@/, '');
+  const cleanLogin = String(userLogin).trim().toLowerCase().replace(/^@/, '');
   const now = new Date().toISOString();
 
   const userMsg = {

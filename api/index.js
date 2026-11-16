@@ -1433,7 +1433,7 @@ import crypto2 from "crypto";
 var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 var GROQ_MODEL_NAME = "qwen/qwen3.8-27b";
 var DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-var getGeminiModelName = () => process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
+var getGeminiModelName = () => process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
 async function callGeminiChat(messages) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
@@ -1583,7 +1583,7 @@ async function checkAiHealth() {
 }
 async function saveAIMessageToDb(userLogin, prompt, reply) {
   if (!userLogin) return;
-  const cleanLogin = String(userLogin).toLowerCase().replace(/^@/, "");
+  const cleanLogin = String(userLogin).trim().toLowerCase().replace(/^@/, "");
   const now = (/* @__PURE__ */ new Date()).toISOString();
   const userMsg = {
     id: crypto2.randomUUID(),
@@ -2035,7 +2035,11 @@ function pruneLastActiveCache(now = Date.now(), maxAgeMs = 5 * 60 * 1e3) {
     }
   }
   if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
-    const toDelete = lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE + 500;
+    const batchSize = Math.max(1, Math.floor(MAX_LAST_ACTIVE_CACHE_SIZE * 0.1));
+    const toDelete = Math.min(
+      lastActiveCache.size,
+      lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE + batchSize
+    );
     let count2 = 0;
     for (const key of lastActiveCache.keys()) {
       if (count2++ >= toDelete) break;
@@ -2044,7 +2048,7 @@ function pruneLastActiveCache(now = Date.now(), maxAgeMs = 5 * 60 * 1e3) {
   }
 }
 async function touchUserLastActive(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(login || "").trim().toLowerCase().replace(/^@/, "");
   if (!cleanLogin) return;
   const now = Date.now();
   const lastTime = lastActiveCache.get(cleanLogin) || 0;
@@ -2054,6 +2058,7 @@ async function touchUserLastActive(login) {
   if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
     pruneLastActiveCache(now);
   }
+  lastActiveCache.delete(cleanLogin);
   lastActiveCache.set(cleanLogin, now);
   const nowIso = new Date(now).toISOString();
   if (isSqlConfigured() && db) {
@@ -2223,7 +2228,7 @@ async function getUserTouches(login) {
   return Array.from(byId.values()).sort((a, b) => b.createdAt > a.createdAt ? 1 : -1).slice(0, 50);
 }
 async function handleHeartbeat(login) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(login || "").trim().toLowerCase().replace(/^@/, "");
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   let partnerLastActiveAt = null;
   let partnerLogin = null;
@@ -2269,7 +2274,7 @@ async function handleHeartbeat(login) {
   };
 }
 async function getEventsPoll(params) {
-  const cleanLogin = String(params.login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(params.login || "").trim().toLowerCase().replace(/^@/, "");
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
   const events = [];
   let partnerLastActiveAt = null;
@@ -4261,9 +4266,10 @@ async function switchPetSpecies(userLogin, species) {
 }
 async function awardCoupleXP(coupleId, xp, _reason) {
   if (!isSqlConfigured() || !db) return;
+  if (!coupleId || typeof xp !== "number" || !Number.isFinite(xp) || xp <= 0) return;
   try {
     await db.update(couples).set({
-      xpPoints: sql4`${couples.xpPoints} + ${xp}`
+      xpPoints: sql4`COALESCE(${couples.xpPoints}, 0) + ${xp}`
     }).where(eq9(couples.id, coupleId));
   } catch (e) {
     logger.warn("awardCoupleXP failed", void 0, e);
@@ -6074,14 +6080,14 @@ async function getTestsStatusForUser(userLogin) {
     }));
   }
   const coupleId = await resolveTestCoupleId(userLogin);
-  const myCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
+  const myCompleted = await db.selectDistinct({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
     and6(
       eq10(testAnswers.userId, userId),
       eq10(testSessions.status, "completed"),
       eq10(testSessions.coupleId, coupleId)
     )
   );
-  const partnerCompleted = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
+  const partnerCompleted = await db.selectDistinct({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(
     and6(
       eq10(testAnswers.userId, partnerId),
       eq10(testSessions.status, "completed"),
@@ -6142,6 +6148,9 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId, sessionId) 
   });
 }
 async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
+  if (!tx || !coupleId || !userId) {
+    return { state: "PARTNER_PENDING" };
+  }
   const tests = await tx.selectDistinct({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(and6(eq10(testSessions.coupleId, coupleId), eq10(testSessions.status, "completed")));
   const completedByUser = /* @__PURE__ */ new Map();
   for (const row of tests) {
@@ -6224,7 +6233,7 @@ async function getUserPsychProfiles(coupleId) {
   return profiles;
 }
 async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
-  if (!isSqlConfigured() || !db) {
+  if (!coupleId || !isSqlConfigured() || !db) {
     return {
       isCoupleReportReady: false,
       completedTestsCount: 0,
@@ -6243,7 +6252,7 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
   let currentUser;
   if (currentUserIdOrLogin) {
     const cleanTarget = currentUserIdOrLogin.toLowerCase().trim().replace(/^@/, "");
-    const [found] = await db.select().from(users).where(or7(eq11(users.id, currentUserIdOrLogin), eq11(users.login, cleanTarget))).limit(1);
+    const [found] = await db.select().from(users).where(or7(eq11(users.id, currentUserIdOrLogin.trim()), eq11(users.login, cleanTarget))).limit(1);
     currentUser = found;
   }
   let completedTestsCount = 0;
@@ -6268,6 +6277,16 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
     } else {
       currentUser = coupleMembers.find((u) => u.id === couple.user1Id);
       partnerUser = coupleMembers.find((u) => u.id === couple.user2Id);
+      if (currentUser && completedTestsCount === 0) {
+        const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(
+          and7(
+            eq11(testSessions.coupleId, coupleId),
+            eq11(testSessions.status, "completed"),
+            eq11(testAnswers.userId, currentUser.id)
+          )
+        ).groupBy(testSessions.testId);
+        completedTestsCount = userCompletedSessions.length;
+      }
     }
   }
   const currentUserProfile = currentUser ? profiles.find((p) => p.userId === currentUser?.id) || profiles[0] || null : profiles[0] || null;

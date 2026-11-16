@@ -18,7 +18,11 @@ export function pruneLastActiveCache(now: number = Date.now(), maxAgeMs: number 
     }
   }
   if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
-    const toDelete = lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE + 500;
+    const batchSize = Math.max(1, Math.floor(MAX_LAST_ACTIVE_CACHE_SIZE * 0.1));
+    const toDelete = Math.min(
+      lastActiveCache.size,
+      (lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE) + batchSize
+    );
     let count = 0;
     for (const key of lastActiveCache.keys()) {
       if (count++ >= toDelete) break;
@@ -28,7 +32,7 @@ export function pruneLastActiveCache(now: number = Date.now(), maxAgeMs: number 
 }
 
 export async function touchUserLastActive(login: string): Promise<void> {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(login || "").trim().toLowerCase().replace(/^@/, "");
   if (!cleanLogin) return;
 
   const now = Date.now();
@@ -40,6 +44,8 @@ export async function touchUserLastActive(login: string): Promise<void> {
   if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
     pruneLastActiveCache(now);
   }
+  // Delete first so re-inserted key moves to the end of Map iteration (true LRU)
+  lastActiveCache.delete(cleanLogin);
   lastActiveCache.set(cleanLogin, now);
 
   const nowIso = new Date(now).toISOString();
@@ -275,7 +281,7 @@ export async function getUserTouches(login: string): Promise<TouchRecord[]> {
 }
 
 export async function handleHeartbeat(login: string) {
-  const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(login || "").trim().toLowerCase().replace(/^@/, "");
   const nowIso = new Date().toISOString();
   let partnerLastActiveAt: string | null = null;
   let partnerLogin: string | null = null;
@@ -337,7 +343,7 @@ export async function getEventsPoll(params: {
   lastEventId?: string;
   since?: string;
 }) {
-  const cleanLogin = String(params.login || "").toLowerCase().replace(/^@/, "").trim();
+  const cleanLogin = String(params.login || "").trim().toLowerCase().replace(/^@/, "");
   const nowIso = new Date().toISOString();
   const events: any[] = [];
   let partnerLastActiveAt: string | null = null;

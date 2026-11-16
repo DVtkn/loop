@@ -578,7 +578,7 @@ export async function getTestsStatusForUser(userLogin: string) {
 
   // Получаем завершенные тесты пользователя (в рамках текущей пары)
   const myCompleted = await db
-    .select({ testId: testSessions.testId })
+    .selectDistinct({ testId: testSessions.testId })
     .from(testSessions)
     .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
     .where(
@@ -591,7 +591,7 @@ export async function getTestsStatusForUser(userLogin: string) {
 
   // Получаем завершенные тесты партнера (в рамках текущей пары)
   const partnerCompleted = await db
-    .select({ testId: testSessions.testId })
+    .selectDistinct({ testId: testSessions.testId })
     .from(testSessions)
     .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
     .where(
@@ -683,6 +683,9 @@ export async function _triggerCoupleReportIfReady(
   coupleId: string,
   userId: string
 ): Promise<{ state: "PARTNER_PENDING" | "BOTH_COMPLETED" | "REPORT_GENERATED"; radar?: any }> {
+  if (!tx || !coupleId || !userId) {
+    return { state: "PARTNER_PENDING" };
+  }
   // Проверяем, прошли ли оба пользователя все тесты из реестра (selectDistinct предотвращает загрузку всех ответов на каждый вопрос)
   const tests = await tx
     .selectDistinct({ testId: testSessions.testId, userId: testAnswers.userId })

@@ -59,6 +59,14 @@ describe('Boost Audit Fixes Verification', () => {
       expect(getGeminiModelName()).toBe('gemini-2.0-flash-exp');
     });
 
+    it('trims surrounding whitespace from GEMINI_MODEL or falls back if empty', () => {
+      process.env.GEMINI_MODEL = '  gemini-2.5-pro  ';
+      expect(getGeminiModelName()).toBe('gemini-2.5-pro');
+
+      process.env.GEMINI_MODEL = '   ';
+      expect(getGeminiModelName()).toBe('gemini-2.5-flash');
+    });
+
     it('returns graceful fallback when neither GEMINI_API_KEY nor GROQ_API_KEY is configured', async () => {
       delete process.env.GEMINI_API_KEY;
       delete process.env.GROQ_API_KEY;
@@ -88,6 +96,28 @@ describe('Boost Audit Fixes Verification', () => {
 
       await touchUserLastActive('testuser');
       expect(lastActiveCache.get('testuser')).toBe(now);
+    });
+
+    it('cleans login with leading spaces and @ prefix correctly', async () => {
+      await touchUserLastActive('  @AliceUser  ');
+      expect(lastActiveCache.has('aliceuser')).toBe(true);
+      expect(lastActiveCache.has('@aliceuser')).toBe(false);
+    });
+
+    it('enforces true LRU ordering by moving updated keys to the back of the cache', async () => {
+      const now = Date.now();
+      // Insert user_a, user_b, user_c in order
+      lastActiveCache.set('user_a', now - 30000);
+      lastActiveCache.set('user_b', now - 30000);
+      lastActiveCache.set('user_c', now - 30000);
+
+      // Touch user_a (now - 30000 is older than 25s throttle)
+      await touchUserLastActive('user_a');
+
+      // The iteration order of Map.keys() should have moved user_a to the end
+      const keys = Array.from(lastActiveCache.keys());
+      expect(keys[keys.length - 1]).toBe('user_a');
+      expect(keys[0]).toBe('user_b');
     });
 
     it('prunes entries older than maxAgeMs', () => {
@@ -138,6 +168,15 @@ describe('Boost Audit Fixes Verification', () => {
       expect(mockSelectDistinct).toHaveBeenCalledTimes(1);
       expect(result.state).toBe('PARTNER_PENDING');
     });
+
+    it('handles empty coupleId or userId safely without throwing', async () => {
+      const mockTx = { selectDistinct: vi.fn() };
+      const res1 = await _triggerCoupleReportIfReady(mockTx as any, '', 'user_a');
+      const res2 = await _triggerCoupleReportIfReady(mockTx as any, 'couple_1', '');
+      expect(res1.state).toBe('PARTNER_PENDING');
+      expect(res2.state).toBe('PARTNER_PENDING');
+      expect(mockTx.selectDistinct).not.toHaveBeenCalled();
+    });
   });
 
   describe('4. Pet Service Atomic SQL Increment for XP', () => {
@@ -159,6 +198,18 @@ describe('Boost Audit Fixes Verification', () => {
       expect(mockWhere).toHaveBeenCalledTimes(1);
     });
 
+    it('guards against invalid, zero or negative XP without issuing DB updates', async () => {
+      sqlConfigured = true;
+      mockDb.update.mockClear();
+
+      await awardCoupleXP('couple_123', 0);
+      await awardCoupleXP('couple_123', -20);
+      await awardCoupleXP('couple_123', NaN);
+      await awardCoupleXP('', 50);
+
+      expect(mockDb.update).not.toHaveBeenCalled();
+    });
+
     it('returns gracefully when SQL is not configured', async () => {
       sqlConfigured = false;
       await expect(awardCoupleXP('couple_123', 50, 'pet_action')).resolves.not.toThrow();
@@ -174,6 +225,14 @@ describe('Boost Audit Fixes Verification', () => {
       expect(analytics.completedTestsCount).toBe(0);
       expect(analytics.totalTestsCount).toBeGreaterThan(0);
       expect(analytics.isCoupleReportReady).toBe(false);
+    });
+
+    it('returns empty results safely when coupleId is empty', async () => {
+      sqlConfigured = true;
+      const analytics = await getDetailedCoupleAnalytics('');
+      expect(analytics.completedTestsCount).toBe(0);
+      expect(analytics.isCoupleReportReady).toBe(false);
+      expect(mockDb.select).not.toHaveBeenCalled();
     });
 
     it('scopes completedTestsCount query to the specific coupleId and status completed', async () => {
@@ -218,6 +277,45 @@ describe('Boost Audit Fixes Verification', () => {
       expect(mockInnerJoin).toHaveBeenCalledWith(testAnswers, expect.anything());
       expect(mockWhere).toHaveBeenCalledTimes(1);
       expect(analytics.completedTestsCount).toBe(2);
+    });
+
+    it('resolves currentUser from couple.user1Id when currentUserIdOrLogin is omitted and counts completed tests', async () => {
+      sqlConfigured = true;
+
+      const mockGroupBy = vi.fn().mockResolvedValue([{ testId: 'test_1' }]);
+      const mockWhere = vi.fn().mockReturnValue({ groupBy: mockGroupBy });
+      const mockInnerJoin = vi.fn().mockReturnValue({ where: mockWhere });
+      const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+
+      let callCount = 0;
+      mockDb.select.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // couples
+          return { from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: 'c1', user1Id: 'u1', user2Id: 'u2' }]) }) }) };
+        }
+        if (callCount === 2) {
+          // userPsychProfiles
+          return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) };
+        }
+        if (callCount === 3) {
+          // coupleReports
+          return { from: vi.fn().mockReturnValue({ where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }) }) };
+        }
+        if (callCount === 4) {
+          // coupleMembers
+          return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([{ id: 'u1', login: 'alice' }, { id: 'u2', login: 'bob' }]) }) };
+        }
+        if (callCount === 5) {
+          // testSessions for u1
+          return { from: mockFrom };
+        }
+        return { from: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue([]) }) };
+      });
+
+      const analytics = await getDetailedCoupleAnalytics('c1');
+      expect(analytics.completedTestsCount).toBe(1);
+      expect(analytics.userProfile).toBeNull();
     });
   });
 });

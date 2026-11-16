@@ -678,14 +678,14 @@ async function _recalculateUserProfile(
 }
 
 /** Триггер: проверка готовности couple report и расчёт радара */
-async function _triggerCoupleReportIfReady(
+export async function _triggerCoupleReportIfReady(
   tx: any,
   coupleId: string,
   userId: string
 ): Promise<{ state: "PARTNER_PENDING" | "BOTH_COMPLETED" | "REPORT_GENERATED"; radar?: any }> {
-  // Проверяем, прошли ли оба пользователя все тесты из реестра
+  // Проверяем, прошли ли оба пользователя все тесты из реестра (selectDistinct предотвращает загрузку всех ответов на каждый вопрос)
   const tests = await tx
-    .select({ testId: testSessions.testId, userId: testAnswers.userId })
+    .selectDistinct({ testId: testSessions.testId, userId: testAnswers.userId })
     .from(testSessions)
     .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
     .where(and(eq(testSessions.coupleId, coupleId), eq(testSessions.status, "completed")));

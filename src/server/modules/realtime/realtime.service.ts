@@ -6,17 +6,26 @@ import { eq, or, and, gt, desc } from "drizzle-orm";
 import { readEmergencyFile, writeEmergencyFile } from "../../services/storageService.ts";
 import { sendPushToUser } from "../../services/pushService.ts";
 
-export interface PushSubscriptionRecord {
-  subscription: any;
-  partnerId?: string;
-  coupleId?: string;
-  subscribedAt: string;
+// Cache to throttle DB lastActiveAt updates to at most once every 25 seconds per login (bounded to avoid unbounded memory growth)
+export const MAX_LAST_ACTIVE_CACHE_SIZE = 5000;
+export const lastActiveCache = new Map<string, number>();
+
+export function pruneLastActiveCache(now: number = Date.now(), maxAgeMs: number = 5 * 60 * 1000): void {
+  const expiry = now - maxAgeMs;
+  for (const [key, timestamp] of lastActiveCache.entries()) {
+    if (timestamp < expiry) {
+      lastActiveCache.delete(key);
+    }
+  }
+  if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
+    const toDelete = lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE + 500;
+    let count = 0;
+    for (const key of lastActiveCache.keys()) {
+      if (count++ >= toDelete) break;
+      lastActiveCache.delete(key);
+    }
+  }
 }
-
-export const pushSubscriptions: PushSubscriptionRecord[] = [];
-
-// Cache to throttle DB lastActiveAt updates to at most once every 25 seconds per login
-const lastActiveCache = new Map<string, number>();
 
 export async function touchUserLastActive(login: string): Promise<void> {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
@@ -26,6 +35,10 @@ export async function touchUserLastActive(login: string): Promise<void> {
   const lastTime = lastActiveCache.get(cleanLogin) || 0;
   if (now - lastTime < 25000) {
     return;
+  }
+
+  if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
+    pruneLastActiveCache(now);
   }
   lastActiveCache.set(cleanLogin, now);
 

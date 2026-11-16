@@ -1360,7 +1360,7 @@ import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
-import { sql as sql5 } from "drizzle-orm";
+import { sql as sql6 } from "drizzle-orm";
 
 // src/server/core/config.ts
 init_logger();
@@ -1432,7 +1432,8 @@ import { GoogleGenAI } from "@google/genai";
 import crypto2 from "crypto";
 var GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 var GROQ_MODEL_NAME = "qwen/qwen3.8-27b";
-var GEMINI_MODEL_NAME = "gemini-4-hydrogen";
+var DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+var getGeminiModelName = () => process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 async function callGeminiChat(messages) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
@@ -1457,9 +1458,10 @@ async function callGeminiChat(messages) {
     apiKey,
     httpOptions: { headers: { "User-Agent": "aistudio-build" } }
   });
+  const modelName = getGeminiModelName();
   try {
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL_NAME,
+      model: modelName,
       contents,
       config: {
         ...systemParts.length > 0 ? { systemInstruction: systemParts.join("\n\n") } : {},
@@ -1469,11 +1471,11 @@ async function callGeminiChat(messages) {
     });
     const text2 = response.text?.trim();
     if (text2) {
-      logger.info(`\u041E\u0442\u0432\u0435\u0442 Gemini \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${GEMINI_MODEL_NAME})`);
+      logger.info(`\u041E\u0442\u0432\u0435\u0442 Gemini \u0443\u0441\u043F\u0435\u0448\u043D\u043E \u043F\u043E\u043B\u0443\u0447\u0435\u043D (\u043C\u043E\u0434\u0435\u043B\u044C: ${modelName})`);
       return text2;
     }
   } catch (err) {
-    logger.warn(`[Gemini API Exception] \u043C\u043E\u0434\u0435\u043B\u044C ${GEMINI_MODEL_NAME}:`, void 0, err);
+    logger.warn(`[Gemini API Exception] \u043C\u043E\u0434\u0435\u043B\u044C ${modelName}:`, void 0, err);
   }
   return null;
 }
@@ -1546,9 +1548,10 @@ async function callGroqChat(messages) {
 }
 async function checkAiHealth() {
   if (process.env.GEMINI_API_KEY) {
+    const modelName = getGeminiModelName();
     const reply = await callGeminiChat([{ role: "user", content: "ping" }]);
     if (reply) {
-      return { ok: true, provider: `gemini (${GEMINI_MODEL_NAME})` };
+      return { ok: true, provider: `gemini (${modelName})` };
     }
   }
   if (process.env.GROQ_API_KEY) {
@@ -2022,7 +2025,24 @@ async function sendPushToUser(userLogin, payload) {
 }
 
 // src/server/modules/realtime/realtime.service.ts
+var MAX_LAST_ACTIVE_CACHE_SIZE = 5e3;
 var lastActiveCache = /* @__PURE__ */ new Map();
+function pruneLastActiveCache(now = Date.now(), maxAgeMs = 5 * 60 * 1e3) {
+  const expiry = now - maxAgeMs;
+  for (const [key, timestamp2] of lastActiveCache.entries()) {
+    if (timestamp2 < expiry) {
+      lastActiveCache.delete(key);
+    }
+  }
+  if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
+    const toDelete = lastActiveCache.size - MAX_LAST_ACTIVE_CACHE_SIZE + 500;
+    let count2 = 0;
+    for (const key of lastActiveCache.keys()) {
+      if (count2++ >= toDelete) break;
+      lastActiveCache.delete(key);
+    }
+  }
+}
 async function touchUserLastActive(login) {
   const cleanLogin = String(login || "").toLowerCase().replace(/^@/, "").trim();
   if (!cleanLogin) return;
@@ -2030,6 +2050,9 @@ async function touchUserLastActive(login) {
   const lastTime = lastActiveCache.get(cleanLogin) || 0;
   if (now - lastTime < 25e3) {
     return;
+  }
+  if (lastActiveCache.size >= MAX_LAST_ACTIVE_CACHE_SIZE) {
+    pruneLastActiveCache(now);
   }
   lastActiveCache.set(cleanLogin, now);
   const nowIso = new Date(now).toISOString();
@@ -3571,7 +3594,7 @@ var petSwitchSchema = z4.object({
 // src/server/modules/pet/pet.service.ts
 init_client();
 init_schema();
-import { eq as eq9, and as and5, or as or5, gte as gte2 } from "drizzle-orm";
+import { eq as eq9, and as and5, or as or5, gte as gte2, sql as sql4 } from "drizzle-orm";
 import crypto9 from "crypto";
 init_storageService();
 var isProd6 = () => process.env.NODE_ENV === "production";
@@ -4239,9 +4262,8 @@ async function switchPetSpecies(userLogin, species) {
 async function awardCoupleXP(coupleId, xp, _reason) {
   if (!isSqlConfigured() || !db) return;
   try {
-    const couple = await db.select({ xp: couples.xpPoints }).from(couples).where(eq9(couples.id, coupleId)).limit(1);
     await db.update(couples).set({
-      xpPoints: (couple[0]?.xp || 0) + xp
+      xpPoints: sql4`${couples.xpPoints} + ${xp}`
     }).where(eq9(couples.id, coupleId));
   } catch (e) {
     logger.warn("awardCoupleXP failed", void 0, e);
@@ -5057,7 +5079,7 @@ import { Router as Router6 } from "express";
 // src/server/modules/analytics/analytics.service.ts
 init_client();
 init_schema();
-import { desc as desc2, eq as eq11, inArray as inArray2, or as or7 } from "drizzle-orm";
+import { and as and7, desc as desc2, eq as eq11, inArray as inArray2, or as or7 } from "drizzle-orm";
 
 // src/server/services/insights.ts
 init_client();
@@ -6120,7 +6142,7 @@ async function _recalculateUserProfile(tx, coupleId, userId, testId, sessionId) 
   });
 }
 async function _triggerCoupleReportIfReady(tx, coupleId, userId) {
-  const tests = await tx.select({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(and6(eq10(testSessions.coupleId, coupleId), eq10(testSessions.status, "completed")));
+  const tests = await tx.selectDistinct({ testId: testSessions.testId, userId: testAnswers.userId }).from(testSessions).innerJoin(testAnswers, eq10(testAnswers.sessionId, testSessions.id)).where(and6(eq10(testSessions.coupleId, coupleId), eq10(testSessions.status, "completed")));
   const completedByUser = /* @__PURE__ */ new Map();
   for (const row of tests) {
     const { testId, userId: uId } = row;
@@ -6226,7 +6248,13 @@ async function getDetailedCoupleAnalytics(coupleId, currentUserIdOrLogin) {
   }
   let completedTestsCount = 0;
   if (currentUser) {
-    const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(eq11(testAnswers.userId, currentUser.id)).groupBy(testSessions.testId);
+    const userCompletedSessions = await db.select({ testId: testSessions.testId }).from(testSessions).innerJoin(testAnswers, eq11(testAnswers.sessionId, testSessions.id)).where(
+      and7(
+        eq11(testSessions.coupleId, coupleId),
+        eq11(testSessions.status, "completed"),
+        eq11(testAnswers.userId, currentUser.id)
+      )
+    ).groupBy(testSessions.testId);
     completedTestsCount = userCompletedSessions.length;
   }
   let partnerUser;
@@ -7712,7 +7740,7 @@ apiRouter.get("/health", async (req, res) => {
   if (isSqlConfigured() && db) {
     const start = Date.now();
     try {
-      await db.execute(sql5`SELECT 1`);
+      await db.execute(sql6`SELECT 1`);
       dbLatencyMs = Date.now() - start;
       dbStatus = "connected";
     } catch (err) {

@@ -1,6 +1,6 @@
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { couplePets, coupleEvents, users, couples } from "../../db/schema.ts";
-import { eq, and, or, gte } from "drizzle-orm";
+import { eq, and, or, gte, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { logger } from "../../shared/utils/logger.ts";
 import { sendSSEEventToUser } from "../../shared/utils/sse.ts";
@@ -813,14 +813,13 @@ export async function switchPetSpecies(userLogin: string, species: "dog" | "cat"
   }
 }
 
-async function awardCoupleXP(coupleId: string, xp: number, _reason: string): Promise<void> {
+export async function awardCoupleXP(coupleId: string, xp: number, _reason?: string): Promise<void> {
   if (!isSqlConfigured() || !db) return;
   
   try {
-    const couple = await db.select({ xp: couples.xpPoints }).from(couples).where(eq(couples.id, coupleId)).limit(1);
     await db.update(couples)
       .set({ 
-        xpPoints: (couple[0]?.xp || 0) + xp
+        xpPoints: sql`${couples.xpPoints} + ${xp}`
       })
       .where(eq(couples.id, coupleId));
   } catch (e) {

@@ -7,7 +7,8 @@ import crypto from 'crypto';
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL_NAME = 'qwen/qwen3.8-27b';
-const GEMINI_MODEL_NAME = 'gemini-4-hydrogen';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const getGeminiModelName = () => process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL;
 
 export interface AiChatResult {
   reply: string;
@@ -45,9 +46,11 @@ async function callGeminiChat(
     httpOptions: { headers: { 'User-Agent': 'aistudio-build' } },
   });
 
+  const modelName = getGeminiModelName();
+
   try {
     const response = await ai.models.generateContent({
-      model: GEMINI_MODEL_NAME,
+      model: modelName,
       contents,
       config: {
         ...(systemParts.length > 0 ? { systemInstruction: systemParts.join('\n\n') } : {}),
@@ -57,11 +60,11 @@ async function callGeminiChat(
     });
     const text = response.text?.trim();
     if (text) {
-      logger.info(`Ответ Gemini успешно получен (модель: ${GEMINI_MODEL_NAME})`);
+      logger.info(`Ответ Gemini успешно получен (модель: ${modelName})`);
       return text;
     }
   } catch (err: unknown) {
-    logger.warn(`[Gemini API Exception] модель ${GEMINI_MODEL_NAME}:`, undefined, err);
+    logger.warn(`[Gemini API Exception] модель ${modelName}:`, undefined, err);
   }
   return null;
 }
@@ -151,9 +154,10 @@ export async function callGroqChat(
 
 export async function checkAiHealth(): Promise<{ ok: boolean; provider?: string; message?: string; upstreamStatus?: number }> {
   if (process.env.GEMINI_API_KEY) {
+    const modelName = getGeminiModelName();
     const reply = await callGeminiChat([{ role: 'user', content: 'ping' }]);
     if (reply) {
-      return { ok: true, provider: `gemini (${GEMINI_MODEL_NAME})` };
+      return { ok: true, provider: `gemini (${modelName})` };
     }
   }
 

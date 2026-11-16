@@ -1,4 +1,4 @@
-import { desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { db, isSqlConfigured } from "../../db/client.ts";
 import { aiInsights, coupleReports, userPsychProfiles, couples, users, testSessions, testAnswers } from "../../db/schema.ts";
 import { recordDailyMetrics, getTrends } from "../../services/analytics.ts";
@@ -113,7 +113,13 @@ export async function getDetailedCoupleAnalytics(
       .select({ testId: testSessions.testId })
       .from(testSessions)
       .innerJoin(testAnswers, eq(testAnswers.sessionId, testSessions.id))
-      .where(eq(testAnswers.userId, currentUser.id))
+      .where(
+        and(
+          eq(testSessions.coupleId, coupleId),
+          eq(testSessions.status, "completed"),
+          eq(testAnswers.userId, currentUser.id)
+        )
+      )
       .groupBy(testSessions.testId);
     completedTestsCount = userCompletedSessions.length;
   }

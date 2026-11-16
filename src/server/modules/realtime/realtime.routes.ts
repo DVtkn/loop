@@ -7,7 +7,6 @@ import {
   getUserTouches,
   registerSSEClient,
   removeSSEClient,
-  pushSubscriptions,
   handleHeartbeat,
   getEventsPoll,
 } from "./realtime.service.ts";
